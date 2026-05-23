@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dragon Run — Leaderboard</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #0a0a1a;
+      color: #fff;
+      font-family: 'Georgia', serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 20px;
+    }
+    .bg {
+      position: fixed;
+      width: 100%; height: 100%;
+      background: radial-gradient(ellipse at bottom, #1b2735 0%, #090a0f 100%);
+      z-index: -1;
+    }
+    .dragon-emoji {
+      font-size: 60px;
+      filter: drop-shadow(0 0 20px #ff6600);
+      margin-bottom: 10px;
+    }
+    h1 {
+      font-size: 42px;
+      letter-spacing: 4px;
+      text-transform: uppercase;
+      background: linear-gradient(135deg, #ff6600, #ffcc00, #ff3300);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      filter: drop-shadow(0 0 10px #ff6600);
+      margin-bottom: 6px;
+    }
+    .subtitle { color: #aaa; letter-spacing: 2px; font-size: 14px; margin-bottom: 40px; }
+    table {
+      width: 100%;
+      max-width: 500px;
+      border-collapse: collapse;
+    }
+    th {
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      font-size: 12px;
+      color: #ff6600;
+      padding: 10px 16px;
+      border-bottom: 1px solid #333;
+      text-align: left;
+    }
+    td {
+      padding: 14px 16px;
+      border-bottom: 1px solid #1a1a2e;
+      font-size: 18px;
+    }
+    tr:hover td { background: #ffffff08; }
+    .rank { color: #555; font-size: 14px; width: 40px; }
+    tr:nth-child(1) .rank { color: #ffd700; font-size: 20px; }
+    tr:nth-child(2) .rank { color: #aaa; font-size: 18px; }
+    tr:nth-child(3) .rank { color: #cd7f32; font-size: 16px; }
+    .score { color: #ff6600; font-weight: bold; text-align: right; }
+    .date { color: #444; font-size: 12px; text-align: right; }
+    .empty { color: #444; text-align: center; padding: 40px; font-size: 16px; letter-spacing: 1px; }
+    .loading { color: #555; text-align: center; padding: 40px; letter-spacing: 2px; }
+    .back-btn {
+      margin-top: 40px;
+      display: inline-block;
+      padding: 12px 36px;
+      font-family: 'Georgia', serif;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      text-decoration: none;
+      color: #aaa;
+      border: 1px solid #333;
+      border-radius: 4px;
+      transition: all 0.2s;
+      font-size: 14px;
+    }
+    .back-btn:hover { color: #fff; border-color: #ff6600; box-shadow: 0 0 20px #ff660044; }
+    footer { position: fixed; bottom: 20px; color: #333; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <div class="bg"></div>
+  <div class="dragon-emoji">🏆</div>
+  <h1>Leaderboard</h1>
+  <p class="subtitle">Dragon Run — Top Scores</p>
+
+  <table id="board">
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Player</th>
+        <th style="text-align:right">Score</th>
+        <th style="text-align:right">Date</th>
+      </tr>
+    </thead>
+    <tbody id="rows">
+      <tr><td colspan="4" class="loading">Loading...</td></tr>
+    </tbody>
+  </table>
+
+  <a href="index.html" class="back-btn">← Back to Home</a>
+  <footer>© 2025 Dragon Run</footer>
+
+  <script>
+    fetch('https://dev.brasstix.com/bktrg/leaderboard.php')
+      .then(r => r.json())
+      .then(scores => {
+        const tbody = document.getElementById('rows');
+        if (!scores.length) {
+          tbody.innerHTML = '<tr><td colspan="4" class="empty">No scores yet — be the first!</td></tr>';
+          return;
+        }
+        const medals = ['🥇','🥈','🥉'];
+        tbody.innerHTML = scores.map((s, i) =>
+          `<tr>
+            <td class="rank">${medals[i] || i+1}</td>
+            <td>${s.name}</td>
+            <td class="score">${s.score.toLocaleString()}</td>
+            <td class="date">${s.date}</td>
+          </tr>`
+        ).join('');
+      })
+      .catch(() => {
+        document.getElementById('rows').innerHTML =
+          '<tr><td colspan="4" class="empty">Could not load scores.</td></tr>';
+      });
+  </script>
+</body>
+</html>
