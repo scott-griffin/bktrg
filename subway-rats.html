@@ -47,7 +47,14 @@
 </head>
 <body>
   <canvas id="game"></canvas>
-  <div id="hud" class="hidden"><span>🧀 <b id="cheeseCt">0</b></span><span>SCORE <b id="scoreCt">0</b></span><span id="pauseBtn" style="pointer-events:auto;cursor:pointer">⏸</span></div>
+  <div id="hud" class="hidden"><span>🧀 <b id="cheeseCt">0</b></span><span>SCORE <b id="scoreCt">0</b></span><span id="pauseBtn" style="pointer-events:auto;cursor:pointer">⏸</span><span id="settingsBtn" style="pointer-events:auto;cursor:pointer">⚙️</span></div>
+
+  <div id="settingsPanel" class="hidden" style="position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); background:#14141f; border:1px solid #333; border-radius:8px; padding:28px 32px; z-index:20; text-align:center; box-shadow:0 0 40px #000;">
+    <p style="color:#ffcc00; letter-spacing:3px; font-size:18px; text-transform:uppercase; margin-bottom:18px;">Settings</p>
+    <label style="color:#aaa; letter-spacing:2px; font-size:13px;">GAME SPEED &nbsp;<b id="speedVal" style="color:#ffcc00;">80%</b></label><br>
+    <input type="range" id="speedSlider" min="40" max="140" step="10" style="width:220px; margin:14px 0 20px; accent-color:#ffcc00;"><br>
+    <button id="settingsClose" style="padding:10px 36px; font-family:'Georgia',serif; letter-spacing:2px; text-transform:uppercase; color:#111; background:linear-gradient(135deg,#ffcc00,#ff9900); border:none; border-radius:4px; cursor:pointer;">Done</button>
+  </div>
 
   <div class="overlay" id="startScreen">
     <span class="rat">🐀</span>
@@ -55,6 +62,7 @@
     <p>Dodge the trains. Grab the cheese. Don't get squished.</p>
     <p>⬅️ ➡️ switch tracks &nbsp;·&nbsp; ⬆️ jump &nbsp;·&nbsp; ⬇️ duck<br>(or swipe on your phone)</p>
     <button class="go-btn" id="startBtn">Run!</button>
+    <a href="#" id="settingsLink" onclick="openSettings(); return false;">⚙️ settings</a>
     <a href="index.html">← back to bktrg.com</a>
   </div>
 
@@ -92,7 +100,8 @@ const laneHalf = () => Math.min(W, H * 0.9) * 0.30;
 const groundY  = p => horizonY() + (playerY() - horizonY()) * ((p - 0.2) / 0.8);
 const laneX    = (ln, p) => W / 2 + (ln - 1) * laneHalf() * p;
 
-function speed() { return 0.30 + Math.min(0.55, elapsed * 0.008); }
+let speedMult = parseFloat(localStorage.getItem('subwayRatsSpeed') || '0.8');
+function speed() { return (0.30 + Math.min(0.55, elapsed * 0.008)) * speedMult; }
 
 function reset() {
   elapsed = 0; travel = 0; score = 0; cheese = 0;
@@ -437,14 +446,36 @@ window.addEventListener('touchstart', e => {
   touchX = e.touches[0].clientX; touchY = e.touches[0].clientY;
 }, { passive: true });
 window.addEventListener('touchend', e => {
-  if (e.target.id === 'pauseBtn') return;
-  if (paused) { togglePause(); return; }   // tap anywhere resumes
+  if (e.target.closest && e.target.closest('#pauseBtn, #settingsBtn, #settingsPanel, .overlay')) return;
+  if (paused) { if (settingsPanel.classList.contains('hidden')) togglePause(); return; }   // tap anywhere resumes (unless settings is open)
   const dx = e.changedTouches[0].clientX - touchX;
   const dy = e.changedTouches[0].clientY - touchY;
   if (Math.abs(dx) < 24 && Math.abs(dy) < 24) { act('up'); return; }  // tap = jump
   if (Math.abs(dx) > Math.abs(dy)) act(dx > 0 ? 'right' : 'left');
   else act(dy > 0 ? 'down' : 'up');
 }, { passive: true });
+
+// settings panel — opening mid-game pauses; Done resumes if the game was running
+const settingsPanel = document.getElementById('settingsPanel');
+const speedSlider = document.getElementById('speedSlider');
+let resumeAfterSettings = false;
+function openSettings() {
+  if (playing && !paused) { togglePause(); resumeAfterSettings = true; } else resumeAfterSettings = false;
+  speedSlider.value = Math.round(speedMult * 100);
+  document.getElementById('speedVal').textContent = speedSlider.value + '%';
+  settingsPanel.classList.remove('hidden');
+}
+function closeSettings() {
+  settingsPanel.classList.add('hidden');
+  if (resumeAfterSettings && playing && paused) togglePause();
+}
+speedSlider.addEventListener('input', () => {
+  speedMult = speedSlider.value / 100;
+  localStorage.setItem('subwayRatsSpeed', speedMult);
+  document.getElementById('speedVal').textContent = speedSlider.value + '%';
+});
+document.getElementById('settingsBtn').addEventListener('click', openSettings);
+document.getElementById('settingsClose').addEventListener('click', closeSettings);
 
 document.getElementById('pauseBtn').addEventListener('click', togglePause);
 document.getElementById('startBtn').addEventListener('click', start);
