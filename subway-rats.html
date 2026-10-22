@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Subway Rats</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { height: 100%; overflow: hidden; background: #0a0a12; font-family: 'Georgia', serif; }
+    canvas { display: block; touch-action: none; }
+    .overlay {
+      position: fixed; inset: 0;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      background: rgba(5, 5, 12, 0.82);
+      color: #fff; text-align: center; z-index: 10; padding: 20px;
+    }
+    .overlay h1 {
+      font-size: clamp(40px, 9vw, 72px);
+      letter-spacing: 5px; text-transform: uppercase;
+      background: linear-gradient(135deg, #ffcc00, #aaa, #ffcc00);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      filter: drop-shadow(0 0 12px #ffcc0066);
+      margin-bottom: 4px;
+    }
+    .overlay .rat { font-size: clamp(60px, 12vw, 100px); animation: scurry 0.8s ease-in-out infinite; }
+    @keyframes scurry { 0%,100% { transform: translateX(-8px) } 50% { transform: translateX(8px) } }
+    .overlay p { color: #aaa; letter-spacing: 2px; margin: 10px 0; font-size: 15px; line-height: 1.7; }
+    .overlay .big { color: #ffcc00; font-size: 30px; letter-spacing: 3px; }
+    .overlay .go-btn {
+      margin-top: 24px; padding: 16px 56px; font-size: 22px; font-family: 'Georgia', serif;
+      letter-spacing: 3px; text-transform: uppercase; color: #111;
+      background: linear-gradient(135deg, #ffcc00, #ff9900);
+      border: none; border-radius: 4px; cursor: pointer;
+      box-shadow: 0 0 30px #ffcc0088; transition: all 0.2s;
+    }
+    .overlay .go-btn:hover { transform: scale(1.05); box-shadow: 0 0 50px #ffcc00; }
+    .overlay a { color: #666; font-size: 13px; letter-spacing: 2px; margin-top: 26px; text-decoration: none; }
+    .overlay a:hover { color: #ffcc00; }
+    #hud {
+      position: fixed; top: 14px; left: 0; right: 0; display: flex; justify-content: center; gap: 28px;
+      color: #fff; font-size: 20px; letter-spacing: 2px; z-index: 5; text-shadow: 0 0 8px #000;
+      pointer-events: none;
+    }
+    #hud span b { color: #ffcc00; }
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+  <canvas id="game"></canvas>
+  <div id="hud" class="hidden"><span>🧀 <b id="cheeseCt">0</b></span><span>SCORE <b id="scoreCt">0</b></span></div>
+
+  <div class="overlay" id="startScreen">
+    <span class="rat">🐀</span>
+    <h1>Subway Rats</h1>
+    <p>Dodge the trains. Grab the cheese. Don't get squished.</p>
+    <p>⬅️ ➡️ switch tracks &nbsp;·&nbsp; ⬆️ jump &nbsp;·&nbsp; ⬇️ duck<br>(or swipe on your phone)</p>
+    <button class="go-btn" id="startBtn">Run!</button>
+    <a href="index.html">← back to bktrg.com</a>
+  </div>
+
+  <div class="overlay hidden" id="overScreen">
+    <span class="rat" style="animation:none">💀</span>
+    <h1>Squished!</h1>
+    <p class="big" id="finalScore"></p>
+    <p id="bestScore"></p>
+    <button class="go-btn" id="againBtn">Run Again</button>
+    <a href="index.html">← back to bktrg.com</a>
+  </div>
+
+<script>
+const cv = document.getElementById('game');
+const cx2 = cv.getContext('2d');
+let W = 0, H = 0;
+function resize() { W = cv.width = window.innerWidth; H = cv.height = window.innerHeight; }
+window.addEventListener('resize', resize);
+resize();
+
+// ---------- game state ----------
+const LANES = 3;
+let playing = false, elapsed = 0, travel = 0, score = 0, cheese = 0;
+let lane = 1, displayLane = 1;             // 0..2, displayLane eases toward lane
+let jumpT = -1, duckT = -1;                // -1 = inactive, else seconds in progress
+const JUMP_DUR = 0.55, DUCK_DUR = 0.6;
+let obstacles = [], treats = [], spawnTimer = 0;
+let lastTime = 0;
+
+// perspective: z=0 at the rat, 1 at the tunnel mouth. p = screen scale factor.
+const pOf = z => 1 / (1 + z * 4);
+const horizonY = () => H * 0.30;
+const playerY  = () => H * 0.84;
+const laneHalf = () => Math.min(W, H * 0.9) * 0.30;
+const groundY  = p => horizonY() + (playerY() - horizonY()) * ((p - 0.2) / 0.8);
+const laneX    = (ln, p) => W / 2 + (ln - 1) * laneHalf() * p;
+
+function speed() { return 0.42 + Math.min(0.75, elapsed * 0.013); }
+
+function reset() {
+  elapsed = 0; travel = 0; score = 0; cheese = 0;
+  lane = 1; displayLane = 1; jumpT = -1; duckT = -1;
+  obstacles = []; treats = []; spawnTimer = 0.6;
+}
+
+// ---------- spawning ----------
+function spawnWave() {
+  const order = [0, 1, 2].sort(() => Math.random() - 0.5);
+  const nBlocked = Math.random() < (0.35 + Math.min(0.3, elapsed * 0.006)) ? 2 : 1;
+  for (let i = 0; i < nBlocked; i++) {
+    const r = Math.random();
+    const type = r < 0.32 ? 'train' : r < 0.66 ? 'hurdle' : 'beam';
+    obstacles.push({ lane: order[i], z: 1.05, len: type === 'train' ? 0.5 : 0.03, type });
+  }
+  // cheese trail down an open lane
+  if (Math.random() < 0.65) {
+    const open = order[nBlocked];
+    const n = 3 + Math.floor(Math.random() * 3);
+    for (let i = 0; i < n; i++) treats.push({ lane: open, z: 1.05 + i * 0.09 });
+  }
+}
+
+// ---------- update ----------
+function update(dt) {
+  elapsed += dt;
+  const v = speed();
+  travel += v * dt;
+  score += dt * 60 * (v / 0.42);
+
+  displayLane += (lane - displayLane) * Math.min(1, dt * 12);
+  if (jumpT >= 0 && (jumpT += dt) > JUMP_DUR) jumpT = -1;
+  if (duckT >= 0 && (duckT += dt) > DUCK_DUR) duckT = -1;
+
+  spawnTimer -= dt;
+  if (spawnTimer <= 0) { spawnWave(); spawnTimer = 0.55 / v; }
+
+  for (const o of obstacles) o.z -= v * dt;
+  for (const t of treats) t.z -= v * dt;
+  obstacles = obstacles.filter(o => o.z + o.len > -0.1);
+
+  const jumpH = jumpT >= 0 ? Math.sin(Math.PI * jumpT / JUMP_DUR) : 0;
+  const ducking = duckT >= 0;
+
+  // collisions — rat occupies z ≈ [0, 0.05] in its lane
+  for (const o of obstacles) {
+    if (Math.abs(displayLane - o.lane) > 0.45) continue;
+    if (o.z > 0.05 || o.z + o.len < -0.01) continue;
+    if (o.type === 'hurdle' && jumpH > 0.4) continue;   // cleared it in the air
+    if (o.type === 'beam' && ducking) continue;          // slid under it
+    return gameOver();
+  }
+  treats = treats.filter(t => {
+    if (Math.abs(displayLane - t.lane) <= 0.45 && t.z <= 0.05 && t.z > -0.05) {
+      cheese++; score += 25; return false;
+    }
+    return t.z > -0.1;
+  });
+
+  document.getElementById('cheeseCt').textContent = cheese;
+  document.getElementById('scoreCt').textContent = Math.floor(score);
+}
+
+// ---------- drawing ----------
+function drawTunnel() {
+  cx2.fillStyle = '#0a0a12';
+  cx2.fillRect(0, 0, W, H);
+
+  // tunnel mouth glow
+  const hy = horizonY();
+  const g = cx2.createRadialGradient(W / 2, hy, 10, W / 2, hy, H * 0.75);
+  g.addColorStop(0, '#2a2a38'); g.addColorStop(1, '#0a0a12');
+  cx2.fillStyle = g;
+  cx2.fillRect(0, 0, W, H);
+
+  // track bed
+  cx2.fillStyle = '#16161f';
+  cx2.beginPath();
+  cx2.moveTo(laneX(-0.7, pOf(1)), groundY(pOf(1)));
+  cx2.lineTo(laneX(2.7, pOf(1)), groundY(pOf(1)));
+  cx2.lineTo(laneX(2.7, 1), H);
+  cx2.lineTo(laneX(-0.7, 1), H);
+  cx2.fill();
+
+  // rails: two per lane
+  cx2.strokeStyle = '#3d3d4d'; cx2.lineWidth = Math.max(1.5, H / 400);
+  for (let ln = 0; ln < LANES; ln++) {
+    for (const off of [-0.3, 0.3]) {
+      cx2.beginPath();
+      cx2.moveTo(laneX(ln + off, pOf(1)), groundY(pOf(1)));
+      cx2.lineTo(laneX(ln + off, 1), H);
+      cx2.stroke();
+    }
+  }
+
+  // ties sweeping toward the viewer
+  cx2.strokeStyle = '#23232e'; cx2.lineWidth = Math.max(2, H / 240);
+  for (let i = 0; i < 14; i++) {
+    const z = ((i / 14 - travel) % 1 + 1) % 1;
+    const p = pOf(z);
+    cx2.beginPath();
+    cx2.moveTo(laneX(-0.55, p), groundY(p));
+    cx2.lineTo(laneX(2.55, p), groundY(p));
+    cx2.stroke();
+  }
+
+  // wall lights streaming past
+  for (let i = 0; i < 10; i++) {
+    const z = ((i / 10 - travel * 0.9) % 1 + 1) % 1;
+    const p = pOf(z);
+    const ly = groundY(p) - H * 0.28 * p;
+    cx2.fillStyle = '#ffcc00';
+    cx2.shadowColor = '#ffcc00'; cx2.shadowBlur = 14 * p;
+    for (const side of [-2.1, 4.1]) {
+      cx2.beginPath();
+      cx2.arc(laneX(side, p), ly, Math.max(1.2, 4.5 * p), 0, Math.PI * 2);
+      cx2.fill();
+    }
+    cx2.shadowBlur = 0;
+  }
+}
+
+function drawTrain(o) {
+  const zF = Math.max(o.z, 0), zB = o.z + o.len;
+  const pF = pOf(zF), pB = pOf(zB);
+  const yF = groundY(pF), yB = groundY(pB);
+  const wF = laneHalf() * pF * 0.44, wB = laneHalf() * pB * 0.44;
+  const hF = H * 0.26 * pF, hB = H * 0.26 * pB;
+  const xF = laneX(o.lane, pF), xB = laneX(o.lane, pB);
+  // roof back to front
+  cx2.fillStyle = '#2e3542';
+  cx2.beginPath();
+  cx2.moveTo(xB - wB, yB - hB); cx2.lineTo(xB + wB, yB - hB);
+  cx2.lineTo(xF + wF, yF - hF); cx2.lineTo(xF - wF, yF - hF);
+  cx2.fill();
+  // face
+  const grad = cx2.createLinearGradient(xF, yF - hF, xF, yF);
+  grad.addColorStop(0, '#49536b'); grad.addColorStop(1, '#2b3140');
+  cx2.fillStyle = grad;
+  cx2.fillRect(xF - wF, yF - hF, wF * 2, hF);
+  // windshield
+  cx2.fillStyle = '#121620';
+  cx2.fillRect(xF - wF * 0.72, yF - hF * 0.92, wF * 1.44, hF * 0.34);
+  // headlights
+  cx2.fillStyle = '#ffee99'; cx2.shadowColor = '#ffee99'; cx2.shadowBlur = 18 * pF;
+  cx2.beginPath(); cx2.arc(xF - wF * 0.55, yF - hF * 0.28, wF * 0.13, 0, Math.PI * 2); cx2.fill();
+  cx2.beginPath(); cx2.arc(xF + wF * 0.55, yF - hF * 0.28, wF * 0.13, 0, Math.PI * 2); cx2.fill();
+  cx2.shadowBlur = 0;
+  // route bullet, NYC style
+  cx2.fillStyle = '#ffcc00';
+  cx2.beginPath(); cx2.arc(xF, yF - hF * 0.25, wF * 0.16, 0, Math.PI * 2); cx2.fill();
+  cx2.fillStyle = '#111';
+  cx2.font = `bold ${Math.max(8, wF * 0.22)}px Georgia`;
+  cx2.textAlign = 'center'; cx2.textBaseline = 'middle';
+  cx2.fillText('R', xF, yF - hF * 0.25);
+}
+
+function drawHurdle(o) {
+  const p = pOf(Math.max(o.z, 0));
+  const x = laneX(o.lane, p), y = groundY(p);
+  const w = laneHalf() * p * 0.42, h = H * 0.075 * p;
+  cx2.fillStyle = '#884422';
+  cx2.fillRect(x - w, y - h, w * 0.12, h);
+  cx2.fillRect(x + w * 0.88, y - h, w * 0.12, h);
+  // striped bar
+  cx2.fillStyle = '#ffcc00';
+  cx2.fillRect(x - w, y - h, w * 2, h * 0.45);
+  cx2.fillStyle = '#111';
+  for (let i = 0; i < 4; i++)
+    cx2.fillRect(x - w + (i * 2 + 0.5) * w / 4, y - h, w / 4 * 0.9, h * 0.45);
+}
+
+function drawBeam(o) {
+  const p = pOf(Math.max(o.z, 0));
+  const x = laneX(o.lane, p), y = groundY(p);
+  const w = laneHalf() * p * 0.5;
+  const top = y - H * 0.21 * p, bot = y - H * 0.115 * p;
+  cx2.fillStyle = '#555f6e';
+  cx2.fillRect(x - w, top, w * 2, bot - top);
+  cx2.fillStyle = '#ff5533';
+  cx2.font = `bold ${Math.max(7, (bot - top) * 0.55)}px Georgia`;
+  cx2.textAlign = 'center'; cx2.textBaseline = 'middle';
+  cx2.fillText('LOW CLEARANCE', x, (top + bot) / 2);
+}
+
+function drawTreat(t) {
+  const p = pOf(Math.max(t.z, 0));
+  cx2.font = `${Math.max(10, H * 0.045 * p)}px serif`;
+  cx2.textAlign = 'center'; cx2.textBaseline = 'bottom';
+  const bob = Math.sin(elapsed * 6 + t.z * 20) * 4 * p;
+  cx2.fillText('🧀', laneX(t.lane, p), groundY(p) - H * 0.01 * p + bob);
+}
+
+function drawRat() {
+  const jumpH = jumpT >= 0 ? Math.sin(Math.PI * jumpT / JUMP_DUR) : 0;
+  const ducking = duckT >= 0;
+  const x = laneX(displayLane, 1);
+  const bob = jumpT < 0 && !ducking ? Math.abs(Math.sin(elapsed * 14)) * H * 0.006 : 0;
+  const y = playerY() - jumpH * H * 0.16 - bob;
+  // shadow
+  cx2.fillStyle = `rgba(0,0,0,${0.5 - jumpH * 0.3})`;
+  cx2.beginPath();
+  cx2.ellipse(x, playerY() + H * 0.012, H * 0.045 * (1 - jumpH * 0.4), H * 0.012, 0, 0, Math.PI * 2);
+  cx2.fill();
+  // rat
+  cx2.save();
+  cx2.translate(x, y);
+  if (ducking) cx2.scale(1.25, 0.55);
+  cx2.font = `${Math.round(H * 0.085)}px serif`;
+  cx2.textAlign = 'center'; cx2.textBaseline = 'bottom';
+  cx2.fillText('🐀', 0, 0);
+  cx2.restore();
+}
+
+function draw() {
+  drawTunnel();
+  const all = [
+    ...obstacles.map(o => ({ z: o.z, fn: () => (o.type === 'train' ? drawTrain : o.type === 'hurdle' ? drawHurdle : drawBeam)(o) })),
+    ...treats.map(t => ({ z: t.z, fn: () => drawTreat(t) })),
+  ].sort((a, b) => b.z - a.z);
+  for (const d of all) d.fn();
+  drawRat();
+}
+
+// ---------- loop ----------
+function frame(ts) {
+  if (!playing) return;
+  const dt = Math.min(0.05, (ts - lastTime) / 1000 || 0);
+  lastTime = ts;
+  update(dt);
+  if (playing) { draw(); requestAnimationFrame(frame); }
+}
+
+function start() {
+  reset();
+  document.getElementById('startScreen').classList.add('hidden');
+  document.getElementById('overScreen').classList.add('hidden');
+  document.getElementById('hud').classList.remove('hidden');
+  playing = true;
+  lastTime = performance.now();
+  requestAnimationFrame(frame);
+}
+
+function gameOver() {
+  playing = false;
+  const s = Math.floor(score);
+  const best = Math.max(s, parseInt(localStorage.getItem('subwayRatsHigh') || '0', 10));
+  localStorage.setItem('subwayRatsHigh', best);
+  document.getElementById('finalScore').textContent = `${s} points · ${cheese} 🧀`;
+  document.getElementById('bestScore').textContent = `Best so far: ${best}`;
+  document.getElementById('hud').classList.add('hidden');
+  document.getElementById('overScreen').classList.remove('hidden');
+}
+
+// ---------- input ----------
+function act(dir) {
+  if (!playing) return;
+  if (dir === 'left' && lane > 0) lane--;
+  if (dir === 'right' && lane < 2) lane++;
+  if (dir === 'up' && jumpT < 0) { jumpT = 0; duckT = -1; }
+  if (dir === 'down' && duckT < 0) { duckT = 0; jumpT = -1; }
+}
+window.addEventListener('keydown', e => {
+  const map = { ArrowLeft: 'left', a: 'left', ArrowRight: 'right', d: 'right',
+                ArrowUp: 'up', w: 'up', ' ': 'up', ArrowDown: 'down', s: 'down' };
+  if (map[e.key] !== undefined) { e.preventDefault(); act(map[e.key]); }
+});
+let touchX = 0, touchY = 0;
+window.addEventListener('touchstart', e => {
+  touchX = e.touches[0].clientX; touchY = e.touches[0].clientY;
+}, { passive: true });
+window.addEventListener('touchend', e => {
+  const dx = e.changedTouches[0].clientX - touchX;
+  const dy = e.changedTouches[0].clientY - touchY;
+  if (Math.abs(dx) < 24 && Math.abs(dy) < 24) { act('up'); return; }  // tap = jump
+  if (Math.abs(dx) > Math.abs(dy)) act(dx > 0 ? 'right' : 'left');
+  else act(dy > 0 ? 'down' : 'up');
+}, { passive: true });
+
+document.getElementById('startBtn').addEventListener('click', start);
+document.getElementById('againBtn').addEventListener('click', start);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) lastTime = performance.now(); });
+</script>
+</body>
+</html>
