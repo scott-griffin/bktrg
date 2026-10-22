@@ -92,7 +92,7 @@ const laneHalf = () => Math.min(W, H * 0.9) * 0.30;
 const groundY  = p => horizonY() + (playerY() - horizonY()) * ((p - 0.2) / 0.8);
 const laneX    = (ln, p) => W / 2 + (ln - 1) * laneHalf() * p;
 
-function speed() { return 0.42 + Math.min(0.75, elapsed * 0.013); }
+function speed() { return 0.30 + Math.min(0.55, elapsed * 0.008); }
 
 function reset() {
   elapsed = 0; travel = 0; score = 0; cheese = 0;
@@ -291,17 +291,28 @@ function drawRat() {
   const jumpH = jumpT >= 0 ? Math.sin(Math.PI * jumpT / JUMP_DUR) : 0;
   const ducking = duckT >= 0;
   const x = laneX(displayLane, 1);
-  const bob = jumpT < 0 && !ducking ? Math.abs(Math.sin(elapsed * 14)) * H * 0.006 : 0;
-  const y = playerY() - jumpH * H * 0.16 - bob;
+
+  // bounding gait: a hop cycle that quickens with game speed — squashed on the ground, stretched at the top, nose up on the rise and down on the fall
+  const phase = (elapsed * 2.6 * (speed() / 0.30)) % 1;
+  const hop = jumpT < 0 && !ducking ? Math.abs(Math.sin(phase * Math.PI)) : 0;
+  const y = playerY() - jumpH * H * 0.16 - hop * H * 0.03;
+
+  let sx = 1, sy = 1, rot = 0;
+  if (ducking) { sx = 1.25; sy = 0.55; }
+  else if (jumpT >= 0) { rot = -0.3 * Math.cos(Math.PI * jumpT / JUMP_DUR); }
+  else { sy = 0.85 + 0.3 * hop; sx = 2 - sy; rot = -0.14 * Math.sin(phase * Math.PI * 2); }
+
   // shadow
-  cx2.fillStyle = `rgba(0,0,0,${0.5 - jumpH * 0.3})`;
+  const lift = Math.max(jumpH, hop * 0.3);
+  cx2.fillStyle = `rgba(0,0,0,${0.5 - lift * 0.3})`;
   cx2.beginPath();
-  cx2.ellipse(x, playerY() + H * 0.012, H * 0.045 * (1 - jumpH * 0.4), H * 0.012, 0, 0, Math.PI * 2);
+  cx2.ellipse(x, playerY() + H * 0.012, H * 0.045 * (1 - lift * 0.4), H * 0.012, 0, 0, Math.PI * 2);
   cx2.fill();
   // rat
   cx2.save();
   cx2.translate(x, y);
-  if (ducking) cx2.scale(1.25, 0.55);
+  cx2.rotate(rot);
+  cx2.scale(sx, sy);
   cx2.font = `${Math.round(H * 0.085)}px serif`;
   cx2.textAlign = 'center'; cx2.textBaseline = 'bottom';
   cx2.fillText('🐀', 0, 0);
