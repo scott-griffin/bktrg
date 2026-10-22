@@ -6,7 +6,7 @@
   <title>Train Rat</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    html, body { height: 100%; overflow: hidden; background: #0a0a12; font-family: 'Georgia', serif; }
+    html, body { height: 100%; overflow: hidden; background: #6db3e8; font-family: 'Georgia', serif; }
     canvas { display: block; touch-action: none; }
     .overlay {
       position: fixed; inset: 0;
@@ -36,12 +36,6 @@
     .overlay .go-btn:hover { transform: scale(1.05); box-shadow: 0 0 50px #ffcc00; }
     .overlay a { color: #666; font-size: 13px; letter-spacing: 2px; margin-top: 26px; text-decoration: none; }
     .overlay a:hover { color: #ffcc00; }
-    #hud {
-      position: fixed; top: 14px; left: 0; right: 0; display: flex; justify-content: center; gap: 28px;
-      color: #fff; font-size: 20px; letter-spacing: 2px; z-index: 5; text-shadow: 0 0 8px #000;
-      pointer-events: none;
-    }
-    #hud span b { color: #ffcc00; }
     .nameInput {
       padding: 10px 14px; font-size: 16px; font-family: 'Georgia', serif; text-align: center;
       background: #111; border: 1px solid #333; border-radius: 4px; color: #fff; width: 200px;
@@ -49,11 +43,16 @@
     .nameInput:focus { outline: none; border-color: #ffcc00; }
     #saveStatus { color: #ffcc00; font-size: 14px; letter-spacing: 1px; margin-top: 10px; min-height: 18px; }
     #topList { margin-top: 10px; color: #ccc; font-size: 15px; line-height: 1.8; letter-spacing: 1px; min-height: 22px; }
+    #hud {
+      position: fixed; top: 14px; left: 0; right: 0; display: flex; justify-content: center; gap: 28px;
+      color: #fff; font-size: 20px; letter-spacing: 2px; z-index: 5; text-shadow: 0 0 8px #000;
+      pointer-events: none;
+    }
+    #hud span b { color: #ffcc00; }
     .hidden { display: none !important; }
   </style>
 </head>
 <body>
-  <canvas id="game"></canvas>
   <div id="hud" class="hidden"><span>🐀 <b id="hudName"></b></span><span>🧀 <b id="cheeseCt">0</b></span><span>SCORE <b id="scoreCt">0</b></span><span id="pauseBtn" style="pointer-events:auto;cursor:pointer">⏸</span><span id="settingsBtn" style="pointer-events:auto;cursor:pointer">⚙️</span></div>
 
   <div id="settingsPanel" class="hidden" style="position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); background:#14141f; border:1px solid #333; border-radius:8px; padding:28px 32px; z-index:20; text-align:center; box-shadow:0 0 40px #000;">
@@ -74,70 +73,301 @@
     <p>⬅️ ➡️ switch tracks &nbsp;·&nbsp; ⬆️ jump &nbsp;·&nbsp; ⬇️ duck<br>(or swipe on your phone)</p>
     <input type="text" id="startName" class="nameInput" maxlength="20" placeholder="your name" autocomplete="off">
     <button class="go-btn" id="startBtn">Run!</button>
-    <a href="#" id="settingsLink" onclick="openSettings(); return false;">⚙️ settings</a>
+    <a href="#" id="settingsLink">⚙️ settings</a>
     <a href="leaderboard.html">🏆 Leaderboard</a>
-    <a href="3d.html">🧪 Try the 3D beta</a>
+    <a href="classic.html">🕹️ classic 2D version</a>
   </div>
 
   <div class="overlay hidden" id="overScreen">
     <span class="rat" style="animation:none">💀</span>
     <h1>Squished!</h1>
     <p class="big" id="finalScore"></p>
-    <p id="bestScore"></p>
     <p id="saveStatus"></p>
     <div id="topList"></div>
     <button class="go-btn" id="againBtn">Run Again</button>
     <a href="leaderboard.html">🏆 Full leaderboard</a>
   </div>
 
-<script>
-const cv = document.getElementById('game');
-const cx2 = cv.getContext('2d');
-let W = 0, H = 0;
-function resize() { W = cv.width = window.innerWidth; H = cv.height = window.innerHeight; }
-window.addEventListener('resize', resize);
-resize();
+<script type="module">
+import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
 
-// ---------- game state ----------
-const LANES = 3;
-let playing = false, elapsed = 0, travel = 0, score = 0, cheese = 0;
-let lane = 1, displayLane = 1;             // 0..2, displayLane eases toward lane
-let jumpT = -1, duckT = -1;                // -1 = inactive, else seconds in progress
-const JUMP_DUR = 0.55, DUCK_DUR = 0.6;
-let obstacles = [], treats = [], spawnTimer = 0;
-let lastTime = 0;
+// ---------- renderer / scene / camera ----------
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(innerWidth, innerHeight);
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+document.body.appendChild(renderer.domElement);
 
-// perspective: z=0 at the rat, 1 at the tunnel mouth. p = screen scale factor.
-const pOf = z => 1 / (1 + z * 4);
-const horizonY = () => H * 0.30;
-const playerY  = () => H * 0.84;
-const laneHalf = () => Math.min(W, H * 0.9) * 0.30;
-const groundY  = p => horizonY() + (playerY() - horizonY()) * ((p - 0.2) / 0.8);
-const laneX    = (ln, p) => W / 2 + (ln - 1) * laneHalf() * p;
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x6db3e8);
+scene.fog = new THREE.Fog(0xa8cfeb, 60, 150);
 
-let speedMult = parseFloat(localStorage.getItem('subwayRatsSpeed') || '0.8');
-function speed() { return (0.30 + Math.min(0.55, elapsed * 0.008)) * speedMult; }
+const camera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.1, 300);
+camera.position.set(0, 3.4, 7.5);
+camera.lookAt(0, 1, -12);
 
-function reset() {
-  elapsed = 0; travel = 0; score = 0; cheese = 0;
-  lane = 1; displayLane = 1; jumpT = -1; duckT = -1;
-  obstacles = []; treats = []; spawnTimer = 0.6;
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+
+// ---------- light ----------
+scene.add(new THREE.HemisphereLight(0xcfe8ff, 0x5e9c46, 0.9));
+const sun = new THREE.DirectionalLight(0xfff2cc, 1.6);
+sun.position.set(14, 24, -10);
+sun.castShadow = true;
+sun.shadow.mapSize.set(1024, 1024);
+sun.shadow.camera.left = -14; sun.shadow.camera.right = 14;
+sun.shadow.camera.top = 10; sun.shadow.camera.bottom = -40;
+sun.shadow.camera.far = 80;
+scene.add(sun);
+
+// ---------- world ----------
+const LANE_X = l => (l - 1) * 2.4;
+const WORLD_LEN = 170;        // how far ahead things exist
+const mat = {
+  grass:  new THREE.MeshStandardMaterial({ color: 0x5e9c46, roughness: 1 }),
+  gravel: new THREE.MeshStandardMaterial({ color: 0x9a8a70, roughness: 1 }),
+  rail:   new THREE.MeshStandardMaterial({ color: 0xc9ccd4, roughness: 0.35, metalness: 0.7 }),
+  tie:    new THREE.MeshStandardMaterial({ color: 0x7a5a3a, roughness: 1 }),
+  fur:    new THREE.MeshStandardMaterial({ color: 0x8d93a0, roughness: 0.9 }),
+  furDark:new THREE.MeshStandardMaterial({ color: 0x767c88, roughness: 0.9 }),
+  pink:   new THREE.MeshStandardMaterial({ color: 0xf0a7b2, roughness: 0.8 }),
+  black:  new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.6 }),
+  train:  new THREE.MeshStandardMaterial({ color: 0x49536b, roughness: 0.5, metalness: 0.3 }),
+  trainRoof: new THREE.MeshStandardMaterial({ color: 0x2e3542, roughness: 0.6 }),
+  glass:  new THREE.MeshStandardMaterial({ color: 0x121620, roughness: 0.2, metalness: 0.5 }),
+  light:  new THREE.MeshStandardMaterial({ color: 0xffee99, emissive: 0xffee99, emissiveIntensity: 1.4 }),
+  yellow: new THREE.MeshStandardMaterial({ color: 0xffcc00, roughness: 0.7 }),
+  cheese: new THREE.MeshStandardMaterial({ color: 0xffd34d, emissive: 0x7a5c00, roughness: 0.6 }),
+  wood:   new THREE.MeshStandardMaterial({ color: 0x884422, roughness: 1 }),
+  steel:  new THREE.MeshStandardMaterial({ color: 0x555f6e, roughness: 0.6, metalness: 0.4 }),
+  pole:   new THREE.MeshStandardMaterial({ color: 0x6b4a2f, roughness: 1 }),
+  cloud:  new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.9, fog: false }),
+  hill:   new THREE.MeshStandardMaterial({ color: 0x9fc98e, roughness: 1 }),
+};
+
+// ground
+const grass = new THREE.Mesh(new THREE.PlaneGeometry(400, 400), mat.grass);
+grass.rotation.x = -Math.PI / 2; grass.position.set(0, -0.06, -120);
+grass.receiveShadow = true;
+scene.add(grass);
+
+const bed = new THREE.Mesh(new THREE.BoxGeometry(9.4, 0.12, 400), mat.gravel);
+bed.position.set(0, -0.02, -120);
+bed.receiveShadow = true;
+scene.add(bed);
+
+// rails: two per track, running the whole length
+const railGeo = new THREE.BoxGeometry(0.1, 0.12, 400);
+for (let l = 0; l < 3; l++) for (const off of [-0.65, 0.65]) {
+  const r = new THREE.Mesh(railGeo, mat.rail);
+  r.position.set(LANE_X(l) + off, 0.1, -120);
+  r.castShadow = true; r.receiveShadow = true;
+  scene.add(r);
 }
 
-// ---------- spawning ----------
+// ties recycle toward the camera
+const ties = [];
+const tieGeo = new THREE.BoxGeometry(8.8, 0.09, 0.42);
+for (let i = 0; i < 46; i++) {
+  const t = new THREE.Mesh(tieGeo, mat.tie);
+  t.position.set(0, 0.045, -i * 3.8 + 8);
+  t.receiveShadow = true;
+  scene.add(t); ties.push(t);
+}
+
+// telephone poles recycle too
+const poles = [];
+function buildPole() {
+  const g = new THREE.Group();
+  const post = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.15, 6.4), mat.pole);
+  post.position.y = 3.2; post.castShadow = true;
+  const bar = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.14, 0.14), mat.pole);
+  bar.position.y = 5.7; bar.castShadow = true;
+  g.add(post, bar);
+  return g;
+}
+for (let i = 0; i < 10; i++) for (const side of [-7.5, 7.5]) {
+  const p = buildPole();
+  p.position.set(side, 0, -i * 18 + 6);
+  scene.add(p); poles.push(p);
+}
+
+// hills + clouds + sun disc (static dressing)
+for (const [x, z, s] of [[-45, -130, 26], [20, -140, 34], [55, -125, 22]]) {
+  const h = new THREE.Mesh(new THREE.SphereGeometry(s, 24, 16), mat.hill);
+  h.position.set(x, -s * 0.72, z);
+  scene.add(h);
+}
+const clouds = [];
+const cloudGeo = new THREE.SphereGeometry(1, 10, 8);
+for (let i = 0; i < 6; i++) {
+  const c = new THREE.Group();
+  for (const [dx, dz, s] of [[0, 0, 2.6], [2.2, 0.3, 1.9], [-2.2, -0.2, 1.7]]) {
+    const b = new THREE.Mesh(cloudGeo, mat.cloud);
+    b.position.set(dx, 0, dz); b.scale.setScalar(s); b.scale.y = s * 0.55;
+    c.add(b);
+  }
+  c.position.set((i - 2.5) * 22, 15 + (i % 3) * 3, -110 - (i % 2) * 15);
+  scene.add(c); clouds.push(c);
+}
+
+// ---------- the rat ----------
+function buildRat() {
+  const g = new THREE.Group();
+  const body = new THREE.Mesh(new THREE.SphereGeometry(0.55, 24, 18), mat.fur);
+  body.scale.set(0.85, 0.75, 1.25); body.position.set(0, 0.5, 0);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.34, 20, 16), mat.fur);
+  head.position.set(0, 0.72, -0.72);
+  const snout = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.34, 14), mat.furDark);
+  snout.rotation.x = -Math.PI / 2; snout.position.set(0, 0.64, -1.05);
+  const nose = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 8), mat.pink);
+  nose.position.set(0, 0.64, -1.22);
+  const earGeo = new THREE.SphereGeometry(0.16, 12, 10);
+  const earL = new THREE.Mesh(earGeo, mat.pink); earL.scale.z = 0.4; earL.position.set(-0.22, 1.02, -0.68);
+  const earR = earL.clone(); earR.position.x = 0.22;
+  const haunchGeo = new THREE.SphereGeometry(0.3, 14, 12);
+  const haunchL = new THREE.Mesh(haunchGeo, mat.furDark); haunchL.position.set(-0.38, 0.34, 0.42);
+  const haunchR = haunchL.clone(); haunchR.position.x = 0.38;
+  const footGeo = new THREE.SphereGeometry(0.11, 10, 8);
+  const feet = [];
+  for (const [x, z] of [[-0.42, 0.55], [0.42, 0.55], [-0.28, -0.6], [0.28, -0.6]]) {
+    const f = new THREE.Mesh(footGeo, mat.pink);
+    f.scale.set(1, 0.6, 1.4); f.position.set(x, 0.07, z);
+    g.add(f); feet.push(f);
+  }
+  // tail: a pink curve trailing behind
+  const tailCurve = new THREE.CatmullRomCurve3([
+    new THREE.Vector3(0, 0.4, 0.6), new THREE.Vector3(0, 0.25, 1.3),
+    new THREE.Vector3(0.25, 0.12, 1.9), new THREE.Vector3(0.1, 0.06, 2.5),
+  ]);
+  const tail = new THREE.Mesh(new THREE.TubeGeometry(tailCurve, 20, 0.06, 8), mat.pink);
+  g.add(body, head, snout, nose, earL, earR, haunchL, haunchR, tail);
+  g.traverse(o => { if (o.isMesh) o.castShadow = true; });
+  return { group: g, tail, feet };
+}
+const rat = buildRat();
+rat.group.position.set(0, 0, 0);
+scene.add(rat.group);
+
+// ---------- obstacle builders ----------
+const stripeTex = (() => {   // yellow/black hazard stripes for hurdles
+  const c = document.createElement('canvas'); c.width = 128; c.height = 32;
+  const x = c.getContext('2d');
+  x.fillStyle = '#ffcc00'; x.fillRect(0, 0, 128, 32);
+  x.fillStyle = '#111';
+  for (let i = 0; i < 4; i++) { x.save(); x.translate(i * 32 + 8, 0); x.transform(1, 0, -0.5, 1, 0, 0); x.fillRect(0, 0, 16, 32); x.restore(); }
+  const t = new THREE.CanvasTexture(c); t.wrapS = THREE.RepeatWrapping; return t;
+})();
+const signTex = (() => {    // LOW CLEARANCE sign face
+  const c = document.createElement('canvas'); c.width = 512; c.height = 128;
+  const x = c.getContext('2d');
+  x.fillStyle = '#555f6e'; x.fillRect(0, 0, 512, 128);
+  x.strokeStyle = '#38404c'; x.lineWidth = 10; x.strokeRect(5, 5, 502, 118);
+  x.fillStyle = '#ff5533'; x.font = 'bold 56px Georgia'; x.textAlign = 'center'; x.textBaseline = 'middle';
+  x.fillText('LOW CLEARANCE', 256, 68);
+  return new THREE.CanvasTexture(c);
+})();
+
+function buildTrain() {
+  const g = new THREE.Group();
+  const body = new THREE.Mesh(new THREE.BoxGeometry(1.9, 2.3, 9), mat.train);
+  body.position.y = 1.45;
+  const roof = new THREE.Mesh(new THREE.CylinderGeometry(0.95, 0.95, 9, 12, 1, false, 0, Math.PI), mat.trainRoof);
+  roof.rotation.z = Math.PI / 2; roof.rotation.y = Math.PI / 2; roof.position.y = 2.6;
+  const shield = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.7, 0.06), mat.glass);
+  shield.position.set(0, 2.1, -4.52);
+  for (const sx of [-0.55, 0.55]) {
+    const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.14, 10, 8), mat.light);
+    lamp.position.set(sx, 1.0, -4.55);
+    g.add(lamp);
+  }
+  const bullet = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 0.06, 20), mat.yellow);
+  bullet.rotation.x = Math.PI / 2; bullet.position.set(0, 1.55, -4.55);
+  for (const sz of [-3, -1, 1, 3]) {
+    const win = new THREE.Mesh(new THREE.BoxGeometry(1.95, 0.6, 0.9), mat.glass);
+    win.position.set(0, 2.0, sz);
+    g.add(win);
+  }
+  g.add(body, roof, shield, bullet);
+  g.traverse(o => { if (o.isMesh) o.castShadow = true; });
+  return g;
+}
+function buildHurdle() {
+  const g = new THREE.Group();
+  for (const sx of [-0.8, 0.8]) {
+    const post = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.8, 0.12), mat.wood);
+    post.position.set(sx, 0.4, 0);
+    g.add(post);
+  }
+  const bar = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.3, 0.1),
+    new THREE.MeshStandardMaterial({ map: stripeTex, roughness: 0.8 }));
+  bar.position.y = 0.72;
+  g.add(bar);
+  g.traverse(o => { if (o.isMesh) o.castShadow = true; });
+  return g;
+}
+function buildBeam() {
+  const g = new THREE.Group();
+  for (const sx of [-1.0, 1.0]) {
+    const post = new THREE.Mesh(new THREE.BoxGeometry(0.16, 2.6, 0.16), mat.steel);
+    post.position.set(sx, 1.3, 0);
+    g.add(post);
+  }
+  const sign = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.55, 0.1),
+    new THREE.MeshStandardMaterial({ map: signTex, roughness: 0.8 }));
+  sign.position.y = 1.55;
+  g.add(sign);
+  g.traverse(o => { if (o.isMesh) o.castShadow = true; });
+  return g;
+}
+const cheeseGeo = new THREE.CylinderGeometry(0.4, 0.4, 0.26, 3);
+function buildCheese() {
+  const m = new THREE.Mesh(cheeseGeo, mat.cheese);
+  m.rotation.z = Math.PI / 2; m.castShadow = true;
+  return m;
+}
+
+// ---------- game state ----------
+let playing = false, paused = false, elapsed = 0, score = 0, cheese = 0;
+let lane = 1, displayLane = 1;
+let jumpT = -1, duckT = -1;
+const JUMP_DUR = 0.6, DUCK_DUR = 0.6;
+let obstacles = [], treats = [], spawnTimer = 0;
+let speedMult = parseFloat(localStorage.getItem('subwayRatsSpeed') || '0.8');
+function speed() { return (13 + Math.min(22, elapsed * 0.33)) * speedMult; }   // world units/sec
+
+function reset() {
+  elapsed = 0; score = 0; cheese = 0;
+  lane = 1; displayLane = 1; jumpT = -1; duckT = -1;
+  for (const o of obstacles) scene.remove(o.mesh);
+  for (const t of treats) scene.remove(t.mesh);
+  obstacles = []; treats = []; spawnTimer = 0.8;
+}
+
 function spawnWave() {
   const order = [0, 1, 2].sort(() => Math.random() - 0.5);
   const nBlocked = Math.random() < (0.35 + Math.min(0.3, elapsed * 0.006)) ? 2 : 1;
   for (let i = 0; i < nBlocked; i++) {
     const r = Math.random();
     const type = r < 0.32 ? 'train' : r < 0.66 ? 'hurdle' : 'beam';
-    obstacles.push({ lane: order[i], z: 1.05, len: type === 'train' ? 0.5 : 0.03, type });
+    const mesh = type === 'train' ? buildTrain() : type === 'hurdle' ? buildHurdle() : buildBeam();
+    mesh.position.set(LANE_X(order[i]), 0, -WORLD_LEN + (type === 'train' ? -4.5 : 0));
+    scene.add(mesh);
+    obstacles.push({ mesh, lane: order[i], type, len: type === 'train' ? 9 : 0.4 });
   }
-  // cheese trail down an open lane
   if (Math.random() < 0.65) {
     const open = order[nBlocked];
     const n = 3 + Math.floor(Math.random() * 3);
-    for (let i = 0; i < n; i++) treats.push({ lane: open, z: 1.05 + i * 0.09 });
+    for (let i = 0; i < n; i++) {
+      const m = buildCheese();
+      m.position.set(LANE_X(open), 0.5, -WORLD_LEN - i * 4);
+      scene.add(m);
+      treats.push({ mesh: m, lane: open });
+    }
   }
 }
 
@@ -145,334 +375,72 @@ function spawnWave() {
 function update(dt) {
   elapsed += dt;
   const v = speed();
-  travel += v * dt;
-  score += dt * 60 * (v / 0.42);
+  score += dt * 60 * (v / 13);
 
   displayLane += (lane - displayLane) * Math.min(1, dt * 12);
   if (jumpT >= 0 && (jumpT += dt) > JUMP_DUR) jumpT = -1;
   if (duckT >= 0 && (duckT += dt) > DUCK_DUR) duckT = -1;
 
   spawnTimer -= dt;
-  if (spawnTimer <= 0) { spawnWave(); spawnTimer = 0.55 / v; }
+  if (spawnTimer <= 0) { spawnWave(); spawnTimer = 26 / v; }
 
-  for (const o of obstacles) o.z -= v * dt;
-  for (const t of treats) t.z -= v * dt;
-  obstacles = obstacles.filter(o => o.z + o.len > -0.1);
+  // move world objects toward the camera
+  for (const o of obstacles) o.mesh.position.z += v * dt;
+  for (const t of treats) { t.mesh.position.z += v * dt; t.mesh.rotation.y += dt * 3; }
+  obstacles = obstacles.filter(o => {
+    if (o.mesh.position.z - o.len / 2 > 10) { scene.remove(o.mesh); return false; }
+    return true;
+  });
+
+  // scenery recycle
+  for (const t of ties) { t.position.z += v * dt; if (t.position.z > 10) t.position.z -= 46 * 3.8; }
+  for (const p of poles) { p.position.z += v * dt; if (p.position.z > 10) p.position.z -= 10 * 18; }
+  for (const c of clouds) { c.position.x += dt * 0.4; if (c.position.x > 70) c.position.x = -70; }
 
   const jumpH = jumpT >= 0 ? Math.sin(Math.PI * jumpT / JUMP_DUR) : 0;
   const ducking = duckT >= 0;
 
-  // collisions — rat occupies z ≈ [0, 0.05] in its lane
+  // rat pose: scamper-hop gait carried over from the 2D game
+  const phase = (elapsed * 3.3 * (v / 13)) % 1;
+  const hop = jumpT < 0 && !ducking ? Math.abs(Math.sin(phase * Math.PI)) : 0;
+  rat.group.position.x = LANE_X(displayLane);
+  rat.group.position.y = jumpH * 2.0 + hop * 0.22;
+  rat.group.rotation.z = (displayLane - lane) * 0.3;
+  if (ducking) rat.group.scale.set(1.25, 0.5, 1.1);
+  else if (jumpT >= 0) rat.group.scale.set(0.95, 1.12, 1);
+  else rat.group.scale.set(1, 0.92 + 0.16 * hop, 1);
+  rat.tail.rotation.y = Math.sin(phase * Math.PI * 2) * 0.5;
+  rat.feet.forEach((f, i) => { f.position.y = 0.07 + Math.max(0, Math.sin(phase * Math.PI * 4 + i * Math.PI)) * 0.12; });
+
+  // collisions — the rat sits at z=0
   for (const o of obstacles) {
     if (Math.abs(displayLane - o.lane) > 0.45) continue;
-    if (o.z > 0.05 || o.z + o.len < -0.01) continue;
-    if (o.type === 'hurdle' && jumpH > 0.4) continue;   // cleared it in the air
-    if (o.type === 'beam' && ducking) continue;          // slid under it
+    const zF = o.mesh.position.z - o.len / 2, zB = o.mesh.position.z + o.len / 2;
+    if (zF > 0.9 || zB < -0.9) continue;
+    if (o.type === 'hurdle' && jumpH > 0.4) continue;
+    if (o.type === 'beam' && ducking) continue;
     return gameOver();
   }
   treats = treats.filter(t => {
-    if (Math.abs(displayLane - t.lane) <= 0.45 && t.z <= 0.05 && t.z > -0.05) {
-      cheese++; score += 25; sfx.cheese(); return false;
+    if (Math.abs(displayLane - t.lane) <= 0.45 && Math.abs(t.mesh.position.z) < 1.1) {
+      cheese++; score += 25; sfx.cheese(); scene.remove(t.mesh); return false;
     }
-    return t.z > -0.1;
+    if (t.mesh.position.z > 10) { scene.remove(t.mesh); return false; }
+    return true;
   });
 
   document.getElementById('cheeseCt').textContent = cheese;
   document.getElementById('scoreCt').textContent = Math.floor(score);
 }
 
-// ---------- drawing ----------
-function drawTunnel() {   // above ground now — sky, hills, grass, gravel track bed
-  const hy = horizonY();
-
-  // sky
-  const sky = cx2.createLinearGradient(0, 0, 0, hy);
-  sky.addColorStop(0, '#5fa8e0'); sky.addColorStop(1, '#c3e2f7');
-  cx2.fillStyle = sky;
-  cx2.fillRect(0, 0, W, hy + 2);
-
-  // sun
-  cx2.fillStyle = '#fff3b0'; cx2.shadowColor = '#fff3b0'; cx2.shadowBlur = 40;
-  cx2.beginPath(); cx2.arc(W * 0.82, hy * 0.32, H * 0.045, 0, Math.PI * 2); cx2.fill();
-  cx2.shadowBlur = 0;
-
-  // clouds drifting slowly
-  cx2.fillStyle = 'rgba(255,255,255,0.85)';
-  for (let i = 0; i < 4; i++) {
-    const cxp = (((i * 0.27 + elapsed * 0.006 * (1 + i * 0.4)) % 1.2) - 0.1) * W;
-    const cyp = hy * (0.2 + 0.16 * (i % 3));
-    for (const [dx, r] of [[0, 1], [0.9, 0.75], [-0.9, 0.7]]) {
-      cx2.beginPath();
-      cx2.ellipse(cxp + dx * H * 0.05, cyp, H * 0.07 * r, H * 0.038 * r, 0, 0, Math.PI * 2);
-      cx2.fill();
-    }
-  }
-
-  // distant hills on the horizon
-  cx2.fillStyle = '#9fc98e';
-  cx2.beginPath();
-  cx2.moveTo(0, hy);
-  cx2.quadraticCurveTo(W * 0.22, hy - H * 0.045, W * 0.45, hy);
-  cx2.quadraticCurveTo(W * 0.72, hy - H * 0.06, W, hy);
-  cx2.lineTo(W, hy + 2); cx2.lineTo(0, hy + 2);
-  cx2.fill();
-
-  // grass
-  const grass = cx2.createLinearGradient(0, hy, 0, H);
-  grass.addColorStop(0, '#7ab55f'); grass.addColorStop(1, '#4e8a3a');
-  cx2.fillStyle = grass;
-  cx2.fillRect(0, hy, W, H - hy);
-
-  // gravel track bed
-  cx2.fillStyle = '#9a8a70';
-  cx2.beginPath();
-  cx2.moveTo(laneX(-0.7, pOf(1)), groundY(pOf(1)));
-  cx2.lineTo(laneX(2.7, pOf(1)), groundY(pOf(1)));
-  cx2.lineTo(laneX(2.7, 1), H);
-  cx2.lineTo(laneX(-0.7, 1), H);
-  cx2.fill();
-
-  // wooden ties sweeping toward the viewer
-  cx2.strokeStyle = '#7a5a3a'; cx2.lineWidth = Math.max(2.5, H / 200);
-  for (let i = 0; i < 14; i++) {
-    const z = ((i / 14 - travel) % 1 + 1) % 1;
-    const p = pOf(z);
-    cx2.beginPath();
-    cx2.moveTo(laneX(-0.55, p), groundY(p));
-    cx2.lineTo(laneX(2.55, p), groundY(p));
-    cx2.stroke();
-  }
-
-  // steel rails: two per track, over the ties
-  cx2.strokeStyle = '#d8dde6'; cx2.lineWidth = Math.max(1.5, H / 400);
-  for (let ln = 0; ln < LANES; ln++) {
-    for (const off of [-0.3, 0.3]) {
-      cx2.beginPath();
-      cx2.moveTo(laneX(ln + off, pOf(1)), groundY(pOf(1)));
-      cx2.lineTo(laneX(ln + off, 1), H);
-      cx2.stroke();
-    }
-  }
-
-  // telephone poles streaming past on both sides
-  cx2.strokeStyle = '#6b4a2f';
-  for (let i = 0; i < 7; i++) {
-    const z = ((i / 7 - travel * 0.9) % 1 + 1) % 1;
-    const p = pOf(z);
-    const gy = groundY(p);
-    const ph = H * 0.34 * p;
-    cx2.lineWidth = Math.max(1.5, 7 * p);
-    for (const side of [-1.9, 4.9]) {
-      const px = laneX(side, p);
-      cx2.beginPath(); cx2.moveTo(px, gy); cx2.lineTo(px, gy - ph); cx2.stroke();
-      cx2.beginPath(); cx2.moveTo(px - ph * 0.18, gy - ph * 0.88); cx2.lineTo(px + ph * 0.18, gy - ph * 0.88); cx2.stroke();
-    }
-  }
-}
-
-function drawTrain(o) {
-  const zF = Math.max(o.z, 0), zB = o.z + o.len;
-  const pF = pOf(zF), pB = pOf(zB);
-  const yF = groundY(pF), yB = groundY(pB);
-  const wF = laneHalf() * pF * 0.44, wB = laneHalf() * pB * 0.44;
-  const hF = H * 0.26 * pF, hB = H * 0.26 * pB;
-  const xF = laneX(o.lane, pF), xB = laneX(o.lane, pB);
-  // roof back to front
-  cx2.fillStyle = '#2e3542';
-  cx2.beginPath();
-  cx2.moveTo(xB - wB, yB - hB); cx2.lineTo(xB + wB, yB - hB);
-  cx2.lineTo(xF + wF, yF - hF); cx2.lineTo(xF - wF, yF - hF);
-  cx2.fill();
-  // face
-  const grad = cx2.createLinearGradient(xF, yF - hF, xF, yF);
-  grad.addColorStop(0, '#49536b'); grad.addColorStop(1, '#2b3140');
-  cx2.fillStyle = grad;
-  cx2.fillRect(xF - wF, yF - hF, wF * 2, hF);
-  // windshield
-  cx2.fillStyle = '#121620';
-  cx2.fillRect(xF - wF * 0.72, yF - hF * 0.92, wF * 1.44, hF * 0.34);
-  // headlights
-  cx2.fillStyle = '#ffee99'; cx2.shadowColor = '#ffee99'; cx2.shadowBlur = 18 * pF;
-  cx2.beginPath(); cx2.arc(xF - wF * 0.55, yF - hF * 0.28, wF * 0.13, 0, Math.PI * 2); cx2.fill();
-  cx2.beginPath(); cx2.arc(xF + wF * 0.55, yF - hF * 0.28, wF * 0.13, 0, Math.PI * 2); cx2.fill();
-  cx2.shadowBlur = 0;
-  // route bullet, NYC style
-  cx2.fillStyle = '#ffcc00';
-  cx2.beginPath(); cx2.arc(xF, yF - hF * 0.25, wF * 0.16, 0, Math.PI * 2); cx2.fill();
-  cx2.fillStyle = '#111';
-  cx2.font = `bold ${Math.max(8, wF * 0.22)}px Georgia`;
-  cx2.textAlign = 'center'; cx2.textBaseline = 'middle';
-  cx2.fillText('R', xF, yF - hF * 0.25);
-}
-
-function drawHurdle(o) {
-  const p = pOf(Math.max(o.z, 0));
-  const x = laneX(o.lane, p), y = groundY(p);
-  const w = laneHalf() * p * 0.42, h = H * 0.075 * p;
-  cx2.fillStyle = '#884422';
-  cx2.fillRect(x - w, y - h, w * 0.12, h);
-  cx2.fillRect(x + w * 0.88, y - h, w * 0.12, h);
-  // striped bar
-  cx2.fillStyle = '#ffcc00';
-  cx2.fillRect(x - w, y - h, w * 2, h * 0.45);
-  cx2.fillStyle = '#111';
-  for (let i = 0; i < 4; i++)
-    cx2.fillRect(x - w + (i * 2 + 0.5) * w / 4, y - h, w / 4 * 0.9, h * 0.45);
-}
-
-function drawBeam(o) {
-  const p = pOf(Math.max(o.z, 0));
-  const x = laneX(o.lane, p), y = groundY(p);
-  const w = laneHalf() * p * 0.36;   // stays within its own track
-  const top = y - H * 0.21 * p, bot = y - H * 0.115 * p;
-  cx2.fillStyle = '#555f6e';
-  cx2.fillRect(x - w, top, w * 2, bot - top);
-  cx2.fillStyle = '#ff5533';
-  cx2.font = `bold ${Math.max(7, (bot - top) * 0.45)}px Georgia`;
-  cx2.textAlign = 'center'; cx2.textBaseline = 'middle';
-  cx2.fillText('LOW CLEARANCE', x, (top + bot) / 2, w * 1.85);
-}
-
-function drawTreat(t) {
-  const p = pOf(Math.max(t.z, 0));
-  cx2.font = `${Math.max(10, H * 0.045 * p)}px serif`;
-  cx2.textAlign = 'center'; cx2.textBaseline = 'bottom';
-  const bob = Math.sin(elapsed * 6 + t.z * 20) * 4 * p;
-  cx2.fillText('🧀', laneX(t.lane, p), groundY(p) - H * 0.01 * p + bob);
-}
-
-function drawRat() {
-  const jumpH = jumpT >= 0 ? Math.sin(Math.PI * jumpT / JUMP_DUR) : 0;
-  const ducking = duckT >= 0;
-  const x = laneX(displayLane, 1);
-
-  // Thomas's pick, A+B mix: Hopper's bounce at Scamper's tempo — quick low hops, light squash, paws ticking at double time
-  const phase = (elapsed * 3.3 * (speed() / 0.30)) % 1;
-  const hop = jumpT < 0 && !ducking ? Math.abs(Math.sin(phase * Math.PI)) : 0;
-  const y = playerY() - jumpH * H * 0.16 - hop * H * 0.026;
-
-  let sx = 1, sy = 1;
-  if (ducking) { sx = 1.3; sy = 0.55; }
-  else if (jumpT >= 0) { sy = 1 + 0.18 * jumpH; sx = 1 - 0.08 * jumpH; }
-  else {
-    sy = 0.9 + 0.2 * hop; sx = 2 - sy;
-    const fwd = 1 - 0.06 * hop;           // shrink a touch at the leap's peak = moving ahead
-    sx *= fwd; sy *= fwd;
-  }
-
-  // shadow
-  const lift = Math.max(jumpH, hop * 0.25);
-  cx2.fillStyle = `rgba(0,0,0,${0.5 - lift * 0.3})`;
-  cx2.beginPath();
-  cx2.ellipse(x, playerY() + H * 0.012, H * 0.045 * (1 - lift * 0.4), H * 0.012, 0, 0, Math.PI * 2);
-  cx2.fill();
-
-  // the rat, seen from behind: tail toward the camera, rump, head + ears peeking over it
-  cx2.save();
-  cx2.translate(x, y);
-  cx2.scale(sx, sy);
-  const S = H * 0.085;
-  const sway = Math.sin(phase * Math.PI * 2);
-  const tick = Math.sin(phase * Math.PI * 4);   // paws move at double time, Scamper-style
-
-  // tail — whips side to side with the gait
-  cx2.strokeStyle = '#e8a7b0';
-  cx2.lineCap = 'round';
-  cx2.lineWidth = S * 0.055;
-  cx2.beginPath();
-  cx2.moveTo(0, -S * 0.12);
-  cx2.quadraticCurveTo(sway * S * 0.3, S * 0.18, sway * S * 0.5, S * 0.4);
-  cx2.stroke();
-
-  // front paws — ticking quickly past the head, stretched far out on a big jump
-  const reach = 0.35 + jumpH * 0.9;
-  for (const side of [-1, 1]) {
-    const alt = tick * side * 0.1;
-    const px = side * S * (0.13 + 0.09 * reach);
-    const py = -S * (0.92 + 0.28 * reach + alt);
-    cx2.fillStyle = '#9aa0ab';
-    cx2.beginPath(); cx2.ellipse(px, py, S * 0.065, S * 0.1, side * 0.3, 0, Math.PI * 2); cx2.fill();
-    cx2.fillStyle = '#f0a7b2';
-    cx2.beginPath(); cx2.ellipse(px, py - S * 0.07, S * 0.05, S * 0.045, 0, 0, Math.PI * 2); cx2.fill();
-  }
-
-  // hind feet — quick alternating scamper
-  cx2.fillStyle = '#f0a7b2';
-  for (const side of [-1, 1]) {
-    cx2.beginPath();
-    cx2.ellipse(side * S * 0.34, -S * 0.04 + tick * side * S * 0.06, S * 0.1, S * 0.05, 0, 0, Math.PI * 2);
-    cx2.fill();
-  }
-
-  // haunches
-  cx2.fillStyle = '#7d8390';
-  for (const side of [-1, 1]) {
-    const bulge = 1 + 0.12 * (1 - hop);
-    cx2.beginPath();
-    cx2.ellipse(side * S * 0.3, -S * 0.26, S * 0.17 * bulge, S * 0.22 * bulge, side * 0.3, 0, Math.PI * 2);
-    cx2.fill();
-  }
-
-  // rump
-  const bg = cx2.createRadialGradient(-S * 0.12, -S * 0.52, S * 0.05, 0, -S * 0.38, S * 0.52);
-  bg.addColorStop(0, '#b9bfca'); bg.addColorStop(1, '#848a96');
-  cx2.fillStyle = bg;
-  cx2.beginPath();
-  cx2.ellipse(0, -S * 0.38, S * 0.42, S * 0.38, 0, 0, Math.PI * 2);
-  cx2.fill();
-
-  // head peeking over the rump
-  cx2.fillStyle = '#8d93a0';
-  cx2.beginPath();
-  cx2.arc(0, -S * 0.8, S * 0.2, 0, Math.PI * 2);
-  cx2.fill();
-
-  // ears, pink inside
-  for (const side of [-1, 1]) {
-    cx2.fillStyle = '#8d93a0';
-    cx2.beginPath();
-    cx2.arc(side * S * 0.17, -S * 0.97, S * 0.105, 0, Math.PI * 2);
-    cx2.fill();
-    cx2.fillStyle = '#f0a7b2';
-    cx2.beginPath();
-    cx2.arc(side * S * 0.17, -S * 0.97, S * 0.055, 0, Math.PI * 2);
-    cx2.fill();
-  }
-  cx2.restore();
-}
-
-function draw() {
-  drawTunnel();
-  const all = [
-    ...obstacles.map(o => ({ z: o.z, fn: () => (o.type === 'train' ? drawTrain : o.type === 'hurdle' ? drawHurdle : drawBeam)(o) })),
-    ...treats.map(t => ({ z: t.z, fn: () => drawTreat(t) })),
-  ].sort((a, b) => b.z - a.z);
-  for (const d of all) d.fn();
-  drawRat();
-}
-
 // ---------- loop ----------
-let paused = false;
-function togglePause() {
-  if (!playing) return;
-  paused = !paused;
-  if (paused) {
-    stopMusic();
-    cx2.fillStyle = '#ffcc00';
-    cx2.font = '16px Georgia'; cx2.textAlign = 'center'; cx2.textBaseline = 'bottom';
-    cx2.fillText('⏸ paused — press P or tap ⏸ to resume', W / 2, H - 10);
-  } else {
-    startMusic();
-    lastTime = performance.now();
-    requestAnimationFrame(frame);
-  }
-}
-function frame(ts) {
+const clock = new THREE.Clock();
+function frame() {
   if (!playing || paused) return;
-  const dt = Math.min(0.05, (ts - lastTime) / 1000 || 0);
-  lastTime = ts;
+  requestAnimationFrame(frame);
+  const dt = Math.min(0.05, clock.getDelta());
   update(dt);
-  if (playing) { draw(); requestAnimationFrame(frame); }
+  renderer.render(scene, camera);
 }
 
 function start() {
@@ -484,21 +452,20 @@ function start() {
   document.getElementById('hud').classList.remove('hidden');
   playing = true; paused = false;
   startMusic();
-  lastTime = performance.now();
-  requestAnimationFrame(frame);
+  clock.getDelta();
+  frame();
 }
-
 function gameOver() {
   playing = false;
   stopMusic(); sfx.crash();
   const s = Math.floor(score);
   const best = Math.max(s, parseInt(localStorage.getItem('subwayRatsHigh') || '0', 10));
   localStorage.setItem('subwayRatsHigh', best);
-  document.getElementById('finalScore').textContent = `${s} points · ${cheese} 🧀`;
-  document.getElementById('bestScore').textContent = `Best so far: ${best}`;
+  document.getElementById('finalScore').textContent = `${s} points · ${cheese} 🧀 · best ${best}`;
   autoSave(s);
   document.getElementById('hud').classList.add('hidden');
   document.getElementById('overScreen').classList.remove('hidden');
+  renderer.render(scene, camera);
 }
 
 // ---------- leaderboard (shared scoreboard API; one row per name, best score kept) ----------
@@ -547,7 +514,38 @@ async function autoSave(s) {
   renderTop();
 }
 
-// ---------- audio: everything synthesized with the Web Audio API, no files ----------
+// ---------- settings panel ----------
+const settingsPanel = document.getElementById('settingsPanel');
+const speedSlider = document.getElementById('speedSlider');
+let resumeAfterSettings = false;
+function openSettings() {
+  if (playing && !paused) { togglePause(); resumeAfterSettings = true; } else resumeAfterSettings = false;
+  speedSlider.value = Math.round(speedMult * 100);
+  document.getElementById('speedVal').textContent = speedSlider.value + '%';
+  setNameInput.value = ratName;
+  settingsPanel.classList.remove('hidden');
+}
+function closeSettings() {
+  settingsPanel.classList.add('hidden');
+  if (resumeAfterSettings && playing && paused) togglePause();
+}
+speedSlider.addEventListener('input', () => {
+  speedMult = speedSlider.value / 100;
+  localStorage.setItem('subwayRatsSpeed', speedMult);
+  document.getElementById('speedVal').textContent = speedSlider.value + '%';
+});
+const sfxToggle = document.getElementById('sfxToggle'), musicToggle = document.getElementById('musicToggle');
+document.getElementById('settingsBtn').addEventListener('click', openSettings);
+document.getElementById('settingsLink').addEventListener('click', e => { e.preventDefault(); openSettings(); });
+document.getElementById('settingsClose').addEventListener('click', closeSettings);
+function togglePause() {
+  if (!playing) return;
+  paused = !paused;
+  if (paused) stopMusic();
+  else { startMusic(); clock.getDelta(); frame(); }
+}
+
+// ---------- audio (same synth as the 2D game) ----------
 let AC = null;
 let sfxOn = localStorage.getItem('subwayRatsSfx') !== '0';
 let musicOn = localStorage.getItem('subwayRatsMusic') !== '0';
@@ -574,8 +572,6 @@ const sfx = {
   cheese: () => { if (!sfxOn) return; const t = audio().currentTime; tone(880, 880, 0.07, 'sine', 0.14, t); tone(1318.5, 1318.5, 0.12, 'sine', 0.12, t + 0.07); },
   crash:  () => { if (!sfxOn) return; tone(350, 55, 0.5, 'sawtooth', 0.22); tone(180, 40, 0.5, 'square', 0.16); },
 };
-
-// background music: a sneaky 16-step minor loop (bass + sparse lead + hi-hat ticks), scheduled just ahead of the audio clock
 const BASS = [110, 0, 110, 0, 130.8, 0, 110, 0, 98, 0, 98, 0, 116.5, 0, 123.5, 0];
 const LEAD = [0, 0, 440, 0, 523.3, 0, 440, 0, 0, 392, 0, 466.2, 440, 0, 0, 0];
 let musicTimer = null, nextStep = 0, stepIdx = 0;
@@ -592,56 +588,6 @@ function pumpMusic() {
 }
 function startMusic() { if (!musicOn || musicTimer) return; audio(); nextStep = 0; musicTimer = setInterval(pumpMusic, 120); pumpMusic(); }
 function stopMusic() { clearInterval(musicTimer); musicTimer = null; }
-
-// ---------- input ----------
-function act(dir) {
-  if (!playing || paused) return;
-  if (dir === 'left' && lane > 0) { lane--; sfx.lane(); }
-  if (dir === 'right' && lane < 2) { lane++; sfx.lane(); }
-  if (dir === 'up' && jumpT < 0) { jumpT = 0; duckT = -1; sfx.jump(); }
-  if (dir === 'down' && duckT < 0) { duckT = 0; jumpT = -1; sfx.duck(); }
-}
-window.addEventListener('keydown', e => {
-  if (e.target.tagName === 'INPUT') return;   // typing a name must not drive the rat
-  if (e.key === 'p' || e.key === 'P' || e.key === 'Escape') { e.preventDefault(); togglePause(); return; }
-  const map = { ArrowLeft: 'left', a: 'left', ArrowRight: 'right', d: 'right',
-                ArrowUp: 'up', w: 'up', ' ': 'up', ArrowDown: 'down', s: 'down' };
-  if (map[e.key] !== undefined) { e.preventDefault(); act(map[e.key]); }
-});
-let touchX = 0, touchY = 0;
-window.addEventListener('touchstart', e => {
-  touchX = e.touches[0].clientX; touchY = e.touches[0].clientY;
-}, { passive: true });
-window.addEventListener('touchend', e => {
-  if (e.target.closest && e.target.closest('#pauseBtn, #settingsBtn, #settingsPanel, .overlay')) return;
-  if (paused) { if (settingsPanel.classList.contains('hidden')) togglePause(); return; }   // tap anywhere resumes (unless settings is open)
-  const dx = e.changedTouches[0].clientX - touchX;
-  const dy = e.changedTouches[0].clientY - touchY;
-  if (Math.abs(dx) < 24 && Math.abs(dy) < 24) { act('up'); return; }  // tap = jump
-  if (Math.abs(dx) > Math.abs(dy)) act(dx > 0 ? 'right' : 'left');
-  else act(dy > 0 ? 'down' : 'up');
-}, { passive: true });
-
-// settings panel — opening mid-game pauses; Done resumes if the game was running
-const settingsPanel = document.getElementById('settingsPanel');
-const speedSlider = document.getElementById('speedSlider');
-let resumeAfterSettings = false;
-function openSettings() {
-  if (playing && !paused) { togglePause(); resumeAfterSettings = true; } else resumeAfterSettings = false;
-  speedSlider.value = Math.round(speedMult * 100);
-  document.getElementById('speedVal').textContent = speedSlider.value + '%';
-  settingsPanel.classList.remove('hidden');
-}
-function closeSettings() {
-  settingsPanel.classList.add('hidden');
-  if (resumeAfterSettings && playing && paused) togglePause();
-}
-speedSlider.addEventListener('input', () => {
-  speedMult = speedSlider.value / 100;
-  localStorage.setItem('subwayRatsSpeed', speedMult);
-  document.getElementById('speedVal').textContent = speedSlider.value + '%';
-});
-const sfxToggle = document.getElementById('sfxToggle'), musicToggle = document.getElementById('musicToggle');
 sfxToggle.checked = sfxOn; musicToggle.checked = musicOn;
 sfxToggle.addEventListener('change', () => {
   sfxOn = sfxToggle.checked;
@@ -652,16 +598,46 @@ musicToggle.addEventListener('change', () => {
   localStorage.setItem('subwayRatsMusic', musicOn ? '1' : '0');
   if (!musicOn) stopMusic(); else if (playing && !paused) startMusic();
 });
-document.getElementById('settingsBtn').addEventListener('click', openSettings);
-document.getElementById('settingsClose').addEventListener('click', closeSettings);
+
+// ---------- input ----------
+function act(dir) {
+  if (!playing || paused) return;
+  if (dir === 'left' && lane > 0) { lane--; sfx.lane(); }
+  if (dir === 'right' && lane < 2) { lane++; sfx.lane(); }
+  if (dir === 'up' && jumpT < 0) { jumpT = 0; duckT = -1; sfx.jump(); }
+  if (dir === 'down' && duckT < 0) { duckT = 0; jumpT = -1; sfx.duck(); }
+}
+addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT') return;
+  if (e.key === 'p' || e.key === 'P' || e.key === 'Escape') { e.preventDefault(); togglePause(); return; }
+  const map = { ArrowLeft: 'left', a: 'left', ArrowRight: 'right', d: 'right',
+                ArrowUp: 'up', w: 'up', ' ': 'up', ArrowDown: 'down', s: 'down' };
+  if (map[e.key] !== undefined) { e.preventDefault(); act(map[e.key]); }
+});
+let touchX = 0, touchY = 0;
+addEventListener('touchstart', e => {
+  touchX = e.touches[0].clientX; touchY = e.touches[0].clientY;
+}, { passive: true });
+addEventListener('touchend', e => {
+  if (e.target.closest && e.target.closest('#pauseBtn, #settingsBtn, #settingsPanel, .overlay')) return;
+  if (paused) { if (settingsPanel.classList.contains('hidden')) togglePause(); return; }
+  const dx = e.changedTouches[0].clientX - touchX;
+  const dy = e.changedTouches[0].clientY - touchY;
+  if (Math.abs(dx) < 24 && Math.abs(dy) < 24) { act('up'); return; }
+  if (Math.abs(dx) > Math.abs(dy)) act(dx > 0 ? 'right' : 'left');
+  else act(dy > 0 ? 'down' : 'up');
+}, { passive: true });
 
 document.getElementById('pauseBtn').addEventListener('click', togglePause);
 document.getElementById('startBtn').addEventListener('click', start);
 document.getElementById('againBtn').addEventListener('click', start);
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) stopMusic();
-  else { lastTime = performance.now(); if (playing && !paused) startMusic(); }
+  else if (playing && !paused) { startMusic(); clock.getDelta(); }
 });
+
+// idle scene behind the start screen
+renderer.render(scene, camera);
 </script>
 </body>
 </html>
