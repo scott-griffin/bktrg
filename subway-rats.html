@@ -297,9 +297,9 @@ function drawRat() {
   const hop = jumpT < 0 && !ducking ? Math.abs(Math.sin(phase * Math.PI)) : 0;
   const y = playerY() - jumpH * H * 0.16 - hop * H * 0.045;
 
-  let sx = 1, sy = 1, rot = 0;
-  if (ducking) { sx = 1.25; sy = 0.55; }
-  else if (jumpT >= 0) { rot = -0.3 * Math.cos(Math.PI * jumpT / JUMP_DUR); }
+  let sx = 1, sy = 1;
+  if (ducking) { sx = 1.3; sy = 0.55; }
+  else if (jumpT >= 0) { sy = 1 + 0.18 * jumpH; sx = 1 - 0.08 * jumpH; }
   else {
     sy = 0.8 + 0.45 * hop; sx = 1.12 - 0.12 * sy;
     const fwd = 1 - 0.10 * hop;           // shrink a touch at the leap's peak = moving ahead
@@ -312,14 +312,56 @@ function drawRat() {
   cx2.beginPath();
   cx2.ellipse(x, playerY() + H * 0.012, H * 0.045 * (1 - lift * 0.4), H * 0.012, 0, 0, Math.PI * 2);
   cx2.fill();
-  // rat
+
+  // the rat, seen from behind: tail toward the camera, rump, head + ears peeking over it
   cx2.save();
   cx2.translate(x, y);
-  cx2.rotate(rot);
   cx2.scale(sx, sy);
-  cx2.font = `${Math.round(H * 0.085)}px serif`;
-  cx2.textAlign = 'center'; cx2.textBaseline = 'bottom';
-  cx2.fillText('🐀', 0, 0);
+  const S = H * 0.085;
+  const sway = Math.sin(phase * Math.PI * 2);
+
+  // tail — whips side to side with the gait
+  cx2.strokeStyle = '#e8a7b0';
+  cx2.lineCap = 'round';
+  cx2.lineWidth = S * 0.055;
+  cx2.beginPath();
+  cx2.moveTo(0, -S * 0.12);
+  cx2.quadraticCurveTo(sway * S * 0.3, S * 0.18, sway * S * 0.5, S * 0.4);
+  cx2.stroke();
+
+  // hind feet — alternate scamper
+  cx2.fillStyle = '#f0a7b2';
+  for (const side of [-1, 1]) {
+    cx2.beginPath();
+    cx2.ellipse(side * S * 0.34, -S * 0.04 + sway * side * S * 0.05, S * 0.1, S * 0.05, 0, 0, Math.PI * 2);
+    cx2.fill();
+  }
+
+  // rump
+  const bg = cx2.createRadialGradient(-S * 0.12, -S * 0.52, S * 0.05, 0, -S * 0.38, S * 0.52);
+  bg.addColorStop(0, '#b9bfca'); bg.addColorStop(1, '#848a96');
+  cx2.fillStyle = bg;
+  cx2.beginPath();
+  cx2.ellipse(0, -S * 0.38, S * 0.42, S * 0.38, 0, 0, Math.PI * 2);
+  cx2.fill();
+
+  // head peeking over the rump
+  cx2.fillStyle = '#8d93a0';
+  cx2.beginPath();
+  cx2.arc(0, -S * 0.8, S * 0.2, 0, Math.PI * 2);
+  cx2.fill();
+
+  // ears, pink inside
+  for (const side of [-1, 1]) {
+    cx2.fillStyle = '#8d93a0';
+    cx2.beginPath();
+    cx2.arc(side * S * 0.17, -S * 0.97, S * 0.105, 0, Math.PI * 2);
+    cx2.fill();
+    cx2.fillStyle = '#f0a7b2';
+    cx2.beginPath();
+    cx2.arc(side * S * 0.17, -S * 0.97, S * 0.055, 0, Math.PI * 2);
+    cx2.fill();
+  }
   cx2.restore();
 }
 
