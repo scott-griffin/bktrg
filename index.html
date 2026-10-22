@@ -32,9 +32,9 @@
     }
     .logo { width: min(88vw, 470px); filter: drop-shadow(0 0 16px #ffcc0055); margin-bottom: 6px; }
     #brand {
-      position: fixed; top: 46px; left: 0; right: 0; text-align: center; z-index: 5;
+      position: fixed; bottom: calc(12px + env(safe-area-inset-bottom)); left: 0; right: 0; text-align: center; z-index: 5;
       color: #ffcc00; letter-spacing: 5px; font-size: 13px; font-weight: bold;
-      text-shadow: 0 0 8px #000, 0 1px 2px #000; pointer-events: none;
+      text-shadow: 0 0 8px #000, 0 1px 2px #000; pointer-events: none; opacity: 0.9;
     }
     .overlay .rat { font-size: clamp(60px, 12vw, 100px); animation: scurry 0.8s ease-in-out infinite; }
     @keyframes scurry { 0%,100% { transform: translateX(-8px) } 50% { transform: translateX(8px) } }
@@ -62,7 +62,12 @@
       color: #fff; font-size: 20px; letter-spacing: 2px; z-index: 5; text-shadow: 0 0 8px #000;
       pointer-events: none;
     }
+    #hud span { white-space: nowrap; }
     #hud span b { color: #ffcc00; }
+    #hudName { display: inline-block; max-width: 90px; overflow: hidden; text-overflow: ellipsis; vertical-align: bottom; }
+    @media (max-width: 600px) {
+      #hud { font-size: 15px; gap: 11px; }
+    }
     .hidden { display: none !important; }
   </style>
 </head>
