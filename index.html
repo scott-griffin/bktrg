@@ -25,9 +25,9 @@
     }
     .logo { width: min(88vw, 470px); filter: drop-shadow(0 0 16px #ffcc0055); margin-bottom: 6px; }
     #brand {
-      position: fixed; top: 14px; left: 16px; z-index: 5;
-      color: #ffcc00; letter-spacing: 3px; font-size: 13px; font-weight: bold;
-      text-shadow: 0 0 8px #000; pointer-events: none;
+      position: fixed; top: 46px; left: 0; right: 0; text-align: center; z-index: 5;
+      color: #ffcc00; letter-spacing: 5px; font-size: 13px; font-weight: bold;
+      text-shadow: 0 0 8px #000, 0 1px 2px #000; pointer-events: none;
     }
     .overlay .rat { font-size: clamp(60px, 12vw, 100px); animation: scurry 0.8s ease-in-out infinite; }
     @keyframes scurry { 0%,100% { transform: translateX(-8px) } 50% { transform: translateX(8px) } }
@@ -60,7 +60,7 @@
   </style>
 </head>
 <body>
-  <div id="brand" class="hidden">🐀 TRAIN RAT</div>
+  <div id="brand" class="hidden">TRAIN RAT</div>
   <div id="hud" class="hidden"><span>🐀 <b id="hudName"></b></span><span>🧀 <b id="cheeseCt">0</b></span><span>SCORE <b id="scoreCt">0</b></span><span id="pauseBtn" style="pointer-events:auto;cursor:pointer">⏸</span><span id="settingsBtn" style="pointer-events:auto;cursor:pointer">⚙️</span></div>
 
   <div id="settingsPanel" class="hidden" style="position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); background:#14141f; border:1px solid #333; border-radius:8px; padding:28px 32px; z-index:20; text-align:center; box-shadow:0 0 40px #000;">
