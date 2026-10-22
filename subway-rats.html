@@ -47,7 +47,7 @@
 </head>
 <body>
   <canvas id="game"></canvas>
-  <div id="hud" class="hidden"><span>🧀 <b id="cheeseCt">0</b></span><span>SCORE <b id="scoreCt">0</b></span></div>
+  <div id="hud" class="hidden"><span>🧀 <b id="cheeseCt">0</b></span><span>SCORE <b id="scoreCt">0</b></span><span id="pauseBtn" style="pointer-events:auto;cursor:pointer">⏸</span></div>
 
   <div class="overlay" id="startScreen">
     <span class="rat">🐀</span>
@@ -334,8 +334,21 @@ function draw() {
 }
 
 // ---------- loop ----------
-function frame(ts) {
+let paused = false;
+function togglePause() {
   if (!playing) return;
+  paused = !paused;
+  if (paused) {
+    cx2.fillStyle = '#ffcc00';
+    cx2.font = '16px Georgia'; cx2.textAlign = 'center'; cx2.textBaseline = 'bottom';
+    cx2.fillText('⏸ paused — press P or tap ⏸ to resume', W / 2, H - 10);
+  } else {
+    lastTime = performance.now();
+    requestAnimationFrame(frame);
+  }
+}
+function frame(ts) {
+  if (!playing || paused) return;
   const dt = Math.min(0.05, (ts - lastTime) / 1000 || 0);
   lastTime = ts;
   update(dt);
@@ -347,7 +360,7 @@ function start() {
   document.getElementById('startScreen').classList.add('hidden');
   document.getElementById('overScreen').classList.add('hidden');
   document.getElementById('hud').classList.remove('hidden');
-  playing = true;
+  playing = true; paused = false;
   lastTime = performance.now();
   requestAnimationFrame(frame);
 }
@@ -365,13 +378,14 @@ function gameOver() {
 
 // ---------- input ----------
 function act(dir) {
-  if (!playing) return;
+  if (!playing || paused) return;
   if (dir === 'left' && lane > 0) lane--;
   if (dir === 'right' && lane < 2) lane++;
   if (dir === 'up' && jumpT < 0) { jumpT = 0; duckT = -1; }
   if (dir === 'down' && duckT < 0) { duckT = 0; jumpT = -1; }
 }
 window.addEventListener('keydown', e => {
+  if (e.key === 'p' || e.key === 'P' || e.key === 'Escape') { e.preventDefault(); togglePause(); return; }
   const map = { ArrowLeft: 'left', a: 'left', ArrowRight: 'right', d: 'right',
                 ArrowUp: 'up', w: 'up', ' ': 'up', ArrowDown: 'down', s: 'down' };
   if (map[e.key] !== undefined) { e.preventDefault(); act(map[e.key]); }
@@ -381,6 +395,8 @@ window.addEventListener('touchstart', e => {
   touchX = e.touches[0].clientX; touchY = e.touches[0].clientY;
 }, { passive: true });
 window.addEventListener('touchend', e => {
+  if (e.target.id === 'pauseBtn') return;
+  if (paused) { togglePause(); return; }   // tap anywhere resumes
   const dx = e.changedTouches[0].clientX - touchX;
   const dy = e.changedTouches[0].clientY - touchY;
   if (Math.abs(dx) < 24 && Math.abs(dy) < 24) { act('up'); return; }  // tap = jump
@@ -388,6 +404,7 @@ window.addEventListener('touchend', e => {
   else act(dy > 0 ? 'down' : 'up');
 }, { passive: true });
 
+document.getElementById('pauseBtn').addEventListener('click', togglePause);
 document.getElementById('startBtn').addEventListener('click', start);
 document.getElementById('againBtn').addEventListener('click', start);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) lastTime = performance.now(); });
