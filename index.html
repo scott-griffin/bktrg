@@ -42,27 +42,24 @@
       pointer-events: none;
     }
     #hud span b { color: #ffcc00; }
-    #ratName {
-      padding: 10px 14px; font-size: 16px; font-family: 'Georgia', serif;
-      background: #111; border: 1px solid #333; border-radius: 4px; color: #fff; width: 180px;
+    .nameInput {
+      padding: 10px 14px; font-size: 16px; font-family: 'Georgia', serif; text-align: center;
+      background: #111; border: 1px solid #333; border-radius: 4px; color: #fff; width: 200px;
     }
-    #ratName:focus { outline: none; border-color: #ffcc00; }
-    #saveBtn {
-      padding: 10px 22px; margin-left: 8px; font-family: 'Georgia', serif; font-size: 14px;
-      letter-spacing: 1px; text-transform: uppercase; color: #111;
-      background: linear-gradient(135deg, #ffcc00, #ff9900); border: none; border-radius: 4px; cursor: pointer;
-    }
-    #saveBtn:disabled { opacity: 0.6; cursor: default; }
-    #topList { margin-top: 14px; color: #ccc; font-size: 15px; line-height: 1.8; letter-spacing: 1px; min-height: 22px; }
+    .nameInput:focus { outline: none; border-color: #ffcc00; }
+    #saveStatus { color: #ffcc00; font-size: 14px; letter-spacing: 1px; margin-top: 10px; min-height: 18px; }
+    #topList { margin-top: 10px; color: #ccc; font-size: 15px; line-height: 1.8; letter-spacing: 1px; min-height: 22px; }
     .hidden { display: none !important; }
   </style>
 </head>
 <body>
   <canvas id="game"></canvas>
-  <div id="hud" class="hidden"><span>🧀 <b id="cheeseCt">0</b></span><span>SCORE <b id="scoreCt">0</b></span><span id="pauseBtn" style="pointer-events:auto;cursor:pointer">⏸</span><span id="settingsBtn" style="pointer-events:auto;cursor:pointer">⚙️</span></div>
+  <div id="hud" class="hidden"><span>🐀 <b id="hudName"></b></span><span>🧀 <b id="cheeseCt">0</b></span><span>SCORE <b id="scoreCt">0</b></span><span id="pauseBtn" style="pointer-events:auto;cursor:pointer">⏸</span><span id="settingsBtn" style="pointer-events:auto;cursor:pointer">⚙️</span></div>
 
   <div id="settingsPanel" class="hidden" style="position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); background:#14141f; border:1px solid #333; border-radius:8px; padding:28px 32px; z-index:20; text-align:center; box-shadow:0 0 40px #000;">
     <p style="color:#ffcc00; letter-spacing:3px; font-size:18px; text-transform:uppercase; margin-bottom:18px;">Settings</p>
+    <label style="color:#aaa; letter-spacing:2px; font-size:13px;">NAME</label><br>
+    <input type="text" id="setName" class="nameInput" maxlength="20" autocomplete="off" style="margin:10px 0 18px;"><br>
     <label style="color:#aaa; letter-spacing:2px; font-size:13px;">GAME SPEED &nbsp;<b id="speedVal" style="color:#ffcc00;">80%</b></label><br>
     <input type="range" id="speedSlider" min="40" max="140" step="10" style="width:220px; margin:14px 0 20px; accent-color:#ffcc00;"><br>
     <label style="color:#aaa; letter-spacing:2px; font-size:13px; display:block; margin-bottom:10px;"><input type="checkbox" id="sfxToggle" style="accent-color:#ffcc00;"> SOUND EFFECTS</label>
@@ -75,6 +72,7 @@
     <h1>Train Rat</h1>
     <p>Dodge the trains. Grab the cheese. Don't get squished.</p>
     <p>⬅️ ➡️ switch tracks &nbsp;·&nbsp; ⬆️ jump &nbsp;·&nbsp; ⬇️ duck<br>(or swipe on your phone)</p>
+    <input type="text" id="startName" class="nameInput" maxlength="20" placeholder="your name" autocomplete="off">
     <button class="go-btn" id="startBtn">Run!</button>
     <a href="#" id="settingsLink" onclick="openSettings(); return false;">⚙️ settings</a>
     <a href="leaderboard.html">🏆 Leaderboard</a>
@@ -85,10 +83,7 @@
     <h1>Squished!</h1>
     <p class="big" id="finalScore"></p>
     <p id="bestScore"></p>
-    <div id="saveArea">
-      <input type="text" id="ratName" maxlength="20" placeholder="your name" autocomplete="off">
-      <button id="saveBtn">Save Score</button>
-    </div>
+    <p id="saveStatus"></p>
     <div id="topList"></div>
     <button class="go-btn" id="againBtn">Run Again</button>
     <a href="leaderboard.html">🏆 Full leaderboard</a>
@@ -327,14 +322,14 @@ function drawHurdle(o) {
 function drawBeam(o) {
   const p = pOf(Math.max(o.z, 0));
   const x = laneX(o.lane, p), y = groundY(p);
-  const w = laneHalf() * p * 0.5;
+  const w = laneHalf() * p * 0.36;   // stays within its own track
   const top = y - H * 0.21 * p, bot = y - H * 0.115 * p;
   cx2.fillStyle = '#555f6e';
   cx2.fillRect(x - w, top, w * 2, bot - top);
   cx2.fillStyle = '#ff5533';
-  cx2.font = `bold ${Math.max(7, (bot - top) * 0.55)}px Georgia`;
+  cx2.font = `bold ${Math.max(7, (bot - top) * 0.45)}px Georgia`;
   cx2.textAlign = 'center'; cx2.textBaseline = 'middle';
-  cx2.fillText('LOW CLEARANCE', x, (top + bot) / 2);
+  cx2.fillText('LOW CLEARANCE', x, (top + bot) / 2, w * 1.85);
 }
 
 function drawTreat(t) {
@@ -480,6 +475,8 @@ function frame(ts) {
 }
 
 function start() {
+  if (!document.getElementById('startScreen').classList.contains('hidden')) setName(startName.value);
+  if (!ratName) { startName.focus(); startName.style.borderColor = '#ff5533'; startName.placeholder = 'name first!'; return; }
   reset();
   document.getElementById('startScreen').classList.add('hidden');
   document.getElementById('overScreen').classList.add('hidden');
@@ -498,17 +495,26 @@ function gameOver() {
   localStorage.setItem('subwayRatsHigh', best);
   document.getElementById('finalScore').textContent = `${s} points · ${cheese} 🧀`;
   document.getElementById('bestScore').textContent = `Best so far: ${best}`;
-  saveBtn.disabled = false; saveBtn.textContent = 'Save Score';
-  renderTop();
+  autoSave(s);
   document.getElementById('hud').classList.add('hidden');
   document.getElementById('overScreen').classList.remove('hidden');
 }
 
-// ---------- leaderboard (shared scoreboard API) ----------
+// ---------- leaderboard (shared scoreboard API; one row per name, best score kept) ----------
 const API = 'https://dev.brasstix.com/bktrg/leaderboard.php';
-const ratName = document.getElementById('ratName');
-const saveBtn = document.getElementById('saveBtn');
-ratName.value = localStorage.getItem('ratName') || '';
+let ratName = localStorage.getItem('ratName') || '';
+const startName = document.getElementById('startName');
+const setNameInput = document.getElementById('setName');
+function setName(n) {
+  ratName = n.trim().slice(0, 20);
+  localStorage.setItem('ratName', ratName);
+  document.getElementById('hudName').textContent = ratName;
+  startName.value = ratName; setNameInput.value = ratName;
+}
+setName(ratName);
+startName.addEventListener('keydown', e => { if (e.key === 'Enter') start(); });
+setNameInput.addEventListener('change', () => setName(setNameInput.value));
+
 async function renderTop() {
   const el = document.getElementById('topList');
   try {
@@ -523,24 +529,22 @@ async function renderTop() {
     });
   } catch { el.textContent = "Couldn't load the leaderboard."; }
 }
-async function saveScore() {
-  const name = ratName.value.trim();
-  if (!name) { ratName.focus(); return; }
-  localStorage.setItem('ratName', name);
-  saveBtn.disabled = true; saveBtn.textContent = 'Saving…';
+async function autoSave(s) {
+  const el = document.getElementById('saveStatus');
+  if (!ratName || s <= 0) { el.textContent = ''; renderTop(); return; }
+  el.textContent = 'Saving score…';
   try {
     const res = await fetch(API, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, score: Math.floor(score) }),
+      body: JSON.stringify({ name: ratName, score: s }),
     });
     if (!res.ok) throw 0;
-    saveBtn.textContent = 'Saved! 🧀';
-    renderTop();
-  } catch { saveBtn.textContent = 'Try again'; saveBtn.disabled = false; }
+    const j = await res.json();
+    el.textContent = j.rank ? `Saved — ${ratName} is #${j.rank} 🧀` : 'Saved ✓';
+  } catch { el.textContent = "Couldn't reach the leaderboard"; }
+  renderTop();
 }
-saveBtn.addEventListener('click', saveScore);
-ratName.addEventListener('keydown', e => { if (e.key === 'Enter') saveScore(); });
 
 // ---------- audio: everything synthesized with the Web Audio API, no files ----------
 let AC = null;
