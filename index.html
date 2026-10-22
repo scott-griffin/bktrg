@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <title>Train Rat</title>
+  <link rel="icon" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">🐀</text></svg>'>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body { height: 100%; overflow: hidden; background: #6db3e8; font-family: 'Georgia', serif; }
@@ -21,6 +22,12 @@
       -webkit-background-clip: text; -webkit-text-fill-color: transparent;
       filter: drop-shadow(0 0 12px #ffcc0066);
       margin-bottom: 4px;
+    }
+    .logo { width: min(88vw, 470px); filter: drop-shadow(0 0 16px #ffcc0055); margin-bottom: 6px; }
+    #brand {
+      position: fixed; top: 14px; left: 16px; z-index: 5;
+      color: #ffcc00; letter-spacing: 3px; font-size: 13px; font-weight: bold;
+      text-shadow: 0 0 8px #000; pointer-events: none;
     }
     .overlay .rat { font-size: clamp(60px, 12vw, 100px); animation: scurry 0.8s ease-in-out infinite; }
     @keyframes scurry { 0%,100% { transform: translateX(-8px) } 50% { transform: translateX(8px) } }
@@ -53,6 +60,7 @@
   </style>
 </head>
 <body>
+  <div id="brand" class="hidden">🐀 TRAIN RAT</div>
   <div id="hud" class="hidden"><span>🐀 <b id="hudName"></b></span><span>🧀 <b id="cheeseCt">0</b></span><span>SCORE <b id="scoreCt">0</b></span><span id="pauseBtn" style="pointer-events:auto;cursor:pointer">⏸</span><span id="settingsBtn" style="pointer-events:auto;cursor:pointer">⚙️</span></div>
 
   <div id="settingsPanel" class="hidden" style="position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); background:#14141f; border:1px solid #333; border-radius:8px; padding:28px 32px; z-index:20; text-align:center; box-shadow:0 0 40px #000;">
@@ -67,8 +75,46 @@
   </div>
 
   <div class="overlay" id="startScreen">
-    <span class="rat">🐀</span>
-    <h1>Train Rat</h1>
+    <svg class="logo" viewBox="0 0 640 230" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Train Rat">
+      <defs>
+        <linearGradient id="tr-gold" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#ffe066"/>
+          <stop offset="0.55" stop-color="#ffcc00"/>
+          <stop offset="1" stop-color="#ff9900"/>
+        </linearGradient>
+      </defs>
+      <!-- running rat over the wordmark -->
+      <g transform="translate(452 38)">
+        <g stroke="#ffcc0088" stroke-width="4" stroke-linecap="round">
+          <line x1="44" y1="-10" x2="66" y2="-10"/>
+          <line x1="52" y1="0" x2="78" y2="0"/>
+          <line x1="46" y1="10" x2="64" y2="10"/>
+        </g>
+        <g fill="#ffcc00">
+          <path d="M28 2 Q 58 -8 76 8" stroke="#ffcc00" stroke-width="5" fill="none" stroke-linecap="round"/>
+          <ellipse cx="0" cy="0" rx="30" ry="15"/>
+          <circle cx="-32" cy="-5" r="11"/>
+          <polygon points="-41,-8 -56,-3 -41,1"/>
+          <circle cx="-34" cy="-15" r="6"/>
+          <ellipse cx="-16" cy="13" rx="6" ry="3.5"/>
+          <ellipse cx="14" cy="13" rx="7" ry="4"/>
+        </g>
+      </g>
+      <text x="320" y="138" text-anchor="middle" font-family="Georgia, serif" font-weight="bold" font-size="86" letter-spacing="8" fill="url(#tr-gold)" stroke="#201400" stroke-width="4" paint-order="stroke">TRAIN RAT</text>
+      <!-- the track it rides on -->
+      <g fill="#a87400">
+        <rect x="88" y="163" width="14" height="44" rx="3"/>
+        <rect x="168" y="163" width="14" height="44" rx="3"/>
+        <rect x="248" y="163" width="14" height="44" rx="3"/>
+        <rect x="328" y="163" width="14" height="44" rx="3"/>
+        <rect x="408" y="163" width="14" height="44" rx="3"/>
+        <rect x="488" y="163" width="14" height="44" rx="3"/>
+      </g>
+      <g fill="#ffcc00">
+        <rect x="70" y="168" width="450" height="7" rx="3"/>
+        <rect x="52" y="194" width="486" height="7" rx="3"/>
+      </g>
+    </svg>
     <p>Dodge the trains. Grab the cheese. Don't get squished.</p>
     <p>⬅️ ➡️ switch tracks &nbsp;·&nbsp; ⬆️ jump &nbsp;·&nbsp; ⬇️ duck<br>(or swipe on your phone)</p>
     <input type="text" id="startName" class="nameInput" maxlength="20" placeholder="your name" autocomplete="off">
@@ -450,6 +496,7 @@ function start() {
   document.getElementById('startScreen').classList.add('hidden');
   document.getElementById('overScreen').classList.add('hidden');
   document.getElementById('hud').classList.remove('hidden');
+  document.getElementById('brand').classList.remove('hidden');
   playing = true; paused = false;
   startMusic();
   clock.getDelta();
@@ -464,6 +511,7 @@ function gameOver() {
   document.getElementById('finalScore').textContent = `${s} points · ${cheese} 🧀 · best ${best}`;
   autoSave(s);
   document.getElementById('hud').classList.add('hidden');
+  document.getElementById('brand').classList.add('hidden');
   document.getElementById('overScreen').classList.remove('hidden');
   renderer.render(scene, camera);
 }
