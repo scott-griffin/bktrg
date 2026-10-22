@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <title>Train Rat — Classic</title>
   <link rel="icon" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">🐀</text></svg>'>
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body { height: 100%; overflow: hidden; background: #0a0a12; font-family: 'Georgia', serif; }
@@ -201,13 +202,17 @@ function update(dt) {
   const ducking = duckT >= 0;
 
   // collisions — rat occupies z ≈ [0, 0.05] in its lane
+  let underTrain = false;
   for (const o of obstacles) {
     if (Math.abs(displayLane - o.lane) > 0.45) continue;
     if (o.z > 0.05 || o.z + o.len < -0.01) continue;
     if (o.type === 'hurdle' && jumpH > 0.4) continue;   // cleared it in the air
     if (o.type === 'beam' && ducking) continue;          // slid under it
+    if (o.type === 'train' && ducking) { underTrain = true; continue; }   // squeezed through underneath
     return gameOver();
   }
+  // the squeeze holds the duck until the train has passed
+  if (underTrain) duckT = Math.min(duckT, DUCK_DUR * 0.4);
   treats = treats.filter(t => {
     if (Math.abs(displayLane - t.lane) <= 0.45 && t.z <= 0.05 && t.z > -0.05) {
       cheese++; score += 25; sfx.cheese(); return false;
