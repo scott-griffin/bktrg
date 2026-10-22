@@ -49,7 +49,7 @@
     }
     .nameInput:focus { outline: none; border-color: #ffcc00; }
     #saveStatus { color: #ffcc00; font-size: 14px; letter-spacing: 1px; margin-top: 10px; min-height: 18px; }
-    #topList { margin-top: 10px; color: #ccc; font-size: 15px; line-height: 1.8; letter-spacing: 1px; min-height: 22px; }
+    #topList { margin-top: 10px; color: #ccc; font-size: 14px; line-height: 1.5; letter-spacing: 1px; min-height: 22px; }
     #hud {
       position: fixed; top: 14px; left: 0; right: 0; display: flex; justify-content: center; gap: 28px;
       color: #fff; font-size: 20px; letter-spacing: 2px; z-index: 5; text-shadow: 0 0 8px #000;
@@ -498,6 +498,7 @@ function start() {
   document.getElementById('hud').classList.remove('hidden');
   document.getElementById('brand').classList.remove('hidden');
   playing = true; paused = false;
+  audio();   // unlock the audio context on the Run tap, whatever the music setting
   startMusic();
   clock.getDelta();
   frame();
@@ -538,7 +539,7 @@ async function renderTop() {
     el.textContent = '';
     if (!rows.length) { el.textContent = 'No scores yet — be the first!'; return; }
     const medals = ['🥇', '🥈', '🥉'];
-    rows.slice(0, 5).forEach((r, i) => {
+    rows.slice(0, 10).forEach((r, i) => {
       const d = document.createElement('div');
       d.textContent = `${medals[i] || (i + 1) + '.'} ${r.name} — ${r.score.toLocaleString()}`;
       el.appendChild(d);

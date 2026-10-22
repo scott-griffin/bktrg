@@ -521,6 +521,7 @@ function start() {
   document.getElementById('overScreen').classList.add('hidden');
   document.getElementById('hud').classList.remove('hidden');
   playing = true; paused = false;
+  audio();   // unlock the audio context on the Run tap, whatever the music setting
   startMusic();
   lastTime = performance.now();
   requestAnimationFrame(frame);
@@ -561,7 +562,7 @@ async function renderTop() {
     el.textContent = '';
     if (!rows.length) { el.textContent = 'No scores yet — be the first!'; return; }
     const medals = ['🥇', '🥈', '🥉'];
-    rows.slice(0, 5).forEach((r, i) => {
+    rows.slice(0, 10).forEach((r, i) => {
       const d = document.createElement('div');
       d.textContent = `${medals[i] || (i + 1) + '.'} ${r.name} — ${r.score.toLocaleString()}`;
       el.appendChild(d);
