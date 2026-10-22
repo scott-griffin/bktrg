@@ -292,15 +292,19 @@ function drawRat() {
   const ducking = duckT >= 0;
   const x = laneX(displayLane, 1);
 
-  // bounding gait: a hop cycle that quickens with game speed — squashed on the ground, stretched at the top, nose up on the rise and down on the fall
+  // bounding gait: each hop leaps forward into the tunnel — squashed flat on landing, stretched tall mid-air, and slightly smaller + higher at the top so the bound reads as away from the camera, not side to side
   const phase = (elapsed * 2.6 * (speed() / 0.30)) % 1;
   const hop = jumpT < 0 && !ducking ? Math.abs(Math.sin(phase * Math.PI)) : 0;
-  const y = playerY() - jumpH * H * 0.16 - hop * H * 0.03;
+  const y = playerY() - jumpH * H * 0.16 - hop * H * 0.045;
 
   let sx = 1, sy = 1, rot = 0;
   if (ducking) { sx = 1.25; sy = 0.55; }
   else if (jumpT >= 0) { rot = -0.3 * Math.cos(Math.PI * jumpT / JUMP_DUR); }
-  else { sy = 0.85 + 0.3 * hop; sx = 2 - sy; rot = -0.14 * Math.sin(phase * Math.PI * 2); }
+  else {
+    sy = 0.8 + 0.45 * hop; sx = 1.12 - 0.12 * sy;
+    const fwd = 1 - 0.10 * hop;           // shrink a touch at the leap's peak = moving ahead
+    sx *= fwd; sy *= fwd;
+  }
 
   // shadow
   const lift = Math.max(jumpH, hop * 0.3);
