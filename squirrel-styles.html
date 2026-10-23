@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Flying Squirrel Styles — Train Rat</title>
+  <link rel="icon" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">🐿️</text></svg>'>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #0a0a12; color: #fff; font-family: 'Georgia', serif; text-align: center; padding: 30px 14px 60px; }
+    h1 {
+      font-size: clamp(26px, 6vw, 42px); letter-spacing: 4px; text-transform: uppercase;
+      background: linear-gradient(135deg, #ffcc00, #aaa, #ffcc00);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    }
+    .sub { color: #888; letter-spacing: 2px; margin: 8px 0 30px; }
+    .grid { display: flex; flex-wrap: wrap; gap: 18px; justify-content: center; max-width: 1100px; margin: 0 auto; }
+    .tile { background: #12121c; border: 1px solid #2a2a38; border-radius: 10px; padding: 16px 16px 20px; width: 272px; }
+    .tile h2 { color: #ffcc00; font-size: 19px; letter-spacing: 2px; margin: 10px 0 6px; }
+    .tile p { color: #999; font-size: 13px; line-height: 1.5; }
+    canvas { background: linear-gradient(#20304a, #0d0d16); border-radius: 6px; }
+    .ask { margin-top: 36px; color: #ffcc00; font-size: 18px; letter-spacing: 2px; }
+    a { color: #666; font-size: 13px; letter-spacing: 2px; text-decoration: none; display: inline-block; margin-top: 20px; }
+    a:hover { color: #ffcc00; }
+  </style>
+</head>
+<body>
+  <h1>Flying Squirrel</h1>
+  <p class="sub">For Thomas — pick your glider. They spin so you can see every side.</p>
+  <div class="grid">
+    <div class="tile"><canvas id="c0" width="240" height="260"></canvas><h2>A — Classic Glider</h2><p>A real flying squirrel — warm brown fur, cream belly, big flat tail, gliding flaps stretched wide.</p></div>
+    <div class="tile"><canvas id="c1" width="240" height="260"></canvas><h2>B — Big-Eyed Cutie</h2><p>Chibi version — huge head, enormous shiny eyes, extra round. Maximum adorable.</p></div>
+    <div class="tile"><canvas id="c2" width="240" height="260"></canvas><h2>C — Supersquirrel</h2><p>Cartoon hero — goggles on, bright red glider flaps like a cape. Here to save the tracks.</p></div>
+    <div class="tile"><canvas id="c3" width="240" height="260"></canvas><h2>D — Night Glider</h2><p>Sugar-glider style — silver-gray fur, white belly, black bandit mask. Stealth mode.</p></div>
+  </div>
+  <p class="ask">Tell Dad: A, B, C or D?</p>
+  <a href="./">← back to the game</a>
+
+<script type="module">
+import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
+
+function buildSquirrel(c) {
+  const g = new THREE.Group();
+  const fur   = new THREE.MeshStandardMaterial({ color: c.fur, roughness: 0.85 });
+  const belly = new THREE.MeshStandardMaterial({ color: c.belly, roughness: 0.9 });
+  const memb  = new THREE.MeshStandardMaterial({ color: c.membrane, roughness: 0.8, side: THREE.DoubleSide });
+  const dark  = new THREE.MeshStandardMaterial({ color: 0x14161c, roughness: 0.4 });
+  const pink  = new THREE.MeshStandardMaterial({ color: 0xf0a7b2, roughness: 0.8 });
+  const white = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.3 });
+
+  const chub = c.chub || 1;
+  const body = new THREE.Mesh(new THREE.SphereGeometry(0.55, 24, 18), fur);
+  body.scale.set(0.8 * chub, 0.7 * chub, 1.15); body.position.y = 0.55;
+  const bellyM = new THREE.Mesh(new THREE.SphereGeometry(0.5, 20, 16), belly);
+  bellyM.scale.set(0.66 * chub, 0.52 * chub, 1.0); bellyM.position.set(0, 0.42, -0.06);
+  g.add(body, bellyM);
+
+  // head subgroup so each style can scale it whole
+  const headG = new THREE.Group();
+  headG.position.set(0, 0.92, -0.78); headG.scale.setScalar(c.head || 1);
+  headG.add(new THREE.Mesh(new THREE.SphereGeometry(0.42, 22, 18), fur));
+  const snout = new THREE.Mesh(new THREE.SphereGeometry(0.17, 14, 12), belly);
+  snout.scale.set(1, 0.8, 1.1); snout.position.set(0, -0.12, -0.36);
+  const nose = new THREE.Mesh(new THREE.SphereGeometry(0.055, 10, 8), pink);
+  nose.position.set(0, -0.08, -0.5);
+  headG.add(snout, nose);
+  if (c.mask) {
+    const mask = new THREE.Mesh(new THREE.SphereGeometry(0.43, 22, 10), dark);
+    mask.scale.set(1.02, 0.32, 1.02); mask.position.set(0, 0.1, -0.01);
+    headG.add(mask);
+  }
+  for (const side of [-1, 1]) {
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(c.eye, 14, 12), dark);
+    eye.position.set(side * 0.18, 0.1, -0.34);
+    const shine = new THREE.Mesh(new THREE.SphereGeometry(c.eye * 0.32, 8, 8), white);
+    shine.position.set(side * 0.15, 0.13 + c.eye * 0.3, -0.34 - c.eye * 0.75);
+    const ear = new THREE.Mesh(new THREE.SphereGeometry(0.12, 12, 10), fur);
+    ear.scale.z = 0.5; ear.position.set(side * 0.27, 0.36, -0.02);
+    headG.add(eye, shine, ear);
+    if (c.goggles) {
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(0.15, 0.035, 10, 20),
+        new THREE.MeshStandardMaterial({ color: 0xc9a227, roughness: 0.35, metalness: 0.6 }));
+      ring.position.set(side * 0.18, 0.1, -0.36);
+      headG.add(ring);
+    }
+  }
+  g.add(headG);
+
+  // the big flat gliding tail, tip curled up
+  const tail = new THREE.Mesh(new THREE.SphereGeometry(0.5, 18, 14), fur);
+  tail.scale.set(0.55, 0.13, 1.5); tail.position.set(0, 0.66, 1.15); tail.rotation.x = -0.3;
+  g.add(tail);
+
+  // paws
+  for (const [x, z] of [[-0.5, -0.5], [0.5, -0.5], [-0.55, 0.5], [0.55, 0.5]]) {
+    const paw = new THREE.Mesh(new THREE.SphereGeometry(0.13, 10, 8), fur);
+    paw.scale.set(1, 0.7, 1.2); paw.position.set(x, 0.22, z);
+    g.add(paw);
+  }
+
+  // the patagium — gliding membranes stretched between front and back paws
+  const shape = new THREE.Shape();
+  shape.moveTo(0.3, 0.55);
+  shape.quadraticCurveTo(1.0, 0.3, 1.12, 0.0);
+  shape.quadraticCurveTo(1.05, -0.3, 0.35, -0.55);
+  shape.lineTo(0.3, 0.55);
+  const membGeo = new THREE.ShapeGeometry(shape);
+  const flaps = [];
+  for (const side of [-1, 1]) {
+    const m = new THREE.Mesh(membGeo, memb);
+    m.rotation.x = -Math.PI / 2;
+    m.scale.x = side;
+    m.position.y = 0.45;
+    g.add(m); flaps.push(m);
+  }
+  g.userData.flaps = flaps;
+  return g;
+}
+
+const CFGS = [
+  { fur: 0x9a7b5b, belly: 0xe8d9c4, membrane: 0x8a6b4b, eye: 0.085 },
+  { fur: 0xb08968, belly: 0xf5e8d8, membrane: 0xc49a6c, eye: 0.17, head: 1.35, chub: 1.15 },
+  { fur: 0x8a6b4b, belly: 0xe8d9c4, membrane: 0xd32f2f, eye: 0.09, goggles: true },
+  { fur: 0x5a6372, belly: 0xe8ecf2, membrane: 0x474f5c, eye: 0.12, mask: true },
+];
+
+CFGS.forEach((cfg, i) => {
+  const canvas = document.getElementById('c' + i);
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(42, 240 / 260, 0.1, 50);
+  camera.position.set(0, 1.5, 3.6);
+  camera.lookAt(0, 0.55, 0);
+  scene.add(new THREE.HemisphereLight(0xcfe8ff, 0x303848, 1.1));
+  const key = new THREE.DirectionalLight(0xfff2cc, 1.5);
+  key.position.set(3, 5, 4);
+  scene.add(key);
+  const disc = new THREE.Mesh(new THREE.CircleGeometry(1.3, 32),
+    new THREE.MeshBasicMaterial({ color: 0x0a0e18, transparent: true, opacity: 0.5 }));
+  disc.rotation.x = -Math.PI / 2;
+  scene.add(disc);
+  const sq = buildSquirrel(cfg);
+  scene.add(sq);
+  (function loop(ts) {
+    const t = ts / 1000;
+    sq.rotation.y = t * 0.6;
+    sq.position.y = 0.12 + Math.sin(t * 1.8) * 0.1;             // gentle glide bob
+    const flap = 1 + Math.sin(t * 3.2) * 0.08;
+    sq.userData.flaps.forEach((f, fi) => { f.scale.x = (fi === 0 ? -1 : 1) * flap; });
+    renderer.render(scene, camera);
+    requestAnimationFrame(loop);
+  })(0);
+});
+</script>
+</body>
+</html>
