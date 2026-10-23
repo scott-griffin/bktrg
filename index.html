@@ -743,11 +743,13 @@ function buildFunk() {
   const ohf = new Tone.Filter(7000, 'highpass'); openHat.chain(ohf, Tone.getDestination()); d.push(openHat, ohf);
 
   // 2-bar patterns on a 16th grid: {step: [note, duration, velocity]} — velocity is the funk
-  const BASS = arr32({   // 4th element 'p' = slap pop
-    0: ['A1', '8n', 1], 3: ['A2', '16n', 0.9, 'p'], 5: ['A1', '16n', 0.3], 7: ['A1', '16n', 0.5],
-    8: ['G1', '16n', 0.7], 10: ['A1', '8n', 0.9], 14: ['G1', '16n', 0.4], 15: ['A1', '16n', 0.6],
-    16: ['A1', '8n', 1], 19: ['A2', '16n', 0.9, 'p'], 21: ['E2', '16n', 0.6], 23: ['D2', '16n', 0.7, 'p'],
-    24: ['C2', '16n', 0.8], 26: ['A1', '16n', 0.4], 28: ['E1', '8n', 0.9], 31: ['G1', '16n', 0.7],
+  // notes are OBJECTS, not arrays — Tone.Sequence subdivides a nested array into faster sub-events, which mangled every earlier take
+  const N = (n, dur, v, p) => ({ n, dur, v, p });
+  const BASS = arr32({   // p = slap pop
+    0: N('A1', '8n', 1), 3: N('A2', '16n', 0.9, 1), 5: N('A1', '16n', 0.3), 7: N('A1', '16n', 0.5),
+    8: N('G1', '16n', 0.7), 10: N('A1', '8n', 0.9), 14: N('G1', '16n', 0.4), 15: N('A1', '16n', 0.6),
+    16: N('A1', '8n', 1), 19: N('A2', '16n', 0.9, 1), 21: N('E2', '16n', 0.6), 23: N('D2', '16n', 0.7, 1),
+    24: N('C2', '16n', 0.8), 26: N('A1', '16n', 0.4), 28: N('E1', '8n', 0.9), 31: N('G1', '16n', 0.7),
   });
   const A9 = ['A3', 'C#4', 'E4', 'G4'];
   const CLAV = arr32({ 2: 0.35, 3: 0.6, 6: 0.3, 8: 0.7, 11: 0.35, 13: 0.3, 14: 0.6, 18: 0.35, 19: 0.6, 22: 0.3, 24: 0.7, 27: 0.35, 30: 0.6 });
@@ -756,10 +758,10 @@ function buildFunk() {
   const SNARE = arr32({ 4: 1, 9: 0.25, 12: 1, 15: 0.2, 20: 1, 25: 0.25, 28: 1 });
   const HATS = Array.from({ length: 32 }, (_, i) => (i === 14 || i === 30) ? 'o' : (i % 4 === 0 ? 0.5 : 0.28));
 
-  d.push(new Tone.Sequence((t, p) => {
-    if (!p) return;
-    (p[3] === 'p' ? pop : bass).triggerAttackRelease(p[0], p[1], t, p[2]);
-    sub.triggerAttackRelease(sub12(p[0]), p[1], t, p[2] * 0.9);
+  d.push(new Tone.Sequence((t, q) => {
+    if (!q) return;
+    (q.p ? pop : bass).triggerAttackRelease(q.n, q.dur, t, q.v);
+    sub.triggerAttackRelease(sub12(q.n), q.dur, t, q.v * 0.9);
   }, BASS, '16n').start(0));
   d.push(new Tone.Sequence((t, v) => { if (v) clav.triggerAttackRelease(A9, '32n', t, v); }, CLAV, '16n').start(0));
   d.push(new Tone.Sequence((t, v) => { if (v) horns.triggerAttackRelease(A9, '8n', t, v); }, HORNS, '16n').start(0));
@@ -798,10 +800,11 @@ function buildLofi() {
   const pluck = new Tone.Synth({ oscillator: { type: 'sine' }, envelope: { attack: 0.01, decay: 0.3, sustain: 0, release: 0.3 }, volume: -19 }).connect(reverb); d.push(pluck);
   const kit = drumKit(d, -4, -12, -26, 1100);
   const BASSLINE = ['A1', null, null, 'A1', null, null, 'A1', null, 'F1', null, null, 'F1', null, null, 'F1', null, 'C2', null, null, 'C2', null, null, 'C2', null, 'E1', null, null, 'E1', null, 'E1', 'G1', null];
-  const CHORDS = [['A2', 'C3', 'E3', 'G3', 'B3'], ['F2', 'A2', 'C3', 'E3'], ['C3', 'E3', 'G3', 'B3'], ['E2', 'G#2', 'B2', 'D3']];
+  // chords wrapped in objects — a bare chord array would be subdivided by Tone.Sequence instead of played together
+  const CHORDS = [{ c: ['A2', 'C3', 'E3', 'G3', 'B3'] }, { c: ['F2', 'A2', 'C3', 'E3'] }, { c: ['C3', 'E3', 'G3', 'B3'] }, { c: ['E2', 'G#2', 'B2', 'D3'] }];
   const PLUCKS = [null, null, 'E4', null, null, 'C4', null, null, null, 'A3', null, 'C4', null, null, 'B3', null];
   d.push(new Tone.Sequence((t, n) => { if (n) sub.triggerAttackRelease(n, '4n', t); }, BASSLINE, '8n').start(0));
-  d.push(new Tone.Sequence((t, c) => { if (c) keys.triggerAttackRelease(c, '2n', t); }, CHORDS, '1m').start(0));
+  d.push(new Tone.Sequence((t, ch) => { if (ch) keys.triggerAttackRelease(ch.c, '2n', t); }, CHORDS, '1m').start(0));
   d.push(new Tone.Sequence((t, n) => { if (n) pluck.triggerAttackRelease(n, '8n', t); }, PLUCKS, '8n').start(0));
   drumSeq(d, kit, ['K', null, null, null, null, null, 'k', null, 's', null, null, 'h', null, 'k', null, null, 'K', null, 'h', null, 'k', null, null, null, 's', null, null, 'h', null, null, 'h', null], '16n');
   return d;
