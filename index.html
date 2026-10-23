@@ -81,6 +81,9 @@
     .musicTile p { color: #999; font-size: 13px; line-height: 1.5; min-height: 40px; margin-bottom: 10px; }
     .listenBtn { padding: 8px 22px; font-family: 'Georgia', serif; letter-spacing: 1px; color: #111; background: linear-gradient(135deg, #ffcc00, #ff9900); border: none; border-radius: 4px; cursor: pointer; }
     .listenBtn.on { background: linear-gradient(135deg, #ff6644, #cc3300); color: #fff; }
+    .hsec { color: #ffcc00; letter-spacing: 3px; font-size: 13px; text-transform: uppercase; margin: 18px 0 6px; }
+    .hrow { display: flex; gap: 12px; align-items: center; text-align: left; margin: 0 auto; max-width: 430px; padding: 5px 0; color: #ccc; font-size: 14px; line-height: 1.5; }
+    .hico { font-size: 24px; width: 48px; text-align: center; flex: none; }
     .hidden { display: none !important; }
   </style>
 </head>
@@ -113,6 +116,38 @@
     <p style="color:#888; font-size:13px; letter-spacing:1px; margin-bottom:18px;">Tap ▶ to listen · tap a card to pick it</p>
     <div id="musicTiles" style="display:flex; flex-wrap:wrap; gap:14px; justify-content:center; max-width:640px; margin:0 auto;"></div>
     <button id="musicPickerClose" style="margin-top:22px; padding:12px 44px; font-family:'Georgia',serif; letter-spacing:2px; text-transform:uppercase; color:#111; background:linear-gradient(135deg,#ffcc00,#ff9900); border:none; border-radius:4px; cursor:pointer;">Done</button>
+  </div>
+
+  <div id="helpScreen" class="hidden" style="position:fixed; inset:0; background:rgba(5,5,12,0.96); z-index:30; overflow-y:auto; padding:30px 16px 40px; text-align:center;">
+    <p style="color:#ffcc00; letter-spacing:3px; font-size:20px; text-transform:uppercase;">How to Play</p>
+    <p style="color:#888; font-size:13px; letter-spacing:1px; margin-top:6px;">You're a rat on the tracks. Run forever. Don't get squished.</p>
+
+    <p class="hsec">Moves</p>
+    <div class="hrow"><span class="hico">⬅️➡️</span><span>Swipe (or arrow keys) to switch tracks.</span></div>
+    <div class="hrow"><span class="hico">⬆️</span><span>Swipe up or tap to jump over hurdles.</span></div>
+    <div class="hrow"><span class="hico">⬇️</span><span>Swipe down to duck — under signs AND under trains. The rat stays flat until the train has passed.</span></div>
+
+    <p class="hsec">Watch out</p>
+    <div class="hrow"><span class="hico">🚆</span><span>Trains — switch tracks, or duck and squeeze underneath.</span></div>
+    <div class="hrow"><span class="hico">🚧</span><span>Striped hurdles — jump them.</span></div>
+    <div class="hrow"><span class="hico">⚠️</span><span>LOW CLEARANCE signs — duck under them.</span></div>
+
+    <p class="hsec">Snacks</p>
+    <div class="hrow"><span class="hico">🧀</span><span>Cheese — 25 points each.</span></div>
+    <div class="hrow"><span class="hico">🍕</span><span>Pizza — rare, 100 points!</span></div>
+
+    <p class="hsec">Power-ups</p>
+    <div class="hrow"><span class="hico">🧲</span><span>Magnet — for 8 seconds, cheese from every track flies to you.</span></div>
+    <div class="hrow"><span class="hico">⛑️</span><span>Helmet — you keep it until something hits you; it takes the hit and you keep running.</span></div>
+    <div class="hrow"><span class="hico">🚀</span><span>Rocket — fly over everything for 4 seconds.</span></div>
+    <div class="hrow"><span class="hico">⭐</span><span>Star — double points for 8 seconds.</span></div>
+
+    <p class="hsec">Scoring</p>
+    <div class="hrow"><span class="hico">🏁</span><span>Running scores points — the faster the game gets, the faster they come. Your best score saves to the leaderboard automatically.</span></div>
+    <div class="hrow"><span class="hico">🐀</span><span>Your name is yours: a secret RAT CODE in ⚙️ settings protects it. Use the same name + code on another device to stay you.</span></div>
+    <div class="hrow"><span class="hico">⏸️</span><span>Pause anytime with ⏸ or the P key. ⚙️ has speed, sound and soundtrack settings.</span></div>
+
+    <button id="helpClose" style="margin-top:24px; padding:12px 44px; font-family:'Georgia',serif; letter-spacing:2px; text-transform:uppercase; color:#111; background:linear-gradient(135deg,#ffcc00,#ff9900); border:none; border-radius:4px; cursor:pointer;">Got it!</button>
   </div>
 
   <div class="overlay" id="startScreen">
@@ -166,6 +201,7 @@
     <p style="color:#ffcc00">New: power-ups and pizza! 🧲 ⛑️ 🚀 ⭐ 🍕</p>
     <input type="text" id="startName" class="nameInput" maxlength="20" placeholder="your name" autocomplete="off">
     <button class="go-btn" id="startBtn">Run!</button>
+    <a href="#" id="helpLink">❓ how to play</a>
     <a href="#" id="settingsLink">⚙️ settings</a>
     <a href="leaderboard.html">🏆 Leaderboard</a>
   </div>
@@ -178,6 +214,7 @@
     <div id="topList"></div>
     <button class="go-btn" id="againBtn">Run Again</button>
     <a href="leaderboard.html">🏆 Full leaderboard</a>
+    <a href="#" id="helpLink2">❓ how to play</a>
   </div>
 
 <script src="https://cdn.jsdelivr.net/npm/tone@14.8.49/build/Tone.js"></script>
@@ -882,6 +919,11 @@ document.getElementById('soundTest').addEventListener('click', async () => {
   else info.push('tone: NOT LOADED');
   document.getElementById('soundInfo').textContent = 'You should hear 2 notes · ' + info.join(' · ');
 });
+const helpScreen = document.getElementById('helpScreen');
+const openHelp = e => { e.preventDefault(); helpScreen.classList.remove('hidden'); };
+document.getElementById('helpLink').addEventListener('click', openHelp);
+document.getElementById('helpLink2').addEventListener('click', openHelp);
+document.getElementById('helpClose').addEventListener('click', () => helpScreen.classList.add('hidden'));
 document.getElementById('settingsBtn').addEventListener('click', openSettings);
 document.getElementById('settingsLink').addEventListener('click', e => { e.preventDefault(); openSettings(); });
 document.getElementById('settingsClose').addEventListener('click', closeSettings);
@@ -1284,7 +1326,7 @@ addEventListener('touchstart', e => {
   touchX = e.touches[0].clientX; touchY = e.touches[0].clientY;
 }, { passive: true });
 addEventListener('touchend', e => {
-  if (e.target.closest && e.target.closest('#pauseBtn, #settingsBtn, #settingsPanel, #musicPicker, .overlay')) return;
+  if (e.target.closest && e.target.closest('#pauseBtn, #settingsBtn, #settingsPanel, #musicPicker, #helpScreen, .overlay')) return;
   if (paused) { if (settingsPanel.classList.contains('hidden')) togglePause(); return; }
   const dx = e.changedTouches[0].clientX - touchX;
   const dy = e.changedTouches[0].clientY - touchY;
