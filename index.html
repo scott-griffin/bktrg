@@ -709,25 +709,25 @@ function buildCaper() {
 }
 
 function buildFunk() {
-  // reworked: longer notes that breathe — sliding bass with held durations, ringing chord stabs, fat kick, full-bodied snare
+  // take 3: a steady driving pulse groove instead of scattered syncopation — root-note bass pumping on the beat with a run fill, backbeat snare, tight in-key chops, straight time (the swing was what lurched)
   const d = [];
-  const reverb = new Tone.Reverb({ decay: 1.3, wet: 0.14 }).toDestination(); d.push(reverb);
-  const bass = new Tone.MonoSynth({ oscillator: { type: 'sawtooth' }, portamento: 0.02, envelope: { attack: 0.005, decay: 0.3, sustain: 0.5, release: 0.25 }, filterEnvelope: { attack: 0.01, decay: 0.18, sustain: 0.35, baseFrequency: 80, octaves: 3 }, filter: { Q: 4 }, volume: -4 }).toDestination(); d.push(bass);
-  const sub = new Tone.MonoSynth({ oscillator: { type: 'sine' }, envelope: { attack: 0.01, decay: 0.35, sustain: 0.6, release: 0.25 }, volume: -7 }).toDestination(); d.push(sub);
-  const keys = new Tone.PolySynth(Tone.Synth, { oscillator: { type: 'square' }, envelope: { attack: 0.005, decay: 0.22, sustain: 0.18, release: 0.15 }, volume: -19 });
-  const kf = new Tone.Filter(1800, 'lowpass'); keys.chain(kf, reverb); d.push(keys, kf);
-  const kit = drumKit(d, -4, -12, -24, 1200);
+  const reverb = new Tone.Reverb({ decay: 1.2, wet: 0.12 }).toDestination(); d.push(reverb);
+  const bass = new Tone.MonoSynth({ oscillator: { type: 'sawtooth' }, envelope: { attack: 0.004, decay: 0.25, sustain: 0.55, release: 0.15 }, filterEnvelope: { attack: 0.005, decay: 0.15, sustain: 0.4, baseFrequency: 90, octaves: 2.6 }, filter: { Q: 2 }, volume: -4 }).toDestination(); d.push(bass);
+  const sub = new Tone.MonoSynth({ oscillator: { type: 'sine' }, envelope: { attack: 0.005, decay: 0.3, sustain: 0.6, release: 0.2 }, volume: -6 }).toDestination(); d.push(sub);
+  const clav = new Tone.PolySynth(Tone.Synth, { oscillator: { type: 'square' }, envelope: { attack: 0.004, decay: 0.18, sustain: 0.12, release: 0.12 }, volume: -20 });
+  const cf = new Tone.Filter(2200, 'lowpass'); clav.chain(cf, reverb); d.push(clav, cf);
+  const kit = drumKit(d, -3, -12, -23, 1300);
   const BASSLINE = [
-    ['A1', '8n'], null, null, ['A1', '16n'], null, null, ['G1', '16n'], ['A1', '8n'],
-    null, null, ['C2', '16n'], null, ['D2', '8n'], null, ['E2', '16n'], null,
-    ['A1', '8n'], null, null, ['A1', '16n'], null, ['E2', '16n'], null, ['D2', '8n'],
-    null, null, ['C2', '16n'], ['A1', '16n'], ['G1', '8n'], null, ['A1', '4n'], null,
+    ['A1', '8n'], null, null, null, ['A1', '8n'], null, null, null,
+    ['A1', '8n'], null, null, null, null, null, ['G1', '16n'], ['A1', '16n'],
+    ['A1', '8n'], null, null, null, ['A1', '8n'], null, ['A1', '16n'], ['A1', '16n'],
+    null, ['C2', '16n'], ['C2', '16n'], null, ['D2', '8n'], null, ['G1', '16n'], null,
   ];
-  const CH = { x: ['A3', 'C4', 'E4', 'G4'], y: ['D3', 'F#3', 'C4', 'E4'] };
-  const STABS = [null, null, ['x', '8n'], null, null, null, null, ['x', '8n'], null, null, ['x', '8n'], null, ['y', '4n'], null, null, null];
+  const CH = { a: ['A3', 'C4', 'E4', 'G4'], g: ['G3', 'B3', 'D4'] };
+  const STABS = [null, null, null, ['a', '16n'], null, null, null, ['a', '8n'], null, null, null, ['a', '16n'], null, ['g', '16n'], null, ['a', '8n']];
   d.push(new Tone.Sequence((t, p) => { if (p) { bass.triggerAttackRelease(p[0], p[1], t); sub.triggerAttackRelease(sub12(p[0]), p[1], t); } }, BASSLINE, '16n').start(0));
-  d.push(new Tone.Sequence((t, p) => { if (p) keys.triggerAttackRelease(CH[p[0]], p[1], t); }, STABS, '8n').start(0));
-  drumSeq(d, kit, ['K', 'h', null, 'h', 's', null, 'h', null, null, 'h', 'K', 'h', 's', null, 'h', 'h', 'K', 'h', null, 'k', 's', null, 'h', 'h', 'k', null, 'h', null, 's', null, 'h', 'h'], '16n');
+  d.push(new Tone.Sequence((t, p) => { if (p) clav.triggerAttackRelease(CH[p[0]], p[1], t); }, STABS, '8n').start(0));
+  drumSeq(d, kit, ['K', null, 'h', null, 's', null, 'h', 'h', 'K', null, 'h', 'k', 's', null, 'h', null], '16n');
   return d;
 }
 
@@ -771,7 +771,7 @@ function buildLofi() {
 
 const MUSIC_STYLES = {
   caper: { bpm: 112, swing: 0.08, build: buildCaper },
-  funk:  { bpm: 102, swing: 0.2,  build: buildFunk },
+  funk:  { bpm: 106, swing: 0,    build: buildFunk },
   chase: { bpm: 140, swing: 0,    build: buildChase },
   lofi:  { bpm: 86,  swing: 0.25, build: buildLofi },
 };
@@ -811,7 +811,7 @@ musicToggle.addEventListener('change', () => {
 // soundtrack picker — a browse-and-listen screen, like the mockup pages
 const STYLE_INFO = {
   caper: { title: 'A — Sneaky Caper', desc: 'Sneaky mission music — fat bass with a deep sub, smooth lead. The rat is up to something.' },
-  funk:  { title: 'B — Funky Rat', desc: 'Slow funk strut — wah-wah bass does the talking, chords ring out. Swagger over melody.' },
+  funk:  { title: 'B — Funky Rat', desc: 'Steady strutting groove — pumping bass, backbeat snare, tight chops. Swagger over melody.' },
   chase: { title: 'C — Train Chase', desc: 'Fast surf-rock chase — driving drums, twangy echoing riff, a train whistle in the distance.' },
   lofi:  { title: 'D — Lo-fi Bounce', desc: 'Slow head-nod beat — huge sliding sub bass, dusty mellow keys, boom-bap drums.' },
 };
