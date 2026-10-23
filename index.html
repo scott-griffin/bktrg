@@ -68,6 +68,13 @@
     @media (max-width: 600px) {
       #hud { font-size: 15px; gap: 11px; }
     }
+    .musicTile { background: #12121c; border: 1px solid #2a2a38; border-radius: 10px; padding: 16px; width: 280px; cursor: pointer; text-align: center; }
+    .musicTile.sel { border-color: #ffcc00; box-shadow: 0 0 16px #ffcc0044; }
+    .musicTile h3 { color: #ffcc00; font-size: 17px; letter-spacing: 1px; margin-bottom: 6px; font-weight: normal; }
+    .musicTile .picked { color: #ffcc00; font-size: 11px; letter-spacing: 2px; display: block; min-height: 14px; margin-bottom: 4px; }
+    .musicTile p { color: #999; font-size: 13px; line-height: 1.5; min-height: 40px; margin-bottom: 10px; }
+    .listenBtn { padding: 8px 22px; font-family: 'Georgia', serif; letter-spacing: 1px; color: #111; background: linear-gradient(135deg, #ffcc00, #ff9900); border: none; border-radius: 4px; cursor: pointer; }
+    .listenBtn.on { background: linear-gradient(135deg, #ff6644, #cc3300); color: #fff; }
     .hidden { display: none !important; }
   </style>
 </head>
@@ -84,13 +91,15 @@
     <label style="color:#aaa; letter-spacing:2px; font-size:13px; display:block; margin-bottom:10px;"><input type="checkbox" id="sfxToggle" style="accent-color:#ffcc00;"> SOUND EFFECTS</label>
     <label style="color:#aaa; letter-spacing:2px; font-size:13px; display:block; margin-bottom:14px;"><input type="checkbox" id="musicToggle" style="accent-color:#ffcc00;"> MUSIC</label>
     <label style="color:#aaa; letter-spacing:2px; font-size:13px;">SOUNDTRACK</label><br>
-    <select id="musicStyleSel" class="nameInput" style="width:220px; margin:10px 0 20px;">
-      <option value="caper">A — Sneaky Caper</option>
-      <option value="funk">B — Funky Rat</option>
-      <option value="chase">C — Train Chase</option>
-      <option value="lofi">D — Lo-fi Bounce</option>
-    </select><br>
+    <button id="musicStyleBtn" class="nameInput" style="cursor:pointer; margin:10px 0 20px;">…</button><br>
     <button id="settingsClose" style="padding:10px 36px; font-family:'Georgia',serif; letter-spacing:2px; text-transform:uppercase; color:#111; background:linear-gradient(135deg,#ffcc00,#ff9900); border:none; border-radius:4px; cursor:pointer;">Done</button>
+  </div>
+
+  <div id="musicPicker" class="hidden" style="position:fixed; inset:0; background:rgba(5,5,12,0.96); z-index:30; overflow-y:auto; padding:30px 14px 40px; text-align:center;">
+    <p style="color:#ffcc00; letter-spacing:3px; font-size:20px; text-transform:uppercase; margin-bottom:6px;">Soundtrack</p>
+    <p style="color:#888; font-size:13px; letter-spacing:1px; margin-bottom:18px;">Tap ▶ to listen · tap a card to pick it</p>
+    <div id="musicTiles" style="display:flex; flex-wrap:wrap; gap:14px; justify-content:center; max-width:640px; margin:0 auto;"></div>
+    <button id="musicPickerClose" style="margin-top:22px; padding:12px 44px; font-family:'Georgia',serif; letter-spacing:2px; text-transform:uppercase; color:#111; background:linear-gradient(135deg,#ffcc00,#ff9900); border:none; border-radius:4px; cursor:pointer;">Done</button>
   </div>
 
   <div class="overlay" id="startScreen">
@@ -799,13 +808,58 @@ musicToggle.addEventListener('change', () => {
   localStorage.setItem('subwayRatsMusic', musicOn ? '1' : '0');
   if (!musicOn) stopMusic(); else if (playing && !paused) startMusic();
 });
-const musicStyleSel = document.getElementById('musicStyleSel');
-musicStyleSel.value = musicStyle;
-musicStyleSel.addEventListener('change', () => {
-  musicStyle = musicStyleSel.value;
-  localStorage.setItem('trainRatMusicStyle', musicStyle);
-  if (typeof Tone !== 'undefined' && musicParts) applyStyle(musicStyle);   // takes effect immediately, or on resume if paused
+// soundtrack picker — a browse-and-listen screen, like the mockup pages
+const STYLE_INFO = {
+  caper: { title: 'A — Sneaky Caper', desc: 'Sneaky mission music — fat bass with a deep sub, smooth lead. The rat is up to something.' },
+  funk:  { title: 'B — Funky Rat', desc: 'Slow funk strut — wah-wah bass does the talking, chords ring out. Swagger over melody.' },
+  chase: { title: 'C — Train Chase', desc: 'Fast surf-rock chase — driving drums, twangy echoing riff, a train whistle in the distance.' },
+  lofi:  { title: 'D — Lo-fi Bounce', desc: 'Slow head-nod beat — huge sliding sub bass, dusty mellow keys, boom-bap drums.' },
+};
+const musicPicker = document.getElementById('musicPicker');
+const musicTiles = document.getElementById('musicTiles');
+const musicStyleBtn = document.getElementById('musicStyleBtn');
+let previewing = null;
+function refreshTiles() {
+  [...musicTiles.children].forEach(tile => {
+    const key = tile.dataset.key;
+    tile.classList.toggle('sel', key === musicStyle);
+    tile.querySelector('.picked').textContent = key === musicStyle ? '✓ PICKED' : '';
+    const b = tile.querySelector('.listenBtn');
+    b.textContent = previewing === key ? '⏹ Stop' : '▶ Listen';
+    b.classList.toggle('on', previewing === key);
+  });
+  musicStyleBtn.textContent = STYLE_INFO[musicStyle].title + ' ▾';
+}
+function stopPreview() {
+  if (previewing && musicParts) Tone.Transport.pause();
+  previewing = null;
+  refreshTiles();
+}
+async function previewStyle(key) {
+  if (previewing === key) { stopPreview(); return; }
+  if (typeof Tone === 'undefined') return;
+  await Tone.start();
+  applyStyle(key);
+  Tone.Transport.start('+0.05');
+  previewing = key;
+  refreshTiles();
+}
+Object.entries(STYLE_INFO).forEach(([key, info]) => {
+  const tile = document.createElement('div');
+  tile.className = 'musicTile';
+  tile.dataset.key = key;
+  tile.innerHTML = `<span class="picked"></span><h3>${info.title}</h3><p>${info.desc}</p><button class="listenBtn">▶ Listen</button>`;
+  tile.addEventListener('click', e => {
+    if (e.target.classList.contains('listenBtn')) { previewStyle(key); return; }
+    musicStyle = key;
+    localStorage.setItem('trainRatMusicStyle', key);
+    refreshTiles();
+  });
+  musicTiles.appendChild(tile);
 });
+musicStyleBtn.addEventListener('click', () => { refreshTiles(); musicPicker.classList.remove('hidden'); });
+document.getElementById('musicPickerClose').addEventListener('click', () => { stopPreview(); musicPicker.classList.add('hidden'); });
+refreshTiles();
 
 // ---------- input ----------
 function act(dir) {
@@ -827,7 +881,7 @@ addEventListener('touchstart', e => {
   touchX = e.touches[0].clientX; touchY = e.touches[0].clientY;
 }, { passive: true });
 addEventListener('touchend', e => {
-  if (e.target.closest && e.target.closest('#pauseBtn, #settingsBtn, #settingsPanel, .overlay')) return;
+  if (e.target.closest && e.target.closest('#pauseBtn, #settingsBtn, #settingsPanel, #musicPicker, .overlay')) return;
   if (paused) { if (settingsPanel.classList.contains('hidden')) togglePause(); return; }
   const dx = e.changedTouches[0].clientX - touchX;
   const dy = e.changedTouches[0].clientY - touchY;
