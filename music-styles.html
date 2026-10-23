@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Music Styles — Train Rat</title>
+  <link rel="icon" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">🐀</text></svg>'>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #0a0a12; color: #fff; font-family: 'Georgia', serif; text-align: center; padding: 30px 14px 60px; }
+    h1 {
+      font-size: clamp(28px, 6vw, 44px); letter-spacing: 4px; text-transform: uppercase;
+      background: linear-gradient(135deg, #ffcc00, #aaa, #ffcc00);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    }
+    .sub { color: #888; letter-spacing: 2px; margin: 8px 0 30px; }
+    .grid { display: flex; flex-wrap: wrap; gap: 18px; justify-content: center; max-width: 1100px; margin: 0 auto; }
+    .tile { background: #12121c; border: 1px solid #2a2a38; border-radius: 10px; padding: 22px 20px; width: 272px; }
+    .tile h2 { color: #ffcc00; font-size: 20px; letter-spacing: 2px; margin-bottom: 8px; }
+    .tile p { color: #999; font-size: 13px; line-height: 1.5; min-height: 60px; }
+    .play {
+      margin-top: 14px; padding: 12px 40px; font-size: 18px; font-family: 'Georgia', serif;
+      letter-spacing: 2px; color: #111; background: linear-gradient(135deg, #ffcc00, #ff9900);
+      border: none; border-radius: 4px; cursor: pointer; box-shadow: 0 0 18px #ffcc0055;
+    }
+    .play.on { background: linear-gradient(135deg, #ff6644, #cc3300); color: #fff; }
+    .ask { margin-top: 36px; color: #ffcc00; font-size: 18px; letter-spacing: 2px; }
+    .note { color: #666; font-size: 12px; margin-top: 10px; }
+    a { color: #666; font-size: 13px; letter-spacing: 2px; text-decoration: none; display: inline-block; margin-top: 20px; }
+    a:hover { color: #ffcc00; }
+  </style>
+</head>
+<body>
+  <h1>Music Styles</h1>
+  <p class="sub">For Thomas — all with big bass. Tap to listen, tap again to stop.</p>
+  <div class="grid">
+    <div class="tile"><h2>A — Sneaky Caper</h2><p>The current tune, fixed up: much fatter bass with a deep sub underneath, and a smoother, rounder lead instead of the Tetris beeps.</p><button class="play" data-i="0">▶ Play</button></div>
+    <div class="tile"><h2>B — Funky Rat</h2><p>Slow funk groove — wah-wah bass doing all the talking, little clav stabs, swagger instead of melody. The rat struts.</p><button class="play" data-i="1">▶ Play</button></div>
+    <div class="tile"><h2>C — Train Chase</h2><p>Fast surf-rock chase — driving drums, twangy echoing guitar-style riff, train whistle in the distance. Cartoon chase energy.</p><button class="play" data-i="2">▶ Play</button></div>
+    <div class="tile"><h2>D — Lo-fi Bounce</h2><p>Slow head-nod beat — huge sliding sub bass, dusty mellow keys, boom-bap drums. The coolest rat in the yard.</p><button class="play" data-i="3">▶ Play</button></div>
+  </div>
+  <p class="ask">Tell Dad: A, B, C or D?</p>
+  <p class="note">iPhone: flip off silent mode to hear it.</p>
+  <a href="./">← back to the game</a>
+
+<script src="https://cdn.jsdelivr.net/npm/tone@14.8.49/build/Tone.js"></script>
+<script>
+function drumKit(d, kv, sv, hv, snFreq) {
+  const kick = new Tone.MembraneSynth({ pitchDecay: 0.05, octaves: 8, volume: kv }).toDestination();
+  const snare = new Tone.NoiseSynth({ noise: { type: 'white' }, envelope: { attack: 0.001, decay: 0.13, sustain: 0 }, volume: sv });
+  const sf = new Tone.Filter(snFreq, 'highpass'); snare.chain(sf, Tone.getDestination());
+  const hat = new Tone.NoiseSynth({ noise: { type: 'white' }, envelope: { attack: 0.001, decay: 0.03, sustain: 0 }, volume: hv });
+  const hf = new Tone.Filter(8000, 'highpass'); hat.chain(hf, Tone.getDestination());
+  d.push(kick, snare, sf, hat, hf);
+  return { kick, snare, hat };
+}
+function drumSeq(d, kit, pattern, sub) {
+  d.push(new Tone.Sequence((t, x) => {
+    if (x === 'k' || x === 'K') kit.kick.triggerAttackRelease('C1', '8n', t);
+    if (x === 's') kit.snare.triggerAttackRelease('16n', t);
+    if (x === 'h' || x === 'K') kit.hat.triggerAttackRelease('32n', t);
+  }, pattern, sub).start(0));
+}
+const sub12 = n => Tone.Frequency(n).transpose(-12);
+
+function buildCaper() {
+  const d = [];
+  const reverb = new Tone.Reverb({ decay: 1.6, wet: 0.15 }).toDestination(); d.push(reverb);
+  const bass = new Tone.MonoSynth({ oscillator: { type: 'sawtooth' }, envelope: { attack: 0.01, decay: 0.25, sustain: 0.5, release: 0.2 }, filterEnvelope: { attack: 0.005, decay: 0.2, sustain: 0.4, baseFrequency: 90, octaves: 2.6 }, volume: -5 }).connect(reverb); d.push(bass);
+  const sub = new Tone.MonoSynth({ oscillator: { type: 'sine' }, envelope: { attack: 0.01, decay: 0.3, sustain: 0.6, release: 0.2 }, volume: -5 }).toDestination(); d.push(sub);
+  const lead = new Tone.Synth({ oscillator: { type: 'triangle' }, envelope: { attack: 0.02, decay: 0.2, sustain: 0.3, release: 0.25 }, volume: -16 });
+  const vib = new Tone.Vibrato(5, 0.1), del = new Tone.PingPongDelay({ delayTime: '8n', feedback: 0.15, wet: 0.15 });
+  lead.chain(vib, del, reverb); d.push(lead, vib, del);
+  const chords = new Tone.PolySynth(Tone.Synth, { oscillator: { type: 'triangle' }, envelope: { attack: 0.01, decay: 0.12, sustain: 0.08, release: 0.15 }, volume: -21 }).connect(reverb); d.push(chords);
+  const kit = drumKit(d, -6, -15, -27, 1800);
+  const BASSLINE = ['A1', null, 'A1', null, 'C2', null, 'A1', 'G1', 'F1', null, 'F1', 'F1', 'G1', null, 'E1', 'G1', 'A1', null, 'A1', null, 'C2', null, 'D2', 'C2', 'F1', null, 'G1', null, 'E1', 'E1', 'G1', null];
+  const MELODY = [null, null, 'A3', null, 'C4', 'B3', 'A3', null, 'E4', null, 'D4', 'C4', null, 'A3', null, null, null, 'A3', 'B3', 'C4', 'D4', 'E4', null, 'G4', 'E4', 'D4', 'C4', 'B3', 'A3', null, null, null];
+  const CH = { Am: ['A2', 'C3', 'E3'], F: ['F2', 'A2', 'C3'], C: ['C3', 'E3', 'G3'], E: ['E2', 'G#2', 'B2'] };
+  const CHSEQ = [null, 'Am', null, 'Am', null, 'F', null, 'F', null, 'Am', null, 'C', null, 'E', null, 'E'];
+  d.push(new Tone.Sequence((t, n) => { if (n) { bass.triggerAttackRelease(n, '8n', t); sub.triggerAttackRelease(sub12(n), '8n', t); } }, BASSLINE, '8n').start(0));
+  d.push(new Tone.Sequence((t, n) => { if (n) lead.triggerAttackRelease(n, '8n', t); }, MELODY, '8n').start(0));
+  d.push(new Tone.Sequence((t, c) => { if (c) chords.triggerAttackRelease(CH[c], '16n', t); }, CHSEQ, '4n').start(0));
+  drumSeq(d, kit, ['K', 'h', 'h', 'h', 's', 'h', 'h', 'K', 'K', 'h', 'k', 'h', 's', 'h', 'h', 's'], '8n');
+  return d;
+}
+
+function buildFunk() {
+  const d = [];
+  const reverb = new Tone.Reverb({ decay: 1.2, wet: 0.12 }).toDestination(); d.push(reverb);
+  const bass = new Tone.MonoSynth({ oscillator: { type: 'sawtooth' }, envelope: { attack: 0.005, decay: 0.2, sustain: 0.4, release: 0.15 }, filterEnvelope: { attack: 0.01, decay: 0.12, sustain: 0.2, baseFrequency: 70, octaves: 3.5 }, filter: { Q: 6 }, volume: -4 }).toDestination(); d.push(bass);
+  const clav = new Tone.PolySynth(Tone.Synth, { oscillator: { type: 'square' }, envelope: { attack: 0.003, decay: 0.09, sustain: 0, release: 0.08 }, volume: -19 });
+  const cf = new Tone.Filter(1500, 'lowpass'); clav.chain(cf, reverb); d.push(clav, cf);
+  const kit = drumKit(d, -5, -14, -25, 2000);
+  const BASSLINE = ['A1', null, null, 'A1', null, null, 'G1', 'A1', null, 'A1', null, 'C2', 'C#2', 'D2', null, 'A1', 'A1', null, null, 'A1', null, 'E2', null, 'D2', null, 'C2', null, 'A1', 'G1', null, 'A1', null];
+  const CH = { x: ['A3', 'C4', 'E4', 'G4'], y: ['D3', 'F#3', 'A3', 'C4'] };
+  const STABS = [null, null, 'x', null, null, 'x', null, null, null, null, 'x', null, 'y', null, null, null];
+  d.push(new Tone.Sequence((t, n) => { if (n) bass.triggerAttackRelease(n, '16n', t); }, BASSLINE, '16n').start(0));
+  d.push(new Tone.Sequence((t, c) => { if (c) clav.triggerAttackRelease(CH[c], '16n', t); }, STABS, '8n').start(0));
+  drumSeq(d, kit, ['K', 'h', null, 'k', 's', null, 'h', 'h', null, 'k', 'K', 'h', 's', null, 'h', 's', 'K', 'h', null, null, 's', null, 'h', 'k', 'k', null, 'h', 'h', 's', null, 'h', null], '16n');
+  return d;
+}
+
+function buildChase() {
+  const d = [];
+  const reverb = new Tone.Reverb({ decay: 2.2, wet: 0.25 }).toDestination(); d.push(reverb);
+  const bass = new Tone.MonoSynth({ oscillator: { type: 'square' }, envelope: { attack: 0.005, decay: 0.15, sustain: 0.5, release: 0.1 }, filterEnvelope: { attack: 0.005, decay: 0.1, sustain: 0.5, baseFrequency: 110, octaves: 2 }, volume: -5 }).toDestination(); d.push(bass);
+  const lead = new Tone.MonoSynth({ oscillator: { type: 'sawtooth' }, portamento: 0.03, envelope: { attack: 0.01, decay: 0.2, sustain: 0.4, release: 0.2 }, filterEnvelope: { attack: 0.005, decay: 0.2, sustain: 0.5, baseFrequency: 500, octaves: 2.5 }, volume: -14 });
+  const chorus = new Tone.Chorus(4, 2.5, 0.4).start();
+  const del = new Tone.FeedbackDelay({ delayTime: '8n.', feedback: 0.22, wet: 0.22 });
+  lead.chain(chorus, del, reverb); d.push(lead, chorus, del);
+  const whistle = new Tone.PolySynth(Tone.Synth, { oscillator: { type: 'sine' }, envelope: { attack: 0.08, decay: 0.3, sustain: 0.5, release: 0.6 }, volume: -20 }).connect(reverb); d.push(whistle);
+  const kit = drumKit(d, -5, -13, -23, 1600);
+  const BASSLINE = ['A1', 'A1', 'C2', 'C2', 'D2', 'D2', 'E2', 'E2', 'A1', 'A1', 'C2', 'C2', 'E2', 'D2', 'C2', 'D2'];
+  const RIFF = ['A4', null, 'A4', 'G4', 'A4', null, 'E4', null, 'G4', null, 'G4', 'F4', 'G4', null, 'D4', null, 'A4', null, 'A4', 'G4', 'A4', 'B4', 'C5', null, 'B4', 'A4', 'G4', 'A4', 'E4', null, null, null];
+  d.push(new Tone.Sequence((t, n) => { if (n) bass.triggerAttackRelease(n, '8n', t); }, BASSLINE, '8n').start(0));
+  d.push(new Tone.Sequence((t, n) => { if (n) lead.triggerAttackRelease(n, '8n', t); }, RIFF, '8n').start(0));
+  d.push(new Tone.Sequence((t, w) => { if (w) whistle.triggerAttackRelease(['A4', 'C5'], '2n', t); }, [null, 'w', null, null], '1m').start(0));
+  drumSeq(d, kit, ['K', 'h', 's', 'h', 'k', 'k', 's', 'h', 'K', 'h', 's', 'h', 'k', 'h', 's', 's'], '8n');
+  return d;
+}
+
+function buildLofi() {
+  const d = [];
+  const reverb = new Tone.Reverb({ decay: 2.5, wet: 0.3 }).toDestination(); d.push(reverb);
+  const sub = new Tone.MonoSynth({ oscillator: { type: 'sine' }, portamento: 0.06, envelope: { attack: 0.01, decay: 0.4, sustain: 0.7, release: 0.3 }, volume: -3 }).toDestination(); d.push(sub);
+  const keys = new Tone.PolySynth(Tone.Synth, { oscillator: { type: 'triangle' }, envelope: { attack: 0.04, decay: 0.5, sustain: 0.4, release: 0.6 }, volume: -17 });
+  const kf = new Tone.Filter(850, 'lowpass'), kv = new Tone.Vibrato(3, 0.15);
+  keys.chain(kf, kv, reverb); d.push(keys, kf, kv);
+  const pluck = new Tone.Synth({ oscillator: { type: 'sine' }, envelope: { attack: 0.01, decay: 0.3, sustain: 0, release: 0.3 }, volume: -19 }).connect(reverb); d.push(pluck);
+  const kit = drumKit(d, -4, -12, -26, 1100);
+  const BASSLINE = ['A1', null, null, 'A1', null, null, 'A1', null, 'F1', null, null, 'F1', null, null, 'F1', null, 'C2', null, null, 'C2', null, null, 'C2', null, 'E1', null, null, 'E1', null, 'E1', 'G1', null];
+  const CHORDS = [['A2', 'C3', 'E3', 'G3', 'B3'], ['F2', 'A2', 'C3', 'E3'], ['C3', 'E3', 'G3', 'B3'], ['E2', 'G#2', 'B2', 'D3']];
+  const PLUCKS = [null, null, 'E4', null, null, 'C4', null, null, null, 'A3', null, 'C4', null, null, 'B3', null];
+  d.push(new Tone.Sequence((t, n) => { if (n) sub.triggerAttackRelease(n, '4n', t); }, BASSLINE, '8n').start(0));
+  d.push(new Tone.Sequence((t, c) => { if (c) keys.triggerAttackRelease(c, '2n', t); }, CHORDS, '1m').start(0));
+  d.push(new Tone.Sequence((t, n) => { if (n) pluck.triggerAttackRelease(n, '8n', t); }, PLUCKS, '8n').start(0));
+  drumSeq(d, kit, ['K', null, null, null, null, null, 'k', null, 's', null, null, 'h', null, 'k', null, null, 'K', null, 'h', null, 'k', null, null, null, 's', null, null, 'h', null, null, 'h', null], '16n');
+  return d;
+}
+
+const STYLES = [
+  { bpm: 112, swing: 0.08, build: buildCaper },
+  { bpm: 102, swing: 0.2, build: buildFunk },
+  { bpm: 140, swing: 0, build: buildChase },
+  { bpm: 86, swing: 0.25, build: buildLofi },
+];
+let current = null, playingIdx = -1;
+const buttons = [...document.querySelectorAll('.play')];
+function stopAll() {
+  Tone.Transport.stop();
+  Tone.Transport.cancel(0);
+  (current || []).forEach(x => x.dispose());
+  current = null; playingIdx = -1;
+  buttons.forEach(b => { b.textContent = '▶ Play'; b.classList.remove('on'); });
+}
+buttons.forEach(btn => btn.addEventListener('click', async () => {
+  const i = +btn.dataset.i;
+  if (playingIdx === i) { stopAll(); return; }
+  await Tone.start();
+  stopAll();
+  const s = STYLES[i];
+  Tone.Transport.bpm.value = s.bpm;
+  Tone.Transport.swing = s.swing;
+  current = s.build();
+  Tone.Transport.position = 0;
+  Tone.Transport.start('+0.1');
+  playingIdx = i;
+  btn.textContent = '⏹ Stop';
+  btn.classList.add('on');
+}));
+</script>
+</body>
+</html>
