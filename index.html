@@ -769,10 +769,19 @@ let ratName = localStorage.getItem('ratName') || '';
 const startName = document.getElementById('startName');
 const setNameInput = document.getElementById('setName');
 function setName(n) {
+  const prev = ratName;
   ratName = n.trim().slice(0, 20);
   localStorage.setItem('ratName', ratName);
   document.getElementById('hudName').textContent = ratName;
   startName.value = ratName; setNameInput.value = ratName;
+  // a rename takes the leaderboard row along (merging with any existing row under the new name)
+  if (prev && ratName && prev.toLowerCase() !== ratName.toLowerCase()) {
+    fetch(API, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rename: { from: prev, to: ratName } }),
+    }).then(() => renderTop()).catch(() => {});
+  }
 }
 setName(ratName);
 startName.addEventListener('keydown', e => { if (e.key === 'Enter') start(); });
