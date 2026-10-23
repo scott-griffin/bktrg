@@ -544,6 +544,7 @@ function start() {
   document.getElementById('overScreen').classList.add('hidden');
   document.getElementById('hud').classList.remove('hidden');
   document.getElementById('brand').classList.remove('hidden');
+  document.getElementById('pauseBtn').textContent = '⏸';
   playing = true; paused = false;
   audio();   // unlock the audio context on the Run tap, whatever the music setting
   startMusic();
@@ -637,6 +638,7 @@ document.getElementById('settingsClose').addEventListener('click', closeSettings
 function togglePause() {
   if (!playing) return;
   paused = !paused;
+  document.getElementById('pauseBtn').textContent = paused ? '▶' : '⏸';
   if (paused) stopMusic();
   else { startMusic(); clock.getDelta(); frame(); }
 }
@@ -838,11 +840,73 @@ async function buildLofi() {
   return d;
 }
 
+// a fake singer: voice-ish waveform through bandpass filters at the formant frequencies of a sung "aah", with operatic vibrato and slow slides between notes
+function makeVoice(d, dest, vol) {
+  const voice = new Tone.Synth({ oscillator: { type: 'sawtooth' }, portamento: 0.09, envelope: { attack: 0.35, decay: 0.2, sustain: 0.85, release: 0.8 }, volume: vol });
+  const split = new Tone.Gain(), out = new Tone.Gain(0.6);
+  voice.connect(split);
+  for (const [f, q, g] of [[800, 5, 1], [1150, 7, 0.5], [2900, 9, 0.22]]) {
+    const bp = new Tone.Filter({ frequency: f, type: 'bandpass', Q: q });
+    const gg = new Tone.Gain(g);
+    split.connect(bp); bp.connect(gg); gg.connect(out);
+    d.push(bp, gg);
+  }
+  const vib = new Tone.Vibrato(5.2, 0.18);
+  out.chain(vib, dest);
+  d.push(voice, split, out, vib);
+  return voice;
+}
+
+async function buildCirque() {
+  const d = [];
+  const hall = new Tone.Reverb({ decay: 6, wet: 0.45 }).toDestination(); d.push(hall);
+  const lead = makeVoice(d, hall, -4);
+  const harmony = makeVoice(d, hall, -11);
+  const drone = new Tone.MonoSynth({ oscillator: { type: 'sine' }, envelope: { attack: 1.5, decay: 0.5, sustain: 0.9, release: 2 }, volume: -8 }).connect(hall); d.push(drone);
+  const timpani = new Tone.MembraneSynth({ pitchDecay: 0.09, octaves: 4, volume: -10 }).connect(hall); d.push(timpani);
+  const pad = new Tone.PolySynth(Tone.Synth, { oscillator: { type: 'fatsawtooth', count: 3, spread: 30 }, envelope: { attack: 1.8, decay: 0.8, sustain: 0.7, release: 2.5 }, volume: -23 });
+  const pf = new Tone.Filter(850, 'lowpass'); pad.chain(pf, hall); d.push(pad, pf);
+  const harp = getPiano(); harp.disconnect(); harp.connect(hall); harp.volume.value = -12;
+
+  const loop8 = p => { p.loop = true; p.loopEnd = '8m'; p.start(0); d.push(p); };
+  loop8(new Tone.Part((t, q) => lead.triggerAttackRelease(q.n, q.dur, t), [
+    ['0:0:0', { n: 'A4', dur: '1m' }], ['1:0:0', { n: 'C5', dur: '2n' }], ['1:2:0', { n: 'B4', dur: '2n' }],
+    ['2:0:0', { n: 'E5', dur: '1m' }], ['3:0:0', { n: 'D5', dur: '2n' }], ['3:2:0', { n: 'C5', dur: '2n' }],
+    ['4:0:0', { n: 'B4', dur: '1m' }], ['5:0:0', { n: 'C5', dur: '2n' }], ['5:2:0', { n: 'E5', dur: '2n' }],
+    ['6:0:0', { n: 'B4', dur: '2n' }], ['6:2:0', { n: 'G4', dur: '2n' }], ['7:0:0', { n: 'A4', dur: '1m' }],
+  ]));
+  loop8(new Tone.Part((t, q) => harmony.triggerAttackRelease(q.n, q.dur, t), [
+    ['0:0:0', { n: 'E4', dur: '2m' }], ['2:0:0', { n: 'F4', dur: '2m' }],
+    ['4:0:0', { n: 'E4', dur: '2m' }], ['6:0:0', { n: 'E4', dur: '2m' }],
+  ]));
+  loop8(new Tone.Part((t, n) => drone.triggerAttackRelease(n, '2m', t), [
+    ['0:0:0', 'A1'], ['2:0:0', 'F1'], ['4:0:0', 'C2'], ['6:0:0', 'E1'],
+  ]));
+  loop8(new Tone.Part((t, q) => pad.triggerAttackRelease(q.c, '2m', t, 0.7), [
+    ['0:0:0', { c: ['A2', 'C3', 'E3'] }], ['2:0:0', { c: ['F2', 'A2', 'C3'] }],
+    ['4:0:0', { c: ['C3', 'E3', 'G3'] }], ['6:0:0', { c: ['E2', 'G2', 'B2'] }],
+  ]));
+  loop8(new Tone.Part((t, n) => timpani.triggerAttackRelease(n, '2n', t), [
+    ['0:0:0', 'A1'], ['2:0:0', 'F1'], ['4:0:0', 'C2'], ['6:0:0', 'E1'], ['7:3:0', 'E1'],
+  ]));
+  // harp-like arpeggios from the sampled piano, one chord per bar
+  const ARP = [
+    'A2', 'C3', 'E3', 'A3', 'C4', 'A3', 'E3', 'C3',
+    'F2', 'A2', 'C3', 'F3', 'A3', 'F3', 'C3', 'A2',
+    'C3', 'E3', 'G3', 'C4', 'E4', 'C4', 'G3', 'E3',
+    'E2', 'G2', 'B2', 'E3', 'G3', 'E3', 'B2', 'G2',
+  ];
+  d.push(new Tone.Sequence((t, n) => harp.triggerAttackRelease(n, '8n', t, 0.4), ARP, '8n').start(0));
+  await Tone.loaded();
+  return d;
+}
+
 const MUSIC_STYLES = {
   caper: { bpm: 112, swing: 0.08, build: buildCaper },
   funk:  { bpm: 98,  swing: 0.12, swingSub: '16n', build: buildFunk },
   chase: { bpm: 140, swing: 0,    build: buildChase },
   lofi:  { bpm: 86,  swing: 0.25, build: buildLofi },
+  cirque: { bpm: 80, swing: 0,    build: buildCirque },
 };
 let musicStyle = localStorage.getItem('trainRatMusicStyle') || 'caper';
 if (!MUSIC_STYLES[musicStyle]) musicStyle = 'caper';
@@ -885,6 +949,7 @@ const STYLE_INFO = {
   funk:  { title: 'B — Funky Rat', desc: 'A real funk vamp — popping octave bass, ghost notes, clav scratch, horn stab on The One.' },
   chase: { title: 'C — Train Chase', desc: 'Epic chase — driving drums, timpani, soaring strings, twangy riff, a train whistle in the distance.' },
   lofi:  { title: 'D — Lo-fi Bounce', desc: 'Slow head-nod beat — huge sliding sub bass, a real piano through a dusty tape wobble.' },
+  cirque: { title: 'E — Circus in the Sky', desc: 'Cirque-style wordless vocals — two soaring synthetic voices over harp arpeggios, deep drone and timpani.' },
 };
 const musicPicker = document.getElementById('musicPicker');
 const musicTiles = document.getElementById('musicTiles');
