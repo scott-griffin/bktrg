@@ -714,8 +714,22 @@ function buildFunk() {
   const d = [];
   const arr32 = m => Array.from({ length: 32 }, (_, i) => m[i] || null);
   const reverb = new Tone.Reverb({ decay: 1.1, wet: 0.1 }).toDestination(); d.push(reverb);
-  const bass = new Tone.MonoSynth({ oscillator: { type: 'sawtooth' }, envelope: { attack: 0.003, decay: 0.12, sustain: 0.25, release: 0.08 }, filterEnvelope: { attack: 0.003, decay: 0.09, sustain: 0.2, baseFrequency: 110, octaves: 2.8 }, filter: { Q: 5 }, volume: -3 }).toDestination(); d.push(bass);
-  const sub = new Tone.MonoSynth({ oscillator: { type: 'sine' }, envelope: { attack: 0.004, decay: 0.2, sustain: 0.4, release: 0.1 }, volume: -8 }).toDestination(); d.push(sub);
+  // electric bass guitar, FM-faked: bright pluck attack decaying into a round woody body (fingerstyle), plus a brighter snappier voice for the slap pops
+  const bass = new Tone.FMSynth({
+    harmonicity: 1, modulationIndex: 9, portamento: 0.01,
+    oscillator: { type: 'sine' }, modulation: { type: 'square' },
+    envelope: { attack: 0.004, decay: 0.3, sustain: 0.25, release: 0.1 },
+    modulationEnvelope: { attack: 0.002, decay: 0.08, sustain: 0.08, release: 0.05 },
+    volume: -2,
+  }).toDestination(); d.push(bass);
+  const pop = new Tone.FMSynth({
+    harmonicity: 2, modulationIndex: 18,
+    oscillator: { type: 'sine' }, modulation: { type: 'square' },
+    envelope: { attack: 0.002, decay: 0.14, sustain: 0, release: 0.08 },
+    modulationEnvelope: { attack: 0.001, decay: 0.04, sustain: 0, release: 0.03 },
+    volume: -6,
+  }).toDestination(); d.push(pop);
+  const sub = new Tone.MonoSynth({ oscillator: { type: 'sine' }, envelope: { attack: 0.004, decay: 0.2, sustain: 0.4, release: 0.1 }, volume: -9 }).toDestination(); d.push(sub);
   const clav = new Tone.PolySynth(Tone.Synth, { oscillator: { type: 'square' }, envelope: { attack: 0.002, decay: 0.06, sustain: 0, release: 0.05 }, volume: -17 });
   const cf = new Tone.Filter(2500, 'bandpass'); clav.chain(cf, reverb); d.push(clav, cf);
   const horns = new Tone.PolySynth(Tone.Synth, { oscillator: { type: 'sawtooth' }, envelope: { attack: 0.01, decay: 0.25, sustain: 0.2, release: 0.15 }, volume: -15 });
@@ -729,10 +743,10 @@ function buildFunk() {
   const ohf = new Tone.Filter(7000, 'highpass'); openHat.chain(ohf, Tone.getDestination()); d.push(openHat, ohf);
 
   // 2-bar patterns on a 16th grid: {step: [note, duration, velocity]} — velocity is the funk
-  const BASS = arr32({
-    0: ['A1', '8n', 1], 3: ['A2', '16n', 0.8], 5: ['A1', '16n', 0.3], 7: ['A1', '16n', 0.5],
+  const BASS = arr32({   // 4th element 'p' = slap pop
+    0: ['A1', '8n', 1], 3: ['A2', '16n', 0.9, 'p'], 5: ['A1', '16n', 0.3], 7: ['A1', '16n', 0.5],
     8: ['G1', '16n', 0.7], 10: ['A1', '8n', 0.9], 14: ['G1', '16n', 0.4], 15: ['A1', '16n', 0.6],
-    16: ['A1', '8n', 1], 19: ['A2', '16n', 0.8], 21: ['E2', '16n', 0.6], 23: ['D2', '16n', 0.7],
+    16: ['A1', '8n', 1], 19: ['A2', '16n', 0.9, 'p'], 21: ['E2', '16n', 0.6], 23: ['D2', '16n', 0.7, 'p'],
     24: ['C2', '16n', 0.8], 26: ['A1', '16n', 0.4], 28: ['E1', '8n', 0.9], 31: ['G1', '16n', 0.7],
   });
   const A9 = ['A3', 'C#4', 'E4', 'G4'];
@@ -742,7 +756,11 @@ function buildFunk() {
   const SNARE = arr32({ 4: 1, 9: 0.25, 12: 1, 15: 0.2, 20: 1, 25: 0.25, 28: 1 });
   const HATS = Array.from({ length: 32 }, (_, i) => (i === 14 || i === 30) ? 'o' : (i % 4 === 0 ? 0.5 : 0.28));
 
-  d.push(new Tone.Sequence((t, p) => { if (p) { bass.triggerAttackRelease(p[0], p[1], t, p[2]); sub.triggerAttackRelease(sub12(p[0]), p[1], t, p[2] * 0.9); } }, BASS, '16n').start(0));
+  d.push(new Tone.Sequence((t, p) => {
+    if (!p) return;
+    (p[3] === 'p' ? pop : bass).triggerAttackRelease(p[0], p[1], t, p[2]);
+    sub.triggerAttackRelease(sub12(p[0]), p[1], t, p[2] * 0.9);
+  }, BASS, '16n').start(0));
   d.push(new Tone.Sequence((t, v) => { if (v) clav.triggerAttackRelease(A9, '32n', t, v); }, CLAV, '16n').start(0));
   d.push(new Tone.Sequence((t, v) => { if (v) horns.triggerAttackRelease(A9, '8n', t, v); }, HORNS, '16n').start(0));
   d.push(new Tone.Sequence((t, v) => { if (v) kick.triggerAttackRelease('C1', '8n', t, v); }, KICK, '16n').start(0));
