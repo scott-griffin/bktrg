@@ -85,18 +85,25 @@ function buildCaper() {
 }
 
 function buildFunk() {
+  // reworked: longer notes that breathe — sliding bass with held durations, ringing chord stabs, fat kick, full-bodied snare
   const d = [];
-  const reverb = new Tone.Reverb({ decay: 1.2, wet: 0.12 }).toDestination(); d.push(reverb);
-  const bass = new Tone.MonoSynth({ oscillator: { type: 'sawtooth' }, envelope: { attack: 0.005, decay: 0.2, sustain: 0.4, release: 0.15 }, filterEnvelope: { attack: 0.01, decay: 0.12, sustain: 0.2, baseFrequency: 70, octaves: 3.5 }, filter: { Q: 6 }, volume: -4 }).toDestination(); d.push(bass);
-  const clav = new Tone.PolySynth(Tone.Synth, { oscillator: { type: 'square' }, envelope: { attack: 0.003, decay: 0.09, sustain: 0, release: 0.08 }, volume: -19 });
-  const cf = new Tone.Filter(1500, 'lowpass'); clav.chain(cf, reverb); d.push(clav, cf);
-  const kit = drumKit(d, -5, -14, -25, 2000);
-  const BASSLINE = ['A1', null, null, 'A1', null, null, 'G1', 'A1', null, 'A1', null, 'C2', 'C#2', 'D2', null, 'A1', 'A1', null, null, 'A1', null, 'E2', null, 'D2', null, 'C2', null, 'A1', 'G1', null, 'A1', null];
-  const CH = { x: ['A3', 'C4', 'E4', 'G4'], y: ['D3', 'F#3', 'A3', 'C4'] };
-  const STABS = [null, null, 'x', null, null, 'x', null, null, null, null, 'x', null, 'y', null, null, null];
-  d.push(new Tone.Sequence((t, n) => { if (n) bass.triggerAttackRelease(n, '16n', t); }, BASSLINE, '16n').start(0));
-  d.push(new Tone.Sequence((t, c) => { if (c) clav.triggerAttackRelease(CH[c], '16n', t); }, STABS, '8n').start(0));
-  drumSeq(d, kit, ['K', 'h', null, 'k', 's', null, 'h', 'h', null, 'k', 'K', 'h', 's', null, 'h', 's', 'K', 'h', null, null, 's', null, 'h', 'k', 'k', null, 'h', 'h', 's', null, 'h', null], '16n');
+  const reverb = new Tone.Reverb({ decay: 1.3, wet: 0.14 }).toDestination(); d.push(reverb);
+  const bass = new Tone.MonoSynth({ oscillator: { type: 'sawtooth' }, portamento: 0.02, envelope: { attack: 0.005, decay: 0.3, sustain: 0.5, release: 0.25 }, filterEnvelope: { attack: 0.01, decay: 0.18, sustain: 0.35, baseFrequency: 80, octaves: 3 }, filter: { Q: 4 }, volume: -4 }).toDestination(); d.push(bass);
+  const sub = new Tone.MonoSynth({ oscillator: { type: 'sine' }, envelope: { attack: 0.01, decay: 0.35, sustain: 0.6, release: 0.25 }, volume: -7 }).toDestination(); d.push(sub);
+  const keys = new Tone.PolySynth(Tone.Synth, { oscillator: { type: 'square' }, envelope: { attack: 0.005, decay: 0.22, sustain: 0.18, release: 0.15 }, volume: -19 });
+  const kf = new Tone.Filter(1800, 'lowpass'); keys.chain(kf, reverb); d.push(keys, kf);
+  const kit = drumKit(d, -4, -12, -24, 1200);
+  const BASSLINE = [
+    ['A1', '8n'], null, null, ['A1', '16n'], null, null, ['G1', '16n'], ['A1', '8n'],
+    null, null, ['C2', '16n'], null, ['D2', '8n'], null, ['E2', '16n'], null,
+    ['A1', '8n'], null, null, ['A1', '16n'], null, ['E2', '16n'], null, ['D2', '8n'],
+    null, null, ['C2', '16n'], ['A1', '16n'], ['G1', '8n'], null, ['A1', '4n'], null,
+  ];
+  const CH = { x: ['A3', 'C4', 'E4', 'G4'], y: ['D3', 'F#3', 'C4', 'E4'] };
+  const STABS = [null, null, ['x', '8n'], null, null, null, null, ['x', '8n'], null, null, ['x', '8n'], null, ['y', '4n'], null, null, null];
+  d.push(new Tone.Sequence((t, p) => { if (p) { bass.triggerAttackRelease(p[0], p[1], t); sub.triggerAttackRelease(sub12(p[0]), p[1], t); } }, BASSLINE, '16n').start(0));
+  d.push(new Tone.Sequence((t, p) => { if (p) keys.triggerAttackRelease(CH[p[0]], p[1], t); }, STABS, '8n').start(0));
+  drumSeq(d, kit, ['K', 'h', null, 'h', 's', null, 'h', null, null, 'h', 'K', 'h', 's', null, 'h', 'h', 'K', 'h', null, 'k', 's', null, 'h', 'h', 'k', null, 'h', null, 's', null, 'h', 'h'], '16n');
   return d;
 }
 
