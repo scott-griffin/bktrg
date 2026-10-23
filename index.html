@@ -86,6 +86,7 @@
 </head>
 <body>
   <div id="brand" class="hidden">TRAIN RAT</div>
+  <div id="musicLoading" class="hidden" style="position:fixed; bottom:40px; right:14px; background:#14141fcc; color:#ffcc00; padding:8px 14px; border-radius:20px; font-size:12px; letter-spacing:1px; z-index:25;">♪ loading music…</div>
   <div id="errToast" class="hidden" style="position:fixed; bottom:40px; left:50%; transform:translateX(-50%); background:#8b1a0e; color:#fff; padding:10px 18px; border-radius:6px; font-size:12px; z-index:40; max-width:90vw;"></div>
   <div id="hud" class="hidden"><span>🐀 <b id="hudName"></b></span><span>🧀 <b id="cheeseCt">0</b></span><span>SCORE <b id="scoreCt">0</b></span><span id="powIcons"></span><span id="pauseBtn" style="pointer-events:auto;cursor:pointer">⏸</span><span id="settingsBtn" style="pointer-events:auto;cursor:pointer">⚙️</span></div>
 
@@ -157,12 +158,11 @@
       <span>⬇️</span><span>duck</span>
     </div>
     <p>(or swipe on your phone)</p>
-    <p style="color:#ffcc00">New: power-ups on the track! 🧲 ⛑️ 🚀 ⭐</p>
+    <p style="color:#ffcc00">New: power-ups and pizza! 🧲 ⛑️ 🚀 ⭐ 🍕</p>
     <input type="text" id="startName" class="nameInput" maxlength="20" placeholder="your name" autocomplete="off">
     <button class="go-btn" id="startBtn">Run!</button>
     <a href="#" id="settingsLink">⚙️ settings</a>
     <a href="leaderboard.html">🏆 Leaderboard</a>
-    <a href="classic.html">🕹️ classic 2D version</a>
   </div>
 
   <div class="overlay hidden" id="overScreen">
@@ -551,6 +551,14 @@ function spawnWave() {
       treats.push({ mesh: m, lane: open });
     }
   }
+  // rare pizza — worth 100 points
+  if (Math.random() < 0.08) {
+    const g = new THREE.Group();
+    g.add(glowSprite(0xffcc88, 2.0), emojiSprite('🍕', 1.1));
+    g.position.set(LANE_X(order[nBlocked]), 0.8, -WORLD_LEN - 36);
+    scene.add(g);
+    treats.push({ mesh: g, kind: 'pizza' });
+  }
   // the occasional power-up, floating in an open lane
   if (Math.random() < 0.10) {
     const kinds = Object.keys(POW);
@@ -650,8 +658,8 @@ function update(dt) {
       t.mesh.position.z += (0 - t.mesh.position.z) * Math.min(1, dt * 2.5);
     }
     if (Math.abs(t.mesh.position.x - ratX) < 1.1 && Math.abs(t.mesh.position.z) < 1.1) {
-      cheese++; score += 25 * mult; sfx.cheese();
-      spawnParts('spark', t.mesh.position, 6, 2, 2.5);
+      if (t.kind === 'pizza') { score += 100 * mult; sfx.pizza(); spawnParts('spark', t.mesh.position, 14, 3, 3); }
+      else { cheese++; score += 25 * mult; sfx.cheese(); spawnParts('spark', t.mesh.position, 6, 2, 2.5); }
       scene.remove(t.mesh); return false;
     }
     if (t.mesh.position.z > 10) { scene.remove(t.mesh); return false; }
@@ -850,6 +858,7 @@ const sfx = {
   cheese: () => { if (!sfxOn) return; const t = audio().currentTime; tone(880, 880, 0.07, 'sine', 0.14, t); tone(1318.5, 1318.5, 0.12, 'sine', 0.12, t + 0.07); },
   crash:  () => { if (!sfxOn) return; tone(350, 55, 0.5, 'sawtooth', 0.22); tone(180, 40, 0.5, 'square', 0.16); },
   power:  () => { if (!sfxOn) return; const t = audio().currentTime; tone(523, 784, 0.12, 'triangle', 0.15, t); tone(784, 1046, 0.16, 'triangle', 0.14, t + 0.1); },
+  pizza:  () => { if (!sfxOn) return; const t = audio().currentTime; tone(659, 659, 0.08, 'sine', 0.15, t); tone(784, 784, 0.08, 'sine', 0.15, t + 0.08); tone(1046.5, 1046.5, 0.18, 'sine', 0.16, t + 0.16); },
   clang:  () => sfxOn && tone(900, 180, 0.3, 'square', 0.2),
 };
 // Tone.js soundtracks: four styles the player picks in settings. Tempo climbs with the game.
@@ -1096,6 +1105,9 @@ let musicStyle = localStorage.getItem('trainRatMusicStyle') || 'caper';
 if (!MUSIC_STYLES[musicStyle]) musicStyle = 'caper';
 let musicParts = null, builtStyle = null;
 async function applyStyle(key) {
+  const loadingPill = document.getElementById('musicLoading');
+  loadingPill.classList.remove('hidden');
+  try {
   const wasStarted = Tone.Transport.state === 'started';
   Tone.Transport.stop();
   Tone.Transport.cancel(0);
@@ -1109,6 +1121,7 @@ async function applyStyle(key) {
   Tone.Transport.swingSubdivision = s.swingSub || '8n';
   Tone.Transport.position = 0;
   if (wasStarted) Tone.Transport.start('+0.05');
+  } finally { loadingPill.classList.add('hidden'); }
 }
 async function startMusic() {
   if (!musicOn || typeof Tone === 'undefined') return;   // no CDN, no music — the game plays on
