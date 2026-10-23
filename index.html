@@ -80,6 +80,7 @@
 </head>
 <body>
   <div id="brand" class="hidden">TRAIN RAT</div>
+  <div id="errToast" class="hidden" style="position:fixed; bottom:40px; left:50%; transform:translateX(-50%); background:#8b1a0e; color:#fff; padding:10px 18px; border-radius:6px; font-size:12px; z-index:40; max-width:90vw;"></div>
   <div id="hud" class="hidden"><span>🐀 <b id="hudName"></b></span><span>🧀 <b id="cheeseCt">0</b></span><span>SCORE <b id="scoreCt">0</b></span><span id="pauseBtn" style="pointer-events:auto;cursor:pointer">⏸</span><span id="settingsBtn" style="pointer-events:auto;cursor:pointer">⚙️</span></div>
 
   <div id="settingsPanel" class="hidden" style="position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); background:#14141f; border:1px solid #333; border-radius:8px; padding:28px 32px; z-index:20; text-align:center; box-shadow:0 0 40px #000;">
@@ -166,6 +167,16 @@
 <script src="https://cdn.jsdelivr.net/npm/tone@14.8.49/build/Tone.js"></script>
 <script type="module">
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
+
+// surface any runtime failure as a small red toast — a silent game should never be a mystery again
+function showErr(msg) {
+  const el = document.getElementById('errToast');
+  el.textContent = '⚠ ' + msg;
+  el.classList.remove('hidden');
+  clearTimeout(showErr.t); showErr.t = setTimeout(() => el.classList.add('hidden'), 8000);
+}
+addEventListener('error', e => showErr(e.message));
+addEventListener('unhandledrejection', e => showErr((e.reason && e.reason.message) || String(e.reason)));
 
 // ---------- renderer / scene / camera ----------
 const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -699,6 +710,8 @@ function getPiano() {
   });
   return pianoSampler;
 }
+// never let a stalled sample download hold the music hostage — after 8s, play with whatever loaded
+const loadedOrTimeout = () => Promise.race([Tone.loaded(), new Promise(r => setTimeout(r, 8000))]);
 
 async function buildCaper() {
   const d = [];
@@ -725,7 +738,7 @@ async function buildCaper() {
   d.push(new Tone.Sequence((t, p) => { if (p) pad.triggerAttackRelease(p.c, '1m', t, 0.7); }, PADCH, '1m').start(0));
   const pno = getPiano(); pno.disconnect(); pno.connect(reverb); pno.volume.value = -10;
   d.push(new Tone.Sequence((t, n) => { if (n) pno.triggerAttackRelease(n, '8n', t, 0.45); }, MELODY, '8n').start(0));
-  await Tone.loaded();
+  await loadedOrTimeout();
   return d;
 }
 
@@ -836,7 +849,7 @@ async function buildLofi() {
   d.push(new Tone.Sequence((t, ch) => { if (ch) keys.triggerAttackRelease(ch.c, '1m', t, 0.5); }, CHORDS, '1m').start(0));
   d.push(new Tone.Sequence((t, n) => { if (n) pluck.triggerAttackRelease(n, '8n', t); }, PLUCKS, '8n').start(0));
   drumSeq(d, kit, ['K', null, null, null, null, null, 'k', null, 's', null, null, 'h', null, 'k', null, null, 'K', null, 'h', null, 'k', null, null, null, 's', null, null, 'h', null, null, 'h', null], '16n');
-  await Tone.loaded();
+  await loadedOrTimeout();
   return d;
 }
 
@@ -897,7 +910,7 @@ async function buildCirque() {
     'E2', 'G2', 'B2', 'E3', 'G3', 'E3', 'B2', 'G2',
   ];
   d.push(new Tone.Sequence((t, n) => harp.triggerAttackRelease(n, '8n', t, 0.4), ARP, '8n').start(0));
-  await Tone.loaded();
+  await loadedOrTimeout();
   return d;
 }
 
@@ -928,9 +941,17 @@ async function applyStyle(key) {
 }
 async function startMusic() {
   if (!musicOn || typeof Tone === 'undefined') return;   // no CDN, no music — the game plays on
-  await Tone.start();
-  if (!musicParts || builtStyle !== musicStyle) await applyStyle(musicStyle);
-  Tone.Transport.start();
+  try {
+    await Tone.start();
+    if (!musicParts || builtStyle !== musicStyle) await applyStyle(musicStyle);
+    Tone.Transport.start();
+  } catch (err) {
+    showErr('music: ' + err.message);
+    if (musicStyle !== 'caper') {   // a broken style falls back to the default track rather than silence
+      musicStyle = 'caper'; localStorage.setItem('trainRatMusicStyle', 'caper');
+      try { await applyStyle('caper'); Tone.Transport.start(); } catch (e2) { showErr('music fallback: ' + e2.message); }
+    }
+  }
 }
 function stopMusic() { if (typeof Tone !== 'undefined' && musicParts) Tone.Transport.pause(); }
 sfxToggle.checked = sfxOn; musicToggle.checked = musicOn;
