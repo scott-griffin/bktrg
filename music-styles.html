@@ -35,7 +35,7 @@
   <p class="sub">For Thomas — all with big bass. Tap to listen, tap again to stop.</p>
   <div class="grid">
     <div class="tile"><h2>A — Sneaky Caper</h2><p>The current tune, fixed up: much fatter bass with a deep sub underneath, and a smoother, rounder lead instead of the Tetris beeps.</p><button class="play" data-i="0">▶ Play</button></div>
-    <div class="tile"><h2>B — Funky Rat</h2><p>Slow funk groove — wah-wah bass doing all the talking, little clav stabs, swagger instead of melody. The rat struts.</p><button class="play" data-i="1">▶ Play</button></div>
+    <div class="tile"><h2>B — Funky Rat</h2><p>A real funk vamp — popping octave bass, ghost notes, clav scratch, horn stab on The One. The rat struts.</p><button class="play" data-i="1">▶ Play</button></div>
     <div class="tile"><h2>C — Train Chase</h2><p>Fast surf-rock chase — driving drums, twangy echoing guitar-style riff, train whistle in the distance. Cartoon chase energy.</p><button class="play" data-i="2">▶ Play</button></div>
     <div class="tile"><h2>D — Lo-fi Bounce</h2><p>Slow head-nod beat — huge sliding sub bass, dusty mellow keys, boom-bap drums. The coolest rat in the yard.</p><button class="play" data-i="3">▶ Play</button></div>
   </div>
@@ -85,25 +85,45 @@ function buildCaper() {
 }
 
 function buildFunk() {
-  // take 3: a steady driving pulse groove instead of scattered syncopation — root-note bass pumping on the beat with a run fill, backbeat snare, tight in-key chops, straight time (the swing was what lurched)
+  // fresh start: funk is dynamics — every voice carries per-note velocity (accents vs ghost notes), over a one-chord A9 vamp.
+  // Octave-pop bass with ghosts, 16th hats + open-hat sizzle, ghost snares around the backbeat, clav scratch, horn stab on The One.
   const d = [];
-  const reverb = new Tone.Reverb({ decay: 1.2, wet: 0.12 }).toDestination(); d.push(reverb);
-  const bass = new Tone.MonoSynth({ oscillator: { type: 'sawtooth' }, envelope: { attack: 0.004, decay: 0.25, sustain: 0.55, release: 0.15 }, filterEnvelope: { attack: 0.005, decay: 0.15, sustain: 0.4, baseFrequency: 90, octaves: 2.6 }, filter: { Q: 2 }, volume: -4 }).toDestination(); d.push(bass);
-  const sub = new Tone.MonoSynth({ oscillator: { type: 'sine' }, envelope: { attack: 0.005, decay: 0.3, sustain: 0.6, release: 0.2 }, volume: -6 }).toDestination(); d.push(sub);
-  const clav = new Tone.PolySynth(Tone.Synth, { oscillator: { type: 'square' }, envelope: { attack: 0.004, decay: 0.18, sustain: 0.12, release: 0.12 }, volume: -20 });
-  const cf = new Tone.Filter(2200, 'lowpass'); clav.chain(cf, reverb); d.push(clav, cf);
-  const kit = drumKit(d, -3, -12, -23, 1300);
-  const BASSLINE = [
-    ['A1', '8n'], null, null, null, ['A1', '8n'], null, null, null,
-    ['A1', '8n'], null, null, null, null, null, ['G1', '16n'], ['A1', '16n'],
-    ['A1', '8n'], null, null, null, ['A1', '8n'], null, ['A1', '16n'], ['A1', '16n'],
-    null, ['C2', '16n'], ['C2', '16n'], null, ['D2', '8n'], null, ['G1', '16n'], null,
-  ];
-  const CH = { a: ['A3', 'C4', 'E4', 'G4'], g: ['G3', 'B3', 'D4'] };
-  const STABS = [null, null, null, ['a', '16n'], null, null, null, ['a', '8n'], null, null, null, ['a', '16n'], null, ['g', '16n'], null, ['a', '8n']];
-  d.push(new Tone.Sequence((t, p) => { if (p) { bass.triggerAttackRelease(p[0], p[1], t); sub.triggerAttackRelease(sub12(p[0]), p[1], t); } }, BASSLINE, '16n').start(0));
-  d.push(new Tone.Sequence((t, p) => { if (p) clav.triggerAttackRelease(CH[p[0]], p[1], t); }, STABS, '8n').start(0));
-  drumSeq(d, kit, ['K', null, 'h', null, 's', null, 'h', 'h', 'K', null, 'h', 'k', 's', null, 'h', null], '16n');
+  const arr32 = m => Array.from({ length: 32 }, (_, i) => m[i] || null);
+  const reverb = new Tone.Reverb({ decay: 1.1, wet: 0.1 }).toDestination(); d.push(reverb);
+  const bass = new Tone.MonoSynth({ oscillator: { type: 'sawtooth' }, envelope: { attack: 0.003, decay: 0.12, sustain: 0.25, release: 0.08 }, filterEnvelope: { attack: 0.003, decay: 0.09, sustain: 0.2, baseFrequency: 110, octaves: 2.8 }, filter: { Q: 5 }, volume: -3 }).toDestination(); d.push(bass);
+  const sub = new Tone.MonoSynth({ oscillator: { type: 'sine' }, envelope: { attack: 0.004, decay: 0.2, sustain: 0.4, release: 0.1 }, volume: -8 }).toDestination(); d.push(sub);
+  const clav = new Tone.PolySynth(Tone.Synth, { oscillator: { type: 'square' }, envelope: { attack: 0.002, decay: 0.06, sustain: 0, release: 0.05 }, volume: -17 });
+  const cf = new Tone.Filter(2500, 'bandpass'); clav.chain(cf, reverb); d.push(clav, cf);
+  const horns = new Tone.PolySynth(Tone.Synth, { oscillator: { type: 'sawtooth' }, envelope: { attack: 0.01, decay: 0.25, sustain: 0.2, release: 0.15 }, volume: -15 });
+  const hf = new Tone.Filter(1400, 'lowpass'); horns.chain(hf, reverb); d.push(horns, hf);
+  const kick = new Tone.MembraneSynth({ pitchDecay: 0.05, octaves: 9, volume: -3 }).toDestination(); d.push(kick);
+  const snare = new Tone.NoiseSynth({ noise: { type: 'white' }, envelope: { attack: 0.001, decay: 0.16, sustain: 0 }, volume: -11 });
+  const sf = new Tone.Filter(1100, 'highpass'); snare.chain(sf, Tone.getDestination()); d.push(snare, sf);
+  const hat = new Tone.NoiseSynth({ noise: { type: 'white' }, envelope: { attack: 0.001, decay: 0.03, sustain: 0 }, volume: -22 });
+  const hhf = new Tone.Filter(8500, 'highpass'); hat.chain(hhf, Tone.getDestination()); d.push(hat, hhf);
+  const openHat = new Tone.NoiseSynth({ noise: { type: 'white' }, envelope: { attack: 0.001, decay: 0.22, sustain: 0 }, volume: -24 });
+  const ohf = new Tone.Filter(7000, 'highpass'); openHat.chain(ohf, Tone.getDestination()); d.push(openHat, ohf);
+
+  // 2-bar patterns on a 16th grid: {step: [note, duration, velocity]} — velocity is the funk
+  const BASS = arr32({
+    0: ['A1', '8n', 1], 3: ['A2', '16n', 0.8], 5: ['A1', '16n', 0.3], 7: ['A1', '16n', 0.5],
+    8: ['G1', '16n', 0.7], 10: ['A1', '8n', 0.9], 14: ['G1', '16n', 0.4], 15: ['A1', '16n', 0.6],
+    16: ['A1', '8n', 1], 19: ['A2', '16n', 0.8], 21: ['E2', '16n', 0.6], 23: ['D2', '16n', 0.7],
+    24: ['C2', '16n', 0.8], 26: ['A1', '16n', 0.4], 28: ['E1', '8n', 0.9], 31: ['G1', '16n', 0.7],
+  });
+  const A9 = ['A3', 'C#4', 'E4', 'G4'];
+  const CLAV = arr32({ 2: 0.35, 3: 0.6, 6: 0.3, 8: 0.7, 11: 0.35, 13: 0.3, 14: 0.6, 18: 0.35, 19: 0.6, 22: 0.3, 24: 0.7, 27: 0.35, 30: 0.6 });
+  const HORNS = arr32({ 0: 0.9, 30: 0.45 });
+  const KICK = arr32({ 0: 1, 7: 0.8, 10: 0.9, 16: 1, 22: 0.8, 24: 0.9 });
+  const SNARE = arr32({ 4: 1, 9: 0.25, 12: 1, 15: 0.2, 20: 1, 25: 0.25, 28: 1 });
+  const HATS = Array.from({ length: 32 }, (_, i) => (i === 14 || i === 30) ? 'o' : (i % 4 === 0 ? 0.5 : 0.28));
+
+  d.push(new Tone.Sequence((t, p) => { if (p) { bass.triggerAttackRelease(p[0], p[1], t, p[2]); sub.triggerAttackRelease(sub12(p[0]), p[1], t, p[2] * 0.9); } }, BASS, '16n').start(0));
+  d.push(new Tone.Sequence((t, v) => { if (v) clav.triggerAttackRelease(A9, '32n', t, v); }, CLAV, '16n').start(0));
+  d.push(new Tone.Sequence((t, v) => { if (v) horns.triggerAttackRelease(A9, '8n', t, v); }, HORNS, '16n').start(0));
+  d.push(new Tone.Sequence((t, v) => { if (v) kick.triggerAttackRelease('C1', '8n', t, v); }, KICK, '16n').start(0));
+  d.push(new Tone.Sequence((t, v) => { if (v) snare.triggerAttackRelease('16n', t, v); }, SNARE, '16n').start(0));
+  d.push(new Tone.Sequence((t, v) => { if (v === 'o') openHat.triggerAttackRelease('8n', t, 0.6); else if (v) hat.triggerAttackRelease('32n', t, v); }, HATS, '16n').start(0));
   return d;
 }
 
@@ -147,7 +167,7 @@ function buildLofi() {
 
 const STYLES = [
   { bpm: 112, swing: 0.08, build: buildCaper },
-  { bpm: 106, swing: 0, build: buildFunk },
+  { bpm: 98, swing: 0.12, swingSub: '16n', build: buildFunk },
   { bpm: 140, swing: 0, build: buildChase },
   { bpm: 86, swing: 0.25, build: buildLofi },
 ];
@@ -168,6 +188,7 @@ buttons.forEach(btn => btn.addEventListener('click', async () => {
   const s = STYLES[i];
   Tone.Transport.bpm.value = s.bpm;
   Tone.Transport.swing = s.swing;
+  Tone.Transport.swingSubdivision = s.swingSub || '8n';
   current = s.build();
   Tone.Transport.position = 0;
   Tone.Transport.start('+0.1');
