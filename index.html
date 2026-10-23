@@ -94,6 +94,9 @@
     <p style="color:#ffcc00; letter-spacing:3px; font-size:18px; text-transform:uppercase; margin-bottom:18px;">Settings</p>
     <label style="color:#aaa; letter-spacing:2px; font-size:13px;">NAME</label><br>
     <input type="text" id="setName" class="nameInput" maxlength="20" autocomplete="off" style="margin:10px 0 18px;"><br>
+    <label style="color:#aaa; letter-spacing:2px; font-size:13px;">RAT CODE</label><br>
+    <span style="color:#555; font-size:11px; letter-spacing:0.5px;">same name + code on another device = same player</span><br>
+    <input type="text" id="setCode" class="nameInput" maxlength="12" autocomplete="off" style="margin:8px 0 18px; text-transform:uppercase; letter-spacing:3px;"><br>
     <label style="color:#aaa; letter-spacing:2px; font-size:13px;">GAME SPEED &nbsp;<b id="speedVal" style="color:#ffcc00;">80%</b></label><br>
     <input type="range" id="speedSlider" min="40" max="140" step="10" style="width:220px; margin:14px 0 20px; accent-color:#ffcc00;"><br>
     <label style="color:#aaa; letter-spacing:2px; font-size:13px; display:block; margin-bottom:10px;"><input type="checkbox" id="sfxToggle" style="accent-color:#ffcc00;"> SOUND EFFECTS</label>
@@ -511,7 +514,7 @@ const POW = {
   rocket: { icon: '🚀', dur: 4 },
   star:   { icon: '⭐', dur: 8 },
 };
-let powers = [], magnetT = 0, starT = 0, rocketT = 0, invulnT = 0, helmet = false, flyY = 0, lastHop = 0, shake = 0;
+let powers = [], magnetT = 0, starT = 0, rocketT = 0, invulnT = 0, helmet = false, flyY = 0, lastHop = 0, shake = 0, powsThisRun = 0;
 function powHud() {
   document.getElementById('powIcons').textContent =
     (magnetT > 0 ? '🧲' : '') + (helmet ? '⛑️' : '') + (rocketT > 0 ? '🚀' : '') + (starT > 0 ? '⭐' : '');
@@ -534,7 +537,7 @@ function reset() {
   for (const p of powers) scene.remove(p.mesh);
   for (const p of particles) scene.remove(p.m);
   obstacles = []; treats = []; powers = []; particles.length = 0; spawnTimer = 0.8;
-  magnetT = 0; starT = 0; rocketT = 0; invulnT = 0; helmet = false; flyY = 0; shake = 0;
+  magnetT = 0; starT = 0; rocketT = 0; invulnT = 0; helmet = false; flyY = 0; shake = 0; powsThisRun = 0;
   rat.group.visible = true;
   powHud();
 }
@@ -683,7 +686,7 @@ function update(dt) {
       else if (k === 'star') starT = POW.star.dur;
       else if (k === 'rocket') rocketT = POW.rocket.dur;
       else helmet = true;
-      powHud(); sfx.power();
+      powHud(); sfx.power(); powsThisRun++;
       spawnParts('pow', p.mesh.position, 10, 3, 3);
       scene.remove(p.mesh); return false;
     }
@@ -766,26 +769,49 @@ function gameOver() {
 // ---------- leaderboard (shared scoreboard API; one row per name, best score kept) ----------
 const API = 'https://dev.brasstix.com/bktrg/leaderboard.php';
 let ratName = localStorage.getItem('ratName') || '';
+// the rat code: a per-device secret that owns your name on the board — type it on another device to be yourself there
+let ratToken = localStorage.getItem('ratToken') || '';
+if (!ratToken) {
+  const chars = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+  ratToken = Array.from(crypto.getRandomValues(new Uint8Array(8)), b => chars[b % chars.length]).join('');
+  localStorage.setItem('ratToken', ratToken);
+}
 const startName = document.getElementById('startName');
 const setNameInput = document.getElementById('setName');
+function applyNameFields() {
+  document.getElementById('hudName').textContent = ratName;
+  startName.value = ratName; setNameInput.value = ratName;
+}
 function setName(n) {
   const prev = ratName;
   ratName = n.trim().slice(0, 20);
   localStorage.setItem('ratName', ratName);
-  document.getElementById('hudName').textContent = ratName;
-  startName.value = ratName; setNameInput.value = ratName;
-  // a rename takes the leaderboard row along (merging with any existing row under the new name)
+  applyNameFields();
+  // a rename takes the leaderboard row along; taken names are rejected and reverted
   if (prev && ratName && prev.toLowerCase() !== ratName.toLowerCase()) {
     fetch(API, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ rename: { from: prev, to: ratName } }),
-    }).then(() => renderTop()).catch(() => {});
+      body: JSON.stringify({ rename: { from: prev, to: ratName }, token: ratToken }),
+    }).then(res => {
+      if (res.status === 409 || res.status === 403) {
+        showErr(res.status === 409 ? 'That name is taken — pick another' : 'That name belongs to another player');
+        ratName = prev; localStorage.setItem('ratName', prev); applyNameFields();
+      }
+      renderTop();
+    }).catch(() => {});
   }
 }
 setName(ratName);
 startName.addEventListener('keydown', e => { if (e.key === 'Enter') start(); });
 setNameInput.addEventListener('change', () => setName(setNameInput.value));
+const setCodeInput = document.getElementById('setCode');
+setCodeInput.value = ratToken;
+setCodeInput.addEventListener('change', () => {
+  const v = setCodeInput.value.trim().toUpperCase().slice(0, 12);
+  if (v) { ratToken = v; localStorage.setItem('ratToken', v); }
+  setCodeInput.value = ratToken;
+});
 
 async function renderTop() {
   const el = document.getElementById('topList');
@@ -809,8 +835,9 @@ async function autoSave(s) {
     const res = await fetch(API, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: ratName, score: s }),
+      body: JSON.stringify({ name: ratName, score: s, token: ratToken, cheese, secs: Math.floor(elapsed), pows: powsThisRun }),
     });
+    if (res.status === 403) { el.textContent = 'That name belongs to another player — change yours in ⚙️'; renderTop(); return; }
     if (!res.ok) throw 0;
     const j = await res.json();
     el.textContent = j.rank ? `Saved — ${ratName} is #${j.rank} 🧀` : 'Saved ✓';
