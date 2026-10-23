@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Night Drive — a film-score sketch</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: linear-gradient(#060913, #0b1226 60%, #0a0f1d);
+      color: #dfe6f2; font-family: 'Georgia', serif; min-height: 100vh;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      text-align: center; padding: 30px 18px; overflow: hidden;
+    }
+    /* rain streaks */
+    body::before {
+      content: ''; position: fixed; inset: -60% 0 0 0; pointer-events: none;
+      background: repeating-linear-gradient(103deg, transparent 0 7px, rgba(170,200,255,0.065) 7px 8px);
+      animation: rainfall 0.7s linear infinite;
+    }
+    @keyframes rainfall { to { transform: translateY(42px); } }
+    .car { font-size: 64px; filter: drop-shadow(0 0 24px #4a7ac7); }
+    h1 {
+      font-size: clamp(30px, 6vw, 52px); letter-spacing: 6px; text-transform: uppercase;
+      background: linear-gradient(135deg, #9db8e8, #e8eefc, #6d8fd0);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      margin: 14px 0 6px;
+    }
+    .sub { color: #7487ab; letter-spacing: 2px; font-size: 14px; margin-bottom: 34px; }
+    #playBtn {
+      padding: 18px 64px; font-size: 22px; font-family: 'Georgia', serif; letter-spacing: 3px;
+      text-transform: uppercase; color: #0b1226;
+      background: linear-gradient(135deg, #9db8e8, #5f82c4); border: none; border-radius: 6px;
+      cursor: pointer; box-shadow: 0 0 36px #4a7ac788; transition: all 0.25s;
+    }
+    #playBtn:hover { transform: scale(1.04); box-shadow: 0 0 56px #4a7ac7; }
+    #playBtn:disabled { opacity: 0.6; cursor: wait; }
+    .how {
+      max-width: 560px; margin-top: 44px; color: #7487ab; font-size: 14px; line-height: 1.8;
+      letter-spacing: 0.5px; text-align: left;
+    }
+    .how b { color: #b9cbec; }
+    a { color: #55688f; font-size: 13px; letter-spacing: 2px; text-decoration: none; margin-top: 26px; }
+    a:hover { color: #9db8e8; }
+  </style>
+</head>
+<body>
+  <span class="car">🚗</span>
+  <h1>Night Drive</h1>
+  <p class="sub">someone driving in the rain · a film-score sketch</p>
+  <button id="playBtn">▶ Begin</button>
+
+  <p class="how">
+    <b>What you're hearing:</b> the rain, thunder, windshield wipers, string pads and low cello are all
+    <b>synthesized live</b> — no recordings, just shaped noise and oscillators. The piano is the one real
+    instrument: a <b>sampled concert grand</b> (every note an actual recording), streamed free from the
+    Tone.js library. That's the recipe for richness in the browser — synthesis for atmosphere, samples for
+    the instruments that have to sound real. Full sampled string and brass sections work the same way,
+    they're just bigger downloads.
+  </p>
+  <a href="./">← back to Train Rat</a>
+
+<script src="https://cdn.jsdelivr.net/npm/tone@14.8.49/build/Tone.js"></script>
+<script>
+let built = false, rain = null;
+const btn = document.getElementById('playBtn');
+
+async function build() {
+  // one hall reverb for the whole score — the Reverb node mixes dry and wet itself
+  const hall = new Tone.Reverb({ decay: 7, wet: 0.45 }).toDestination();
+
+  // --- the weather ---
+  rain = new Tone.Noise('pink');
+  const rainFilter = new Tone.Filter(1100, 'lowpass');
+  const rainGain = new Tone.Gain(0.13);
+  rain.chain(rainFilter, rainGain); rainGain.connect(hall);
+  new Tone.LFO(0.07, 650, 1500).start().connect(rainFilter.frequency);   // the downpour slowly swells and eases
+
+  const droplet = new Tone.Synth({ oscillator: { type: 'sine' }, envelope: { attack: 0.001, decay: 0.07, sustain: 0, release: 0.05 }, volume: -23 });
+  const dropEcho = new Tone.FeedbackDelay('8n', 0.35);
+  droplet.chain(dropEcho, hall);
+  new Tone.Loop(t => { if (Math.random() < 0.4) droplet.triggerAttackRelease(1200 + Math.random() * 2800, '16n', t, 0.2 + Math.random() * 0.5); }, '8n').start(0);
+
+  const thunder = new Tone.NoiseSynth({ noise: { type: 'brown' }, envelope: { attack: 0.8, decay: 3.5, sustain: 0 }, volume: -8 });
+  const thunderFilter = new Tone.Filter(160, 'lowpass');
+  thunder.chain(thunderFilter, hall);
+  new Tone.Loop(t => { if (Math.random() < 0.45) thunder.triggerAttackRelease('2m', t); }, '4m').start('2m');
+
+  const wiper = new Tone.NoiseSynth({ noise: { type: 'white' }, envelope: { attack: 0.12, decay: 0.22, sustain: 0 }, volume: -27 });
+  const wiperFilter = new Tone.Filter(500, 'bandpass');
+  wiper.chain(wiperFilter, Tone.getDestination());
+  new Tone.Loop(t => wiper.triggerAttackRelease('8n', t, 0.7), '2n').start(0);
+
+  // --- the score ---
+  const pad = new Tone.PolySynth(Tone.Synth, { oscillator: { type: 'fatsawtooth', count: 3, spread: 30 }, envelope: { attack: 2.2, decay: 1, sustain: 0.8, release: 3.5 }, volume: -17 });
+  const padFilter = new Tone.Filter(900, 'lowpass');
+  pad.chain(padFilter, hall);
+
+  const cello = new Tone.MonoSynth({ oscillator: { type: 'sawtooth' }, envelope: { attack: 1.5, decay: 0.5, sustain: 0.9, release: 2.5 }, filterEnvelope: { attack: 2, decay: 1, sustain: 0.6, baseFrequency: 120, octaves: 1.5 }, volume: -13 }).connect(hall);
+
+  const strings = new Tone.Synth({ oscillator: { type: 'sawtooth' }, envelope: { attack: 1.1, decay: 0.4, sustain: 0.8, release: 2.5 }, volume: -19 });
+  const stringsFilter = new Tone.Filter(2200, 'lowpass'), stringsVib = new Tone.Vibrato(4.5, 0.08);
+  strings.chain(stringsFilter, stringsVib, hall);
+
+  const piano = new Tone.Sampler({
+    urls: { C3: 'C3.mp3', 'D#3': 'Ds3.mp3', 'F#3': 'Fs3.mp3', A3: 'A3.mp3', C4: 'C4.mp3', 'D#4': 'Ds4.mp3', 'F#4': 'Fs4.mp3', A4: 'A4.mp3', C5: 'C5.mp3' },
+    baseUrl: 'https://tonejs.github.io/audio/salamander/',
+    release: 2.5, volume: -6,
+  }).connect(hall);
+
+  await Tone.loaded();   // wait for the piano samples
+
+  Tone.Transport.bpm.value = 68;
+  const loop8 = p => { p.loop = true; p.loopEnd = '8m'; p.start(0); };
+
+  // Am9 · Fmaj7 · Cmaj7 · Em7 — two slow measures each
+  loop8(new Tone.Part((t, c) => pad.triggerAttackRelease(c, '2m', t, 0.8), [
+    ['0:0:0', ['A2', 'E3', 'B3', 'C4', 'E4']],
+    ['2:0:0', ['F2', 'C3', 'A3', 'E4']],
+    ['4:0:0', ['C3', 'G3', 'B3', 'E4']],
+    ['6:0:0', ['E2', 'B2', 'G3', 'D4']],
+  ]));
+  loop8(new Tone.Part((t, n) => cello.triggerAttackRelease(n, '2m', t), [
+    ['0:0:0', 'A1'], ['2:0:0', 'F1'], ['4:0:0', 'C2'], ['6:0:0', 'E1'],
+  ]));
+  loop8(new Tone.Part((t, n) => strings.triggerAttackRelease(n, '1m', t, 0.6), [
+    ['1:0:0', 'E5'], ['3:0:0', 'C5'], ['5:0:0', 'B4'], ['7:0:0', 'E5'],
+  ]));
+  loop8(new Tone.Part((t, q) => piano.triggerAttackRelease(q.n, q.d, t, q.v), [
+    ['0:0:0', { n: 'C5', d: '2n', v: 0.4 }], ['0:2:0', { n: 'B4', d: '2n', v: 0.3 }], ['1:0:0', { n: 'A4', d: '1m', v: 0.35 }],
+    ['2:0:0', { n: 'A4', d: '4n', v: 0.5 }], ['2:1:2', { n: 'E4', d: '4n', v: 0.35 }], ['2:3:0', { n: 'G4', d: '2n', v: 0.45 }],
+    ['3:2:0', { n: 'F4', d: '2n', v: 0.4 }],
+    ['4:0:0', { n: 'E4', d: '4n', v: 0.5 }], ['4:1:2', { n: 'G4', d: '4n', v: 0.4 }], ['4:3:0', { n: 'B4', d: '2n', v: 0.5 }],
+    ['5:2:0', { n: 'A4', d: '2n', v: 0.4 }],
+    ['6:0:0', { n: 'B3', d: '2n', v: 0.4 }], ['6:2:2', { n: 'D4', d: '4n', v: 0.35 }],
+    ['7:0:0', { n: 'E4', d: '1m', v: 0.45 }],
+  ]));
+  built = true;
+}
+
+btn.addEventListener('click', async () => {
+  await Tone.start();
+  if (!built) {
+    btn.disabled = true; btn.textContent = 'Loading piano…';
+    try { await build(); } catch (e) { btn.textContent = 'Could not load'; return; }
+    btn.disabled = false;
+  }
+  if (Tone.Transport.state === 'started') {
+    Tone.Transport.pause(); rain.stop();
+    btn.textContent = '▶ Begin';
+  } else {
+    rain.start(); Tone.Transport.start('+0.1');
+    btn.textContent = '⏹ Pull over';
+  }
+});
+</script>
+</body>
+</html>
