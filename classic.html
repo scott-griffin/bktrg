@@ -38,6 +38,12 @@
     .overlay .go-btn:hover { transform: scale(1.05); box-shadow: 0 0 50px #ffcc00; }
     .overlay a { color: #666; font-size: 13px; letter-spacing: 2px; margin-top: 26px; text-decoration: none; }
     .overlay a:hover { color: #ffcc00; }
+    .controls {
+      display: grid; grid-template-columns: auto auto; gap: 6px 16px; justify-content: center;
+      color: #aaa; letter-spacing: 2px; font-size: 15px; margin: 10px 0 2px;
+    }
+    .controls span:nth-child(odd) { text-align: right; }
+    .controls span:nth-child(even) { text-align: left; }
     #hud {
       position: fixed; top: 14px; left: 0; right: 0; display: flex; justify-content: center; gap: 28px;
       color: #fff; font-size: 20px; letter-spacing: 2px; z-index: 5; text-shadow: 0 0 8px #000;
@@ -115,7 +121,12 @@
       </g>
     </svg>
     <p>The classic 2D version. Dodge the trains. Grab the cheese. Don't get squished.</p>
-    <p>⬅️ ➡️ switch tracks &nbsp;·&nbsp; ⬆️ jump &nbsp;·&nbsp; ⬇️ duck<br>(or swipe on your phone)</p>
+    <div class="controls">
+      <span>⬅️ ➡️</span><span>switch tracks</span>
+      <span>⬆️</span><span>jump</span>
+      <span>⬇️</span><span>duck</span>
+    </div>
+    <p>(or swipe on your phone)</p>
     <input type="text" id="startName" class="nameInput" maxlength="20" placeholder="your name" autocomplete="off">
     <button class="go-btn" id="startBtn">Run!</button>
     <a href="#" id="settingsLink" onclick="openSettings(); return false;">⚙️ settings</a>

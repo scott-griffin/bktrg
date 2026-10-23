@@ -50,6 +50,12 @@
     .overlay .go-btn:hover { transform: scale(1.05); box-shadow: 0 0 50px #ffcc00; }
     .overlay a { color: #666; font-size: 13px; letter-spacing: 2px; margin-top: 26px; text-decoration: none; }
     .overlay a:hover { color: #ffcc00; }
+    .controls {
+      display: grid; grid-template-columns: auto auto; gap: 6px 16px; justify-content: center;
+      color: #aaa; letter-spacing: 2px; font-size: 15px; margin: 10px 0 2px;
+    }
+    .controls span:nth-child(odd) { text-align: right; }
+    .controls span:nth-child(even) { text-align: left; }
     .nameInput {
       padding: 10px 14px; font-size: 16px; font-family: 'Georgia', serif; text-align: center;
       background: #111; border: 1px solid #333; border-radius: 4px; color: #fff; width: 200px;
@@ -145,7 +151,12 @@
       </g>
     </svg>
     <p>Dodge the trains. Grab the cheese. Don't get squished.</p>
-    <p>⬅️ ➡️ switch tracks &nbsp;·&nbsp; ⬆️ jump &nbsp;·&nbsp; ⬇️ duck<br>(or swipe on your phone)</p>
+    <div class="controls">
+      <span>⬅️ ➡️</span><span>switch tracks</span>
+      <span>⬆️</span><span>jump</span>
+      <span>⬇️</span><span>duck</span>
+    </div>
+    <p>(or swipe on your phone)</p>
     <p style="color:#ffcc00">New: duck to squeeze under trains! 🐀🚂</p>
     <input type="text" id="startName" class="nameInput" maxlength="20" placeholder="your name" autocomplete="off">
     <button class="go-btn" id="startBtn">Run!</button>
