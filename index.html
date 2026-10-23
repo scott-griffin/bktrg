@@ -87,7 +87,7 @@
 <body>
   <div id="brand" class="hidden">TRAIN RAT</div>
   <div id="errToast" class="hidden" style="position:fixed; bottom:40px; left:50%; transform:translateX(-50%); background:#8b1a0e; color:#fff; padding:10px 18px; border-radius:6px; font-size:12px; z-index:40; max-width:90vw;"></div>
-  <div id="hud" class="hidden"><span>🐀 <b id="hudName"></b></span><span>🧀 <b id="cheeseCt">0</b></span><span>SCORE <b id="scoreCt">0</b></span><span id="pauseBtn" style="pointer-events:auto;cursor:pointer">⏸</span><span id="settingsBtn" style="pointer-events:auto;cursor:pointer">⚙️</span></div>
+  <div id="hud" class="hidden"><span>🐀 <b id="hudName"></b></span><span>🧀 <b id="cheeseCt">0</b></span><span>SCORE <b id="scoreCt">0</b></span><span id="powIcons"></span><span id="pauseBtn" style="pointer-events:auto;cursor:pointer">⏸</span><span id="settingsBtn" style="pointer-events:auto;cursor:pointer">⚙️</span></div>
 
   <div id="settingsPanel" class="hidden" style="position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); background:#14141f; border:1px solid #333; border-radius:8px; padding:28px 32px; z-index:20; text-align:center; box-shadow:0 0 40px #000;">
     <p style="color:#ffcc00; letter-spacing:3px; font-size:18px; text-transform:uppercase; margin-bottom:18px;">Settings</p>
@@ -157,7 +157,7 @@
       <span>⬇️</span><span>duck</span>
     </div>
     <p>(or swipe on your phone)</p>
-    <p style="color:#ffcc00">New: duck to squeeze under trains! 🐀🚂</p>
+    <p style="color:#ffcc00">New: power-ups on the track! 🧲 ⛑️ 🚀 ⭐</p>
     <input type="text" id="startName" class="nameInput" maxlength="20" placeholder="your name" autocomplete="off">
     <button class="go-btn" id="startBtn">Run!</button>
     <a href="#" id="settingsLink">⚙️ settings</a>
@@ -225,9 +225,42 @@ scene.add(sun);
 // ---------- world ----------
 const LANE_X = l => (l - 1) * 2.4;
 const WORLD_LEN = 170;        // how far ahead things exist
+// procedural textures — speckled noise beats flat color and costs no download
+function speckleTex(base, dots, density, rx, ry) {
+  const c = document.createElement('canvas'); c.width = c.height = 128;
+  const x = c.getContext('2d');
+  x.fillStyle = base; x.fillRect(0, 0, 128, 128);
+  for (let i = 0; i < density; i++) {
+    x.fillStyle = dots[i % dots.length];
+    x.globalAlpha = 0.25 + Math.random() * 0.5;
+    x.fillRect(Math.random() * 128, Math.random() * 128, 2 + Math.random() * 3, 2 + Math.random() * 3);
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(rx, ry);
+  return t;
+}
+function glowSprite(color, size) {
+  const c = document.createElement('canvas'); c.width = c.height = 64;
+  const x = c.getContext('2d');
+  const g = x.createRadialGradient(32, 32, 2, 32, 32, 30);
+  g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+  x.fillStyle = g; x.fillRect(0, 0, 64, 64);
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), color, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
+  s.scale.set(size, size, 1);
+  return s;
+}
+function emojiSprite(emoji, size) {
+  const c = document.createElement('canvas'); c.width = c.height = 128;
+  const x = c.getContext('2d');
+  x.font = '100px serif'; x.textAlign = 'center'; x.textBaseline = 'middle';
+  x.fillText(emoji, 64, 70);
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), transparent: true }));
+  s.scale.set(size, size, 1);
+  return s;
+}
 const mat = {
-  grass:  new THREE.MeshStandardMaterial({ color: 0x5e9c46, roughness: 1 }),
-  gravel: new THREE.MeshStandardMaterial({ color: 0x9a8a70, roughness: 1 }),
+  grass:  new THREE.MeshStandardMaterial({ map: speckleTex('#5e9c46', ['#4e8a3a', '#71b055', '#3f7030'], 420, 40, 40), roughness: 1 }),
+  gravel: new THREE.MeshStandardMaterial({ map: speckleTex('#9a8a70', ['#7a6b54', '#b5a68c', '#857459'], 520, 5, 140), roughness: 1 }),
   rail:   new THREE.MeshStandardMaterial({ color: 0xc9ccd4, roughness: 0.35, metalness: 0.7 }),
   tie:    new THREE.MeshStandardMaterial({ color: 0x7a5a3a, roughness: 1 }),
   fur:    new THREE.MeshStandardMaterial({ color: 0x8d93a0, roughness: 0.9 }),
@@ -313,6 +346,11 @@ for (let i = 0; i < 6; i++) {
   scene.add(c); clouds.push(c);
 }
 
+// the sun, with a warm glow
+const sunGlow = glowSprite(0xffe9a8, 26);
+sunGlow.position.set(34, 26, -130);
+scene.add(sunGlow);
+
 // ---------- the rat ----------
 function buildRat() {
   const g = new THREE.Group();
@@ -382,7 +420,9 @@ function buildTrain() {
   for (const sx of [-0.55, 0.55]) {
     const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.14, 10, 8), mat.light);
     lamp.position.set(sx, 1.2, -4.55);
-    g.add(lamp);
+    const halo = glowSprite(0xffee99, 1.6);
+    halo.position.set(sx, 1.2, -4.7);
+    g.add(lamp, halo);
   }
   const bullet = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 0.06, 20), mat.yellow);
   bullet.rotation.x = Math.PI / 2; bullet.position.set(0, 1.75, -4.55);
@@ -436,6 +476,38 @@ function buildCheese() {
   return m;
 }
 
+// ---------- particles ----------
+const particles = [];
+const partGeo = new THREE.SphereGeometry(0.07, 6, 5);
+const partMat = {
+  dust:   new THREE.MeshBasicMaterial({ color: 0xb9a884 }),
+  spark:  new THREE.MeshBasicMaterial({ color: 0xffd34d }),
+  debris: new THREE.MeshBasicMaterial({ color: 0x555f6e }),
+  pow:    new THREE.MeshBasicMaterial({ color: 0xffffff }),
+};
+function spawnParts(kind, pos, n, spread, up) {
+  if (particles.length > 120) return;
+  for (let i = 0; i < n; i++) {
+    const m = new THREE.Mesh(partGeo, partMat[kind]);
+    m.position.set(pos.x + (Math.random() - 0.5) * 0.4, pos.y + Math.random() * 0.3, pos.z + (Math.random() - 0.5) * 0.4);
+    particles.push({ m, vx: (Math.random() - 0.5) * spread, vy: Math.random() * up, vz: Math.random() * spread, life: 0.5 + Math.random() * 0.5 });
+    scene.add(m);
+  }
+}
+
+// ---------- power-ups ----------
+const POW = {
+  magnet: { icon: '🧲', dur: 8 },
+  helmet: { icon: '⛑️' },
+  rocket: { icon: '🚀', dur: 4 },
+  star:   { icon: '⭐', dur: 8 },
+};
+let powers = [], magnetT = 0, starT = 0, rocketT = 0, invulnT = 0, helmet = false, flyY = 0, lastHop = 0, shake = 0;
+function powHud() {
+  document.getElementById('powIcons').textContent =
+    (magnetT > 0 ? '🧲' : '') + (helmet ? '⛑️' : '') + (rocketT > 0 ? '🚀' : '') + (starT > 0 ? '⭐' : '');
+}
+
 // ---------- game state ----------
 let playing = false, paused = false, elapsed = 0, score = 0, cheese = 0;
 let lane = 1, displayLane = 1;
@@ -450,7 +522,12 @@ function reset() {
   lane = 1; displayLane = 1; jumpT = -1; duckT = -1;
   for (const o of obstacles) scene.remove(o.mesh);
   for (const t of treats) scene.remove(t.mesh);
-  obstacles = []; treats = []; spawnTimer = 0.8;
+  for (const p of powers) scene.remove(p.mesh);
+  for (const p of particles) scene.remove(p.m);
+  obstacles = []; treats = []; powers = []; particles.length = 0; spawnTimer = 0.8;
+  magnetT = 0; starT = 0; rocketT = 0; invulnT = 0; helmet = false; flyY = 0; shake = 0;
+  rat.group.visible = true;
+  powHud();
 }
 
 function spawnWave() {
@@ -474,17 +551,35 @@ function spawnWave() {
       treats.push({ mesh: m, lane: open });
     }
   }
+  // the occasional power-up, floating in an open lane
+  if (Math.random() < 0.10) {
+    const kinds = Object.keys(POW);
+    const kind = kinds[Math.floor(Math.random() * kinds.length)];
+    const s = emojiSprite(POW[kind].icon, 1.2);
+    const halo = glowSprite(0xffffff, 2.2);
+    const g = new THREE.Group(); g.add(halo, s);
+    g.position.set(LANE_X(order[nBlocked]), 1.0, -WORLD_LEN - 20);
+    scene.add(g);
+    powers.push({ mesh: g, kind });
+  }
 }
 
 // ---------- update ----------
 function update(dt) {
   elapsed += dt;
   const v = speed();
-  score += dt * 60 * (v / 13);
+  const mult = starT > 0 ? 2 : 1;
+  score += dt * 60 * (v / 13) * mult;
 
   displayLane += (lane - displayLane) * Math.min(1, dt * 12);
   if (jumpT >= 0 && (jumpT += dt) > JUMP_DUR) jumpT = -1;
   if (duckT >= 0 && (duckT += dt) > DUCK_DUR) duckT = -1;
+  let powChanged = false;
+  if (magnetT > 0 && (magnetT -= dt) <= 0) powChanged = true;
+  if (starT > 0 && (starT -= dt) <= 0) powChanged = true;
+  if (rocketT > 0 && (rocketT -= dt) <= 0) powChanged = true;
+  if (invulnT > 0) invulnT -= dt;
+  if (powChanged) powHud();
 
   spawnTimer -= dt;
   if (spawnTimer <= 0) { spawnWave(); spawnTimer = 26 / v; }
@@ -492,6 +587,7 @@ function update(dt) {
   // move world objects toward the camera
   for (const o of obstacles) o.mesh.position.z += v * dt;
   for (const t of treats) { t.mesh.position.z += v * dt; t.mesh.rotation.y += dt * 3; }
+  for (const p of powers) { p.mesh.position.z += v * dt; p.mesh.position.y = 1.0 + Math.sin(elapsed * 4 + p.mesh.position.z) * 0.15; }
   obstacles = obstacles.filter(o => {
     if (o.mesh.position.z - o.len / 2 > 10) { scene.remove(o.mesh); return false; }
     return true;
@@ -505,38 +601,98 @@ function update(dt) {
   const jumpH = jumpT >= 0 ? Math.sin(Math.PI * jumpT / JUMP_DUR) : 0;
   const ducking = duckT >= 0;
 
-  // rat pose: scamper-hop gait carried over from the 2D game
+  // rat pose: scamper-hop gait, lifted high while the rocket is burning
   const phase = (elapsed * 3.3 * (v / 13)) % 1;
   const hop = jumpT < 0 && !ducking ? Math.abs(Math.sin(phase * Math.PI)) : 0;
+  flyY += ((rocketT > 0 ? 2.6 : 0) - flyY) * Math.min(1, dt * 4);
   rat.group.position.x = LANE_X(displayLane);
-  rat.group.position.y = jumpH * 2.0 + hop * 0.22;
+  rat.group.position.y = jumpH * 2.0 + hop * 0.22 + flyY;
   rat.group.rotation.z = (displayLane - lane) * 0.3;
   if (ducking) rat.group.scale.set(1.25, 0.5, 1.1);
-  else if (jumpT >= 0) rat.group.scale.set(0.95, 1.12, 1);
+  else if (jumpT >= 0 || rocketT > 0) rat.group.scale.set(0.95, 1.12, 1);
   else rat.group.scale.set(1, 0.92 + 0.16 * hop, 1);
   rat.tail.rotation.y = Math.sin(phase * Math.PI * 2) * 0.5;
   rat.feet.forEach((f, i) => { f.position.y = 0.07 + Math.max(0, Math.sin(phase * Math.PI * 4 + i * Math.PI)) * 0.12; });
+  rat.group.visible = invulnT <= 0 || Math.floor(elapsed * 12) % 2 === 0;   // helmet save = brief flashing immunity
 
-  // collisions — the rat sits at z=0
-  let underTrain = false;
-  for (const o of obstacles) {
-    if (Math.abs(displayLane - o.lane) > 0.45) continue;
-    const zF = o.mesh.position.z - o.len / 2, zB = o.mesh.position.z + o.len / 2;
-    if (zF > 0.9 || zB < -0.9) continue;
-    if (o.type === 'hurdle' && jumpH > 0.4) continue;
-    if (o.type === 'beam' && ducking) continue;
-    if (o.type === 'train' && ducking) { underTrain = true; continue; }   // squeezed through underneath
-    return gameOver();
+  // juice: dust on each landing, flame while flying
+  if (hop < 0.15 && lastHop >= 0.15 && flyY < 0.3) spawnParts('dust', rat.group.position, 2, 1.5, 1.5);
+  lastHop = hop;
+  if (rocketT > 0) spawnParts('spark', { x: rat.group.position.x, y: rat.group.position.y + 0.2, z: 1.2 }, 1, 2, 0.5);
+
+  // collisions — the rat sits at z=0; rockets and helmet-flashes pass through everything
+  if (rocketT <= 0 && invulnT <= 0) {
+    let underTrain = false;
+    for (const o of obstacles) {
+      if (Math.abs(displayLane - o.lane) > 0.45) continue;
+      const zF = o.mesh.position.z - o.len / 2, zB = o.mesh.position.z + o.len / 2;
+      if (zF > 0.9 || zB < -0.9) continue;
+      if (o.type === 'hurdle' && jumpH > 0.4) continue;
+      if (o.type === 'beam' && ducking) continue;
+      if (o.type === 'train' && ducking) { underTrain = true; continue; }   // squeezed through underneath
+      if (helmet) {   // the hard hat takes the hit
+        helmet = false; invulnT = 1.5; powHud();
+        sfx.clang(); shake = 0.35;
+        spawnParts('debris', rat.group.position, 8, 3, 3);
+        break;
+      }
+      return gameOver();
+    }
+    // the squeeze holds the duck until the train has passed — no popping up into the undercarriage
+    if (underTrain) duckT = Math.min(duckT, DUCK_DUR * 0.4);
   }
-  // the squeeze holds the duck until the train has passed — no popping up into the undercarriage
-  if (underTrain) duckT = Math.min(duckT, DUCK_DUR * 0.4);
+
+  // cheese: position-based pickup; the magnet drags every wedge in reach toward the rat
+  const ratX = rat.group.position.x;
   treats = treats.filter(t => {
-    if (Math.abs(displayLane - t.lane) <= 0.45 && Math.abs(t.mesh.position.z) < 1.1) {
-      cheese++; score += 25; sfx.cheese(); scene.remove(t.mesh); return false;
+    if (magnetT > 0 && t.mesh.position.z > -14) {
+      t.mesh.position.x += (ratX - t.mesh.position.x) * Math.min(1, dt * 6);
+      t.mesh.position.z += (0 - t.mesh.position.z) * Math.min(1, dt * 2.5);
+    }
+    if (Math.abs(t.mesh.position.x - ratX) < 1.1 && Math.abs(t.mesh.position.z) < 1.1) {
+      cheese++; score += 25 * mult; sfx.cheese();
+      spawnParts('spark', t.mesh.position, 6, 2, 2.5);
+      scene.remove(t.mesh); return false;
     }
     if (t.mesh.position.z > 10) { scene.remove(t.mesh); return false; }
     return true;
   });
+
+  // power-up pickup
+  powers = powers.filter(p => {
+    if (Math.abs(p.mesh.position.x - ratX) < 1.2 && Math.abs(p.mesh.position.z) < 1.2) {
+      const k = p.kind;
+      if (k === 'magnet') magnetT = POW.magnet.dur;
+      else if (k === 'star') starT = POW.star.dur;
+      else if (k === 'rocket') rocketT = POW.rocket.dur;
+      else helmet = true;
+      powHud(); sfx.power();
+      spawnParts('pow', p.mesh.position, 10, 3, 3);
+      scene.remove(p.mesh); return false;
+    }
+    if (p.mesh.position.z > 10) { scene.remove(p.mesh); return false; }
+    return true;
+  });
+
+  // particles
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.life -= dt;
+    if (p.life <= 0) { scene.remove(p.m); particles.splice(i, 1); continue; }
+    p.vy -= 7 * dt;
+    p.m.position.x += p.vx * dt;
+    p.m.position.y = Math.max(0.03, p.m.position.y + p.vy * dt);
+    p.m.position.z += (p.vz + v * 0.6) * dt;
+    p.m.scale.setScalar(Math.max(0.1, p.life * 1.6));
+  }
+
+  // camera juice: lean into the lane, widen with speed, shake on impacts
+  shake = Math.max(0, shake - shake * 5 * dt);
+  const targetFov = 60 + Math.min(14, Math.max(0, (v - 10) * 0.5)) + (rocketT > 0 ? 6 : 0);
+  if (Math.abs(camera.fov - targetFov) > 0.2) { camera.fov += (targetFov - camera.fov) * Math.min(1, dt * 3); camera.updateProjectionMatrix(); }
+  camera.position.x = LANE_X(displayLane) * 0.22 + (Math.random() - 0.5) * shake;
+  camera.position.y = 3.4 + (Math.random() - 0.5) * shake * 0.6;
+  camera.lookAt(camera.position.x * 0.4, 1, -12);
 
   document.getElementById('cheeseCt').textContent = cheese;
   document.getElementById('scoreCt').textContent = Math.floor(score);
@@ -576,6 +732,8 @@ function start() {
 function gameOver() {
   playing = false;
   stopMusic(); sfx.crash();
+  spawnParts('debris', rat.group.position, 14, 4, 4);
+  spawnParts('dust', rat.group.position, 8, 3, 2);
   const s = Math.floor(score);
   const best = Math.max(s, parseInt(localStorage.getItem('subwayRatsHigh') || '0', 10));
   localStorage.setItem('subwayRatsHigh', best);
@@ -691,6 +849,8 @@ const sfx = {
   lane:   () => sfxOn && tone(240, 320, 0.06, 'triangle', 0.10),
   cheese: () => { if (!sfxOn) return; const t = audio().currentTime; tone(880, 880, 0.07, 'sine', 0.14, t); tone(1318.5, 1318.5, 0.12, 'sine', 0.12, t + 0.07); },
   crash:  () => { if (!sfxOn) return; tone(350, 55, 0.5, 'sawtooth', 0.22); tone(180, 40, 0.5, 'square', 0.16); },
+  power:  () => { if (!sfxOn) return; const t = audio().currentTime; tone(523, 784, 0.12, 'triangle', 0.15, t); tone(784, 1046, 0.16, 'triangle', 0.14, t + 0.1); },
+  clang:  () => sfxOn && tone(900, 180, 0.3, 'square', 0.2),
 };
 // Tone.js soundtracks: four styles the player picks in settings. Tempo climbs with the game.
 function drumKit(d, kv, sv, hv, snFreq) {
