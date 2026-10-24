@@ -81,6 +81,13 @@
     .musicTile p { color: #999; font-size: 13px; line-height: 1.5; min-height: 40px; margin-bottom: 10px; }
     .listenBtn { padding: 8px 22px; font-family: 'Georgia', serif; letter-spacing: 1px; color: #111; background: linear-gradient(135deg, #ffcc00, #ff9900); border: none; border-radius: 4px; cursor: pointer; }
     .listenBtn.on { background: linear-gradient(135deg, #ff6644, #cc3300); color: #fff; }
+    .charBtn {
+      background: #111; border: 1px solid #333; border-radius: 8px; color: #aaa;
+      padding: 8px 20px; font-family: 'Georgia', serif; cursor: pointer; font-size: 24px;
+      display: flex; flex-direction: column; align-items: center; gap: 2px;
+    }
+    .charBtn span { font-size: 11px; letter-spacing: 1px; }
+    .charBtn.sel { border-color: #ffcc00; color: #fff; box-shadow: 0 0 12px #ffcc0044; }
     .hsec { color: #ffcc00; letter-spacing: 3px; font-size: 13px; text-transform: uppercase; margin: 18px 0 6px; }
     .hrow { display: flex; gap: 12px; align-items: center; text-align: left; margin: 0 auto; max-width: 430px; padding: 5px 0; color: #ccc; font-size: 14px; line-height: 1.5; }
     .hico { font-size: 24px; width: 48px; text-align: center; flex: none; }
@@ -91,7 +98,7 @@
   <div id="brand" class="hidden">TRAIN RAT</div>
   <div id="musicLoading" class="hidden" style="position:fixed; bottom:40px; right:14px; background:#14141fcc; color:#ffcc00; padding:8px 14px; border-radius:20px; font-size:12px; letter-spacing:1px; z-index:25;">♪ loading music…</div>
   <div id="errToast" class="hidden" style="position:fixed; bottom:40px; left:50%; transform:translateX(-50%); background:#8b1a0e; color:#fff; padding:10px 18px; border-radius:6px; font-size:12px; z-index:40; max-width:90vw;"></div>
-  <div id="hud" class="hidden"><span>🐀 <b id="hudName"></b></span><span>🧀 <b id="cheeseCt">0</b></span><span>SCORE <b id="scoreCt">0</b></span><span id="powIcons"></span><span id="pauseBtn" style="pointer-events:auto;cursor:pointer">⏸</span><span id="settingsBtn" style="pointer-events:auto;cursor:pointer">⚙️</span></div>
+  <div id="hud" class="hidden"><span><span id="charIcon">🐀</span> <b id="hudName"></b></span><span>🧀 <b id="cheeseCt">0</b></span><span>SCORE <b id="scoreCt">0</b></span><span id="powIcons"></span><span id="pauseBtn" style="pointer-events:auto;cursor:pointer">⏸</span><span id="settingsBtn" style="pointer-events:auto;cursor:pointer">⚙️</span></div>
 
   <div id="settingsPanel" class="hidden" style="position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); background:#14141f; border:1px solid #333; border-radius:8px; padding:28px 32px; z-index:20; text-align:center; box-shadow:0 0 40px #000;">
     <p style="color:#ffcc00; letter-spacing:3px; font-size:18px; text-transform:uppercase; margin-bottom:18px;">Settings</p>
@@ -199,6 +206,10 @@
     </div>
     <p>(or swipe on your phone)</p>
     <p style="color:#ffcc00">New: power-ups and pizza! 🧲 ⛑️ 🚀 ⭐ 🍕</p>
+    <div style="display:flex; gap:12px; justify-content:center; margin:2px 0 6px;">
+      <button class="charBtn" data-char="rat">🐀<span>Rat</span></button>
+      <button class="charBtn" data-char="squirrel">🐿️<span>Night Glider</span></button>
+    </div>
     <input type="text" id="startName" class="nameInput" maxlength="20" placeholder="your name" autocomplete="off">
     <button class="go-btn" id="startBtn">Run!</button>
     <a href="#" id="helpLink">❓ how to play</a>
@@ -422,6 +433,7 @@ function buildRat() {
   for (const [x, z] of [[-0.42, 0.55], [0.42, 0.55], [-0.28, -0.6], [0.28, -0.6]]) {
     const f = new THREE.Mesh(footGeo, mat.pink);
     f.scale.set(1, 0.6, 1.4); f.position.set(x, 0.07, z);
+    f.userData.y0 = 0.07;
     g.add(f); feet.push(f);
   }
   // tail: a pink curve trailing behind
@@ -434,9 +446,86 @@ function buildRat() {
   g.traverse(o => { if (o.isMesh) o.castShadow = true; });
   return { group: g, tail, feet };
 }
-const rat = buildRat();
-rat.group.position.set(0, 0, 0);
-scene.add(rat.group);
+// Thomas's pick: the Night Glider — sugar-glider flying squirrel with a bandit mask and glider flaps that spread on jumps
+function buildSquirrel() {
+  const g = new THREE.Group();
+  const fur = new THREE.MeshStandardMaterial({ color: 0x5a6372, roughness: 0.85 });
+  const bellyMat = new THREE.MeshStandardMaterial({ color: 0xe8ecf2, roughness: 0.9 });
+  const membMat = new THREE.MeshStandardMaterial({ color: 0x474f5c, roughness: 0.8, side: THREE.DoubleSide });
+  const darkMat = new THREE.MeshStandardMaterial({ color: 0x14161c, roughness: 0.4 });
+  const whiteMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.3 });
+
+  const body = new THREE.Mesh(new THREE.SphereGeometry(0.55, 24, 18), fur);
+  body.scale.set(0.8, 0.7, 1.15); body.position.y = 0.55;
+  const bellyM = new THREE.Mesh(new THREE.SphereGeometry(0.5, 20, 16), bellyMat);
+  bellyM.scale.set(0.66, 0.52, 1.0); bellyM.position.set(0, 0.42, -0.06);
+  g.add(body, bellyM);
+
+  const headG = new THREE.Group();
+  headG.position.set(0, 0.92, -0.78);
+  headG.add(new THREE.Mesh(new THREE.SphereGeometry(0.42, 22, 18), fur));
+  const snout = new THREE.Mesh(new THREE.SphereGeometry(0.17, 14, 12), bellyMat);
+  snout.scale.set(1, 0.8, 1.1); snout.position.set(0, -0.12, -0.36);
+  const nose = new THREE.Mesh(new THREE.SphereGeometry(0.055, 10, 8), mat.pink);
+  nose.position.set(0, -0.08, -0.5);
+  const mask = new THREE.Mesh(new THREE.SphereGeometry(0.43, 22, 10), darkMat);
+  mask.scale.set(1.02, 0.32, 1.02); mask.position.set(0, 0.1, -0.01);
+  headG.add(snout, nose, mask);
+  for (const side of [-1, 1]) {
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.12, 14, 12), darkMat);
+    eye.position.set(side * 0.18, 0.1, -0.34);
+    const shine = new THREE.Mesh(new THREE.SphereGeometry(0.04, 8, 8), whiteMat);
+    shine.position.set(side * 0.15, 0.14, -0.43);
+    const ear = new THREE.Mesh(new THREE.SphereGeometry(0.12, 12, 10), fur);
+    ear.scale.z = 0.5; ear.position.set(side * 0.27, 0.36, -0.02);
+    headG.add(eye, shine, ear);
+  }
+  g.add(headG);
+
+  const tail = new THREE.Mesh(new THREE.SphereGeometry(0.5, 18, 14), fur);
+  tail.scale.set(0.55, 0.13, 1.5); tail.position.set(0, 0.66, 1.15); tail.rotation.x = -0.3;
+  g.add(tail);
+
+  const feet = [];
+  for (const [x, z] of [[-0.5, -0.5], [0.5, -0.5], [-0.55, 0.5], [0.55, 0.5]]) {
+    const paw = new THREE.Mesh(new THREE.SphereGeometry(0.13, 10, 8), fur);
+    paw.scale.set(1, 0.7, 1.2); paw.position.set(x, 0.22, z);
+    paw.userData.y0 = 0.22;
+    g.add(paw); feet.push(paw);
+  }
+
+  // the patagium — spreads wide in the air
+  const shape = new THREE.Shape();
+  shape.moveTo(0.3, 0.55);
+  shape.quadraticCurveTo(1.0, 0.3, 1.12, 0.0);
+  shape.quadraticCurveTo(1.05, -0.3, 0.35, -0.55);
+  shape.lineTo(0.3, 0.55);
+  const membGeo = new THREE.ShapeGeometry(shape);
+  const flaps = [];
+  for (const side of [-1, 1]) {
+    const m = new THREE.Mesh(membGeo, membMat);
+    m.rotation.x = -Math.PI / 2;
+    m.scale.x = side * 0.35;
+    m.position.y = 0.45;
+    g.add(m); flaps.push(m);
+  }
+  g.traverse(o => { if (o.isMesh) o.castShadow = true; });
+  return { group: g, tail, feet, flaps };
+}
+
+const chars = { rat: buildRat(), squirrel: buildSquirrel() };
+for (const c of Object.values(chars)) { c.group.position.set(0, 0, 0); scene.add(c.group); }
+let charKey = localStorage.getItem('trainRatChar') || 'rat';
+if (!chars[charKey]) charKey = 'rat';
+let hero = chars[charKey];
+function setChar(k) {
+  charKey = k; hero = chars[k];
+  localStorage.setItem('trainRatChar', k);
+  for (const [key, c] of Object.entries(chars)) c.group.visible = key === k;
+  document.getElementById('charIcon').textContent = k === 'rat' ? '🐀' : '🐿️';
+  document.querySelectorAll('.charBtn').forEach(b => b.classList.toggle('sel', b.dataset.char === k));
+  if (!playing) renderer.render(scene, camera);
+}
 
 // ---------- obstacle builders ----------
 const stripeTex = (() => {   // yellow/black hazard stripes for hurdles
@@ -575,7 +664,7 @@ function reset() {
   for (const p of particles) scene.remove(p.m);
   obstacles = []; treats = []; powers = []; particles.length = 0; spawnTimer = 0.8;
   magnetT = 0; starT = 0; rocketT = 0; invulnT = 0; helmet = false; flyY = 0; shake = 0; powsThisRun = 0;
-  rat.group.visible = true;
+  hero.group.visible = true;
   powHud();
 }
 
@@ -662,20 +751,24 @@ function update(dt) {
   const phase = (elapsed * 3.3 * (v / 13)) % 1;
   const hop = jumpT < 0 && !ducking ? Math.abs(Math.sin(phase * Math.PI)) : 0;
   flyY += ((rocketT > 0 ? 2.6 : 0) - flyY) * Math.min(1, dt * 4);
-  rat.group.position.x = LANE_X(displayLane);
-  rat.group.position.y = jumpH * 2.0 + hop * 0.22 + flyY;
-  rat.group.rotation.z = (displayLane - lane) * 0.3;
-  if (ducking) rat.group.scale.set(1.25, 0.5, 1.1);
-  else if (jumpT >= 0 || rocketT > 0) rat.group.scale.set(0.95, 1.12, 1);
-  else rat.group.scale.set(1, 0.92 + 0.16 * hop, 1);
-  rat.tail.rotation.y = Math.sin(phase * Math.PI * 2) * 0.5;
-  rat.feet.forEach((f, i) => { f.position.y = 0.07 + Math.max(0, Math.sin(phase * Math.PI * 4 + i * Math.PI)) * 0.12; });
-  rat.group.visible = invulnT <= 0 || Math.floor(elapsed * 12) % 2 === 0;   // helmet save = brief flashing immunity
+  hero.group.position.x = LANE_X(displayLane);
+  hero.group.position.y = jumpH * 2.0 + hop * 0.22 + flyY;
+  hero.group.rotation.z = (displayLane - lane) * 0.3;
+  if (ducking) hero.group.scale.set(1.25, 0.5, 1.1);
+  else if (jumpT >= 0 || rocketT > 0) hero.group.scale.set(0.95, 1.12, 1);
+  else hero.group.scale.set(1, 0.92 + 0.16 * hop, 1);
+  hero.tail.rotation.y = Math.sin(phase * Math.PI * 2) * 0.5;
+  hero.feet.forEach((f, i) => { f.position.y = f.userData.y0 + Math.max(0, Math.sin(phase * Math.PI * 4 + i * Math.PI)) * 0.12; });
+  if (hero.flaps) {   // the Night Glider spreads its flaps in the air
+    const spread = Math.min(1, 0.35 + jumpH * 0.9 + (rocketT > 0 ? 1 : 0));
+    hero.flaps.forEach((f, fi) => { f.scale.x = (fi === 0 ? -1 : 1) * spread; });
+  }
+  hero.group.visible = invulnT <= 0 || Math.floor(elapsed * 12) % 2 === 0;   // helmet save = brief flashing immunity
 
   // juice: dust on each landing, flame while flying
-  if (hop < 0.15 && lastHop >= 0.15 && flyY < 0.3) spawnParts('dust', rat.group.position, 2, 1.5, 1.5);
+  if (hop < 0.15 && lastHop >= 0.15 && flyY < 0.3) spawnParts('dust', hero.group.position, 2, 1.5, 1.5);
   lastHop = hop;
-  if (rocketT > 0) spawnParts('spark', { x: rat.group.position.x, y: rat.group.position.y + 0.2, z: 1.2 }, 1, 2, 0.5);
+  if (rocketT > 0) spawnParts('spark', { x: hero.group.position.x, y: hero.group.position.y + 0.2, z: 1.2 }, 1, 2, 0.5);
 
   // collisions — the rat sits at z=0; rockets and helmet-flashes pass through everything
   if (rocketT <= 0 && invulnT <= 0) {
@@ -690,7 +783,7 @@ function update(dt) {
       if (helmet) {   // the hard hat takes the hit
         helmet = false; invulnT = 1.5; powHud();
         sfx.clang(); shake = 0.35;
-        spawnParts('debris', rat.group.position, 8, 3, 3);
+        spawnParts('debris', hero.group.position, 8, 3, 3);
         break;
       }
       return gameOver();
@@ -700,7 +793,7 @@ function update(dt) {
   }
 
   // cheese: position-based pickup; the magnet drags every wedge in reach toward the rat
-  const ratX = rat.group.position.x;
+  const ratX = hero.group.position.x;
   treats = treats.filter(t => {
     if (magnetT > 0 && t.mesh.position.z > -14) {
       t.mesh.position.x += (ratX - t.mesh.position.x) * Math.min(1, dt * 6);
@@ -790,8 +883,8 @@ function start() {
 function gameOver() {
   playing = false;
   stopMusic(); sfx.crash();
-  spawnParts('debris', rat.group.position, 14, 4, 4);
-  spawnParts('dust', rat.group.position, 8, 3, 2);
+  spawnParts('debris', hero.group.position, 14, 4, 4);
+  spawnParts('dust', hero.group.position, 8, 3, 2);
   const s = Math.floor(score);
   const best = Math.max(s, parseInt(localStorage.getItem('subwayRatsHigh') || '0', 10));
   localStorage.setItem('subwayRatsHigh', best);
@@ -1342,6 +1435,9 @@ document.addEventListener('visibilitychange', () => {
   if (document.hidden) stopMusic();
   else if (playing && !paused) { startMusic(); clock.getDelta(); }
 });
+
+document.querySelectorAll('.charBtn').forEach(b => b.addEventListener('click', () => { setChar(b.dataset.char); sfx.lane(); }));
+setChar(charKey);
 
 // idle scene behind the start screen
 renderer.render(scene, camera);
