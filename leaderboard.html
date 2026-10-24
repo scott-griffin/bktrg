@@ -156,10 +156,11 @@
           return;
         }
         const medals = ['🥇','🥈','🥉'];
+        const charIcons = { rat: '🐀', squirrel: '🐿️', echidna: '🦔' };
         tbody.innerHTML = scores.map((s, i) =>
           `<tr>
             <td class="rank">${medals[i] || i+1}</td>
-            <td>${s.name}</td>
+            <td>${charIcons[s.char] || ''} ${s.name}</td>
             <td class="score">${s.score.toLocaleString()}</td>
             <td class="date">${s.date}</td>
           </tr>`
