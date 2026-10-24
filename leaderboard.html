@@ -157,10 +157,11 @@
         }
         const medals = ['🥇','🥈','🥉'];
         const charIcons = { rat: '🐀', squirrel: '🐿️', echidna: '🦔' };
+        const flagEmoji = code => /^[A-Z]{2}$/.test(code || '') ? String.fromCodePoint(...[...code].map(c => 0x1f1e6 + c.charCodeAt(0) - 65)) : '';
         tbody.innerHTML = scores.map((s, i) =>
           `<tr>
             <td class="rank">${medals[i] || i+1}</td>
-            <td>${charIcons[s.char] || ''} ${s.name}</td>
+            <td>${flagEmoji(s.flag)} ${charIcons[s.char] || ""} ${s.name}</td>
             <td class="score">${s.score.toLocaleString()}</td>
             <td class="date">${s.date}</td>
           </tr>`

@@ -84,6 +84,11 @@
     .musicTile h3 { color: #ffcc00; font-size: 17px; letter-spacing: 1px; margin-bottom: 6px; font-weight: normal; }
     .musicTile .picked { color: #ffcc00; font-size: 11px; letter-spacing: 2px; display: block; min-height: 14px; margin-bottom: 4px; }
     .musicTile p { color: #999; font-size: 13px; line-height: 1.5; min-height: 40px; margin-bottom: 10px; }
+    .flagTile { background: #12121c; border: 1px solid #2a2a38; border-radius: 10px; padding: 10px 6px 8px; width: 92px; cursor: pointer; text-align: center; }
+    .flagTile.sel { border-color: #ffcc00; box-shadow: 0 0 16px #ffcc0044; }
+    .flagTile .fl { font-size: 30px; line-height: 1.2; display: block; }
+    .flagTile .cn { color: #999; font-size: 11px; letter-spacing: 0.5px; display: block; }
+    .flagTile.sel .cn { color: #ffcc00; }
     .listenBtn { padding: 8px 22px; font-family: 'Georgia', serif; letter-spacing: 1px; color: #111; background: linear-gradient(135deg, #ffcc00, #ff9900); border: none; border-radius: 4px; cursor: pointer; }
     .listenBtn.on { background: linear-gradient(135deg, #ff6644, #cc3300); color: #fff; }
     .charBtn {
@@ -116,6 +121,8 @@
     <p style="color:#ffcc00; letter-spacing:3px; font-size:18px; text-transform:uppercase; margin-bottom:18px;">Settings</p>
     <label style="color:#aaa; letter-spacing:2px; font-size:13px;">NAME</label><br>
     <input type="text" id="setName" class="nameInput" maxlength="20" autocomplete="off" style="margin:10px 0 18px;"><br>
+    <label style="color:#aaa; letter-spacing:2px; font-size:13px;">COUNTRY</label><br>
+    <button id="flagBtn" class="nameInput" style="cursor:pointer; margin:10px 0 18px;">…</button><br>
     <label style="color:#aaa; letter-spacing:2px; font-size:13px;">RAT CODE</label><br>
     <span style="color:#555; font-size:11px; letter-spacing:0.5px;">same name + code on another device = same player</span><br>
     <input type="text" id="setCode" class="nameInput" maxlength="12" autocomplete="off" style="margin:8px 0 18px; text-transform:uppercase; letter-spacing:3px;"><br>
@@ -150,6 +157,13 @@
     <p style="color:#888; font-size:13px; letter-spacing:1px; margin-bottom:18px;">Tap ▶ to listen · tap a card to pick it</p>
     <div id="musicTiles" style="display:flex; flex-wrap:wrap; gap:14px; justify-content:center; max-width:640px; margin:0 auto;"></div>
     <button id="musicPickerClose" style="margin-top:22px; padding:12px 44px; font-family:'Georgia',serif; letter-spacing:2px; text-transform:uppercase; color:#111; background:linear-gradient(135deg,#ffcc00,#ff9900); border:none; border-radius:4px; cursor:pointer;">Done</button>
+  </div>
+
+  <div id="flagPicker" class="hidden" style="position:fixed; inset:0; background:rgba(5,5,12,0.96); z-index:30; overflow-y:auto; padding:30px 14px 40px; text-align:center;">
+    <p style="color:#ffcc00; letter-spacing:3px; font-size:20px; text-transform:uppercase; margin-bottom:6px;">Country</p>
+    <p style="color:#888; font-size:13px; letter-spacing:1px; margin-bottom:18px;">Tap your flag — it goes next to your name on the leaderboard</p>
+    <div id="flagTiles" style="display:flex; flex-wrap:wrap; gap:10px; justify-content:center; max-width:640px; margin:0 auto;"></div>
+    <button id="flagPickerClose" style="margin-top:22px; padding:12px 44px; font-family:'Georgia',serif; letter-spacing:2px; text-transform:uppercase; color:#111; background:linear-gradient(135deg,#ffcc00,#ff9900); border:none; border-radius:4px; cursor:pointer;">Done</button>
   </div>
 
   <div id="helpScreen" class="hidden" style="position:fixed; inset:0; background:rgba(5,5,12,0.96); z-index:30; overflow-y:auto; padding:30px 16px 40px; text-align:center;">
@@ -189,7 +203,8 @@
     <p class="hsec">Scoring &amp; Names</p>
     <div class="hrow"><span class="hico">🏁</span><span>Running scores points — the faster the game gets, the faster they come. Your best score saves to the leaderboard automatically.</span></div>
     <div class="hrow"><span class="hico">🐀</span><span>Your name is yours: a secret RAT CODE in ⚙️ settings protects it. Use the same name + code on another device to stay you.</span></div>
-    <div class="hrow"><span class="hico">⏸️</span><span>Pause anytime with ⏸ or the P key. ⚙️ has your name, rat code, game speed, sounds and the soundtrack picker.</span></div>
+    <div class="hrow"><span class="hico">🌏</span><span>Pick your country in ⚙️ settings and your flag flies beside your name on the leaderboard.</span></div>
+    <div class="hrow"><span class="hico">⏸️</span><span>Pause anytime with ⏸ or the P key. ⚙️ has your name, your country flag, rat code, game speed, sounds and the soundtrack picker.</span></div>
 
     <button id="helpClose" style="margin-top:24px; padding:12px 44px; font-family:'Georgia',serif; letter-spacing:2px; text-transform:uppercase; color:#111; background:linear-gradient(135deg,#ffcc00,#ff9900); border:none; border-radius:4px; cursor:pointer;">Got it!</button>
   </div>
@@ -1266,6 +1281,22 @@ if (!ratToken) {
   ratToken = Array.from(crypto.getRandomValues(new Uint8Array(8)), b => chars[b % chars.length]).join('');
   localStorage.setItem('ratToken', ratToken);
 }
+// The countries the picker offers: the four the family plays from first, then the rest alphabetically. A code the list doesn't carry still renders, so adding one here is the only change a new country needs.
+const COUNTRIES = [
+  ['AU', 'Australia'], ['US', 'USA'], ['NL', 'Netherlands'], ['DE', 'Germany'],
+  ['AR', 'Argentina'], ['AT', 'Austria'], ['BE', 'Belgium'], ['BR', 'Brazil'], ['CA', 'Canada'],
+  ['CH', 'Switzerland'], ['CL', 'Chile'], ['CN', 'China'], ['CO', 'Colombia'], ['CZ', 'Czechia'],
+  ['DK', 'Denmark'], ['EG', 'Egypt'], ['ES', 'Spain'], ['FI', 'Finland'], ['FR', 'France'],
+  ['GB', 'UK'], ['GR', 'Greece'], ['HU', 'Hungary'], ['ID', 'Indonesia'], ['IE', 'Ireland'],
+  ['IL', 'Israel'], ['IN', 'India'], ['IT', 'Italy'], ['JP', 'Japan'], ['KE', 'Kenya'],
+  ['KR', 'South Korea'], ['MX', 'Mexico'], ['MY', 'Malaysia'], ['NG', 'Nigeria'], ['NO', 'Norway'],
+  ['NZ', 'New Zealand'], ['PH', 'Philippines'], ['PK', 'Pakistan'], ['PL', 'Poland'], ['PT', 'Portugal'],
+  ['RO', 'Romania'], ['SE', 'Sweden'], ['SG', 'Singapore'], ['TH', 'Thailand'], ['TR', 'Türkiye'],
+  ['UA', 'Ukraine'], ['VN', 'Vietnam'], ['ZA', 'South Africa'],
+];
+// A two-letter country code is a flag emoji once each letter is shifted into the regional-indicator block.
+const flagEmoji = code => /^[A-Z]{2}$/.test(code || '') ? String.fromCodePoint(...[...code].map(c => 0x1f1e6 + c.charCodeAt(0) - 65)) : '';
+let ratFlag = localStorage.getItem('ratFlag') || '';   // '' until the player picks one, or until the board tells us what their row already carries
 const startName = document.getElementById('startName');
 const setNameInput = document.getElementById('setName');
 function applyNameFields() {
@@ -1377,12 +1408,17 @@ async function renderTop() {
   const el = document.getElementById('topList');
   try {
     const rows = await (await fetch(API)).json();
+    // a device that has never picked adopts whatever its own row already carries, so a player who was given a flag sees it as theirs
+    if (!ratFlag && ratName) {
+      const mine = rows.find(r => r.name.toLowerCase() === ratName.toLowerCase());
+      if (mine && mine.flag) setFlag(mine.flag, false);
+    }
     el.textContent = '';
     if (!rows.length) { el.textContent = 'No scores yet — be the first!'; return; }
     const medals = ['🥇', '🥈', '🥉'];
     rows.slice(0, 5).forEach((r, i) => {   // five fits a phone between the score and the Run Again button; 🏆 has the rest
       const d = document.createElement('div');
-      d.textContent = `${medals[i] || (i + 1) + '.'} ${charIcons[r.char] || ''} ${r.name} — ${r.score.toLocaleString()}`;
+      d.textContent = `${medals[i] || (i + 1) + '.'} ${flagEmoji(r.flag)} ${charIcons[r.char] || ''} ${r.name} — ${r.score.toLocaleString()}`;
       el.appendChild(d);
     });
   } catch { el.textContent = "Couldn't load the leaderboard."; }
@@ -1395,7 +1431,7 @@ async function autoSave(s) {
     const res = await fetch(API, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: ratName, score: s, token: ratToken, cheese, secs: Math.floor(elapsed), pows: powsThisRun, char: charKey }),
+      body: JSON.stringify({ name: ratName, score: s, token: ratToken, cheese, secs: Math.floor(elapsed), pows: powsThisRun, char: charKey, flag: ratFlag }),
     });
     if (res.status === 403) { el.textContent = `${ratName} is another rat's name — hang on…`; nameTrouble(ratName, s); renderTop(); return; }
     if (!res.ok) throw 0;
@@ -1831,6 +1867,42 @@ musicStyleBtn.addEventListener('click', () => { refreshTiles(); musicPicker.clas
 document.getElementById('musicPickerClose').addEventListener('click', () => { stopPreview(); musicPicker.classList.add('hidden'); });
 refreshTiles();
 
+// ---------- country flag picker ----------
+const flagPicker = document.getElementById('flagPicker');
+const flagTiles = document.getElementById('flagTiles');
+const flagBtn = document.getElementById('flagBtn');
+function refreshFlagBtn() {
+  const name = (COUNTRIES.find(([c]) => c === ratFlag) || [])[1];
+  flagBtn.textContent = ratFlag ? `${flagEmoji(ratFlag)} ${name || ratFlag} ▾` : 'Pick a flag ▾';
+  [...flagTiles.children].forEach(t => t.classList.toggle('sel', t.dataset.code === ratFlag));
+}
+// push=false when the board is what told us the flag, so we don't write back what we just read
+function setFlag(code, push = true) {
+  ratFlag = code;
+  localStorage.setItem('ratFlag', code);
+  refreshFlagBtn();
+  if (!push || !ratName) return;   // with no name yet there is no row to write to; the first saved score carries the flag instead
+  fetch(API, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ flag: { name: ratName, code }, token: ratToken }),
+  }).catch(() => {});
+}
+COUNTRIES.forEach(([code, name]) => {
+  const tile = document.createElement('div');
+  tile.className = 'flagTile';
+  tile.dataset.code = code;
+  tile.innerHTML = `<span class="fl"></span><span class="cn"></span>`;
+  tile.querySelector('.fl').textContent = flagEmoji(code);
+  tile.querySelector('.cn').textContent = name;
+  tile.addEventListener('click', () => { setFlag(code); flagPicker.classList.add('hidden'); });
+  flagTiles.appendChild(tile);
+});
+flagBtn.addEventListener('click', () => { refreshFlagBtn(); flagPicker.classList.remove('hidden'); });
+document.getElementById('flagPickerClose').addEventListener('click', () => flagPicker.classList.add('hidden'));
+refreshFlagBtn();
+renderTop();   // on load, so a player whose flag was set for them sees it in settings before their first run of the session
+
 // ---------- input ----------
 function act(dir) {
   if (!playing || paused) return;
@@ -1865,7 +1937,7 @@ addEventListener('touchstart', e => {
   touchX = e.touches[0].clientX; touchY = e.touches[0].clientY;
 }, { passive: true });
 addEventListener('touchend', e => {
-  if (e.target.closest && e.target.closest('#pauseBtn, #settingsBtn, #settingsPanel, #musicPicker, #helpScreen, .overlay')) return;
+  if (e.target.closest && e.target.closest('#pauseBtn, #settingsBtn, #settingsPanel, #musicPicker, #flagPicker, #helpScreen, .overlay')) return;
   if (paused) { if (settingsPanel.classList.contains('hidden')) togglePause(); return; }
   const dx = e.changedTouches[0].clientX - touchX;
   const dy = e.changedTouches[0].clientY - touchY;
