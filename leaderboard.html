@@ -51,22 +51,22 @@
       letter-spacing: 2px;
       font-size: 12px;
       color: #ffcc00;
-      padding: 10px 16px;
+      padding: 10px 10px;
       border-bottom: 1px solid #333;
       text-align: left;
     }
     td {
-      padding: 14px 16px;
+      padding: 13px 10px;
       border-bottom: 1px solid #1a1a2e;
       font-size: 18px;
     }
     tr:hover td { background: #ffffff08; }
-    .rank { color: #555; font-size: 14px; width: 40px; }
+    .rank { color: #555; font-size: 14px; width: 34px; text-align: center; }
     tr:nth-child(1) .rank { color: #ffd700; font-size: 20px; }
     tr:nth-child(2) .rank { color: #aaa; font-size: 18px; }
     tr:nth-child(3) .rank { color: #cd7f32; font-size: 16px; }
-    .score { color: #ffcc00; font-weight: bold; text-align: right; }
-    .date { color: #444; font-size: 12px; text-align: right; }
+    .score { color: #ffcc00; font-weight: bold; text-align: right; white-space: nowrap; }
+    .flag { width: 36px; font-size: 22px; text-align: center; }
     .empty { color: #444; text-align: center; padding: 40px; font-size: 16px; letter-spacing: 1px; }
     .loading { color: #555; text-align: center; padding: 40px; letter-spacing: 2px; }
     .back-btn {
@@ -84,7 +84,7 @@
       font-size: 14px;
     }
     .back-btn:hover { color: #fff; border-color: #ffcc00; box-shadow: 0 0 20px #ffcc0044; }
-    footer { position: fixed; bottom: 20px; color: #333; font-size: 12px; }
+    footer { margin-top: 30px; color: #333; font-size: 12px; }
   </style>
 </head>
 <body>
@@ -132,10 +132,10 @@
   <table id="board">
     <thead>
       <tr>
-        <th>#</th>
+        <th></th>
+        <th></th>
         <th>Player</th>
         <th style="text-align:right">Score</th>
-        <th style="text-align:right">Date</th>
       </tr>
     </thead>
     <tbody id="rows">
@@ -161,9 +161,9 @@
         tbody.innerHTML = scores.map((s, i) =>
           `<tr>
             <td class="rank">${medals[i] || i+1}</td>
-            <td>${flagEmoji(s.flag)} ${charIcons[s.char] || ""} ${s.name}</td>
+            <td class="flag">${flagEmoji(s.flag)}</td>
+            <td>${charIcons[s.char] || ""} ${s.name}</td>
             <td class="score">${s.score.toLocaleString()}</td>
-            <td class="date">${s.date}</td>
           </tr>`
         ).join('');
       })
