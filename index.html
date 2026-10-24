@@ -672,6 +672,7 @@ function buildEchidna() {
 }
 
 const chars = { rat: buildRat(), squirrel: buildSquirrel(), echidna: buildEchidna() };
+const charIcons = { rat: '🐀', squirrel: '🐿️', echidna: '🦔' };
 for (const c of Object.values(chars)) { c.group.position.set(0, 0, 0); scene.add(c.group); }
 let charKey = localStorage.getItem('trainRatChar') || 'rat';
 if (!chars[charKey]) charKey = 'rat';
@@ -680,7 +681,7 @@ function setChar(k) {
   charKey = k; hero = chars[k];
   localStorage.setItem('trainRatChar', k);
   for (const [key, c] of Object.entries(chars)) c.group.visible = key === k;
-  document.getElementById('charIcon').textContent = k === 'rat' ? '🐀' : k === 'squirrel' ? '🐿️' : '🦔';
+  document.getElementById('charIcon').textContent = charIcons[k];
   document.querySelectorAll('.charBtn').forEach(b => b.classList.toggle('sel', b.dataset.char === k));
   if (!playing) renderer.render(scene, camera);
 }
@@ -1292,7 +1293,7 @@ async function renderTop() {
     const medals = ['🥇', '🥈', '🥉'];
     rows.slice(0, 5).forEach((r, i) => {   // five fits a phone between the score and the Run Again button; 🏆 has the rest
       const d = document.createElement('div');
-      d.textContent = `${medals[i] || (i + 1) + '.'} ${r.name} — ${r.score.toLocaleString()}`;
+      d.textContent = `${medals[i] || (i + 1) + '.'} ${charIcons[r.char] || ''} ${r.name} — ${r.score.toLocaleString()}`;
       el.appendChild(d);
     });
   } catch { el.textContent = "Couldn't load the leaderboard."; }
@@ -1305,7 +1306,7 @@ async function autoSave(s) {
     const res = await fetch(API, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: ratName, score: s, token: ratToken, cheese, secs: Math.floor(elapsed), pows: powsThisRun }),
+      body: JSON.stringify({ name: ratName, score: s, token: ratToken, cheese, secs: Math.floor(elapsed), pows: powsThisRun, char: charKey }),
     });
     if (res.status === 403) { el.textContent = `${ratName} is another rat's name — hang on…`; nameTrouble(ratName, s); renderTop(); return; }
     if (!res.ok) throw 0;
