@@ -93,6 +93,12 @@
     }
     .charBtn span { font-size: 11px; letter-spacing: 1px; }
     .charBtn.sel { border-color: #ffcc00; color: #fff; box-shadow: 0 0 12px #ffcc0044; }
+    #biomeBanner {
+      position: fixed; top: 26%; left: 0; right: 0; text-align: center; z-index: 6;
+      color: #ffcc00; font-size: clamp(20px, 5vw, 34px); letter-spacing: 4px; font-weight: bold;
+      text-shadow: 0 2px 10px #000; opacity: 0; transition: opacity 0.8s; pointer-events: none;
+    }
+    #biomeBanner.show { opacity: 1; }
     .hsec { color: #ffcc00; letter-spacing: 3px; font-size: 13px; text-transform: uppercase; margin: 18px 0 6px; }
     .hrow { display: flex; gap: 12px; align-items: center; text-align: left; margin: 0 auto; max-width: 430px; padding: 5px 0; color: #ccc; font-size: 14px; line-height: 1.5; }
     .hico { font-size: 24px; width: 48px; text-align: center; flex: none; }
@@ -101,6 +107,7 @@
 </head>
 <body>
   <div id="brand" class="hidden">TRAIN RAT</div>
+  <div id="biomeBanner"></div>
   <div id="musicLoading" class="hidden" style="position:fixed; bottom:40px; right:14px; background:#14141fcc; color:#ffcc00; padding:8px 14px; border-radius:20px; font-size:12px; letter-spacing:1px; z-index:25;">♪ loading music…</div>
   <div id="errToast" class="hidden" style="position:fixed; bottom:40px; left:50%; transform:translateX(-50%); background:#8b1a0e; color:#fff; padding:10px 18px; border-radius:6px; font-size:12px; z-index:40; max-width:90vw;"></div>
   <div id="hud" class="hidden"><span><span id="charIcon">🐀</span> <b id="hudName"></b></span><span>🧀 <b id="cheeseCt">0</b></span><span>SCORE <b id="scoreCt">0</b></span><span id="powIcons"></span><span id="pauseBtn" style="pointer-events:auto;cursor:pointer">⏸</span><span id="settingsBtn" style="pointer-events:auto;cursor:pointer">⚙️</span></div>
@@ -155,6 +162,7 @@
     <div class="hrow"><span class="hico">⬇️</span><span>Swipe down to duck — under signs AND under trains. The rat stays flat until the train has passed.</span></div>
     <div class="hrow"><span class="hico">🐿️</span><span>Night Glider only: tap again in mid-air to GLIDE over the hurdles. Tap once more (or duck) to drop. You sink slowly, so don't glide forever!</span></div>
     <div class="hrow"><span class="hico">🦔</span><span>Rainbow Spike only: swipe down to DIG underground — you can tunnel under TWO trains in a row before popping back up. Swipe down again to surface early.</span></div>
+    <div class="hrow"><span class="hico">🌴</span><span>Run far enough and the track reaches the Amazon rainforest — jump the fallen logs, duck the hanging vines, grab the bananas.</span></div>
 
     <p class="hsec">Watch out</p>
     <div class="hrow"><span class="hico">🚆</span><span>Trains — switch tracks, or duck and squeeze underneath.</span></div>
@@ -304,7 +312,8 @@ addEventListener('resize', () => {
 });
 
 // ---------- light ----------
-scene.add(new THREE.HemisphereLight(0xcfe8ff, 0x5e9c46, 0.9));
+const hemi = new THREE.HemisphereLight(0xcfe8ff, 0x5e9c46, 0.9);
+scene.add(hemi);
 const sun = new THREE.DirectionalLight(0xfff2cc, 1.6);
 sun.position.set(14, 24, -10);
 sun.castShadow = true;
@@ -442,6 +451,53 @@ for (let i = 0; i < 6; i++) {
 const sunGlow = glowSprite(0xffe9a8, 26);
 sunGlow.position.set(34, 26, -130);
 scene.add(sunGlow);
+
+// jungle trees line the track in the rainforest (hidden in the countryside)
+function buildTree() {
+  const g = new THREE.Group();
+  const trunkM = new THREE.MeshStandardMaterial({ color: 0x5e4328, roughness: 1 });
+  const leafM = new THREE.MeshStandardMaterial({ color: 0x2e6b33, roughness: 0.95 });
+  const h = 4.5 + Math.random() * 2.5;
+  const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.32, h, 8), trunkM);
+  trunk.position.y = h / 2; trunk.castShadow = true;
+  g.add(trunk);
+  for (let i = 0; i < 3; i++) {
+    const r = 1.1 + Math.random() * 0.8;
+    const f = new THREE.Mesh(new THREE.SphereGeometry(r, 10, 8), leafM);
+    f.position.set((Math.random() - 0.5) * 1.4, h - 0.3 + (Math.random() - 0.4) * 0.9, (Math.random() - 0.5) * 1.2);
+    f.castShadow = true;
+    g.add(f);
+  }
+  return g;
+}
+const trees = [];
+for (let i = 0; i < 10; i++) for (const side of [-8.2, 8.2]) {
+  const t = buildTree();
+  t.position.set(side + (Math.random() - 0.5) * 2.5, 0, -i * 18 + 12);
+  t.visible = false;
+  scene.add(t); trees.push(t);
+}
+
+// butterflies drift through the jungle air
+const butterflies = [];
+for (let i = 0; i < 6; i++) {
+  const b = emojiSprite('🦋', 0.5);
+  b.userData.o = i * 1.3;
+  b.userData.y = 1.2 + Math.random() * 2.5;
+  b.position.set((Math.random() - 0.5) * 12, b.userData.y, -10 - Math.random() * 55);
+  b.visible = false;
+  scene.add(b); butterflies.push(b);
+}
+
+// biome palette: countryside ↔ Amazon rainforest
+const BC = {
+  skyF: new THREE.Color(0x6db3e8), skyJ: new THREE.Color(0x8fb98a),
+  fogF: new THREE.Color(0xa8cfeb), fogJ: new THREE.Color(0xa9c795),
+  hemiF: new THREE.Color(0xcfe8ff), hemiJ: new THREE.Color(0xd8e8c0),
+  gndF: new THREE.Color(0x5e9c46), gndJ: new THREE.Color(0x2e5e30),
+  white: new THREE.Color(0xffffff),
+  grassJ: new THREE.Color(0x6f9a5f), hillJ: new THREE.Color(0x4f7a3c),
+};
 
 // ---------- the rat ----------
 function buildRat() {
@@ -710,6 +766,40 @@ function buildBeam() {
   g.traverse(o => { if (o.isMesh) o.castShadow = true; });
   return g;
 }
+// jungle skins: a fallen log instead of the hurdle, hanging vines instead of the beam — same collisions, new look
+function buildLog() {
+  const g = new THREE.Group();
+  const bark = new THREE.MeshStandardMaterial({ color: 0x6e4a2f, roughness: 1 });
+  const moss = new THREE.MeshStandardMaterial({ color: 0x4f7a3c, roughness: 1 });
+  const log = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 1.9, 12), bark);
+  log.rotation.z = Math.PI / 2; log.position.y = 0.32;
+  const stub = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.11, 0.5, 8), bark);
+  stub.position.set(0.4, 0.6, 0); stub.rotation.z = 0.4;
+  const tuft = new THREE.Mesh(new THREE.SphereGeometry(0.16, 8, 6), moss);
+  tuft.position.set(-0.5, 0.58, 0.05);
+  g.add(log, stub, tuft);
+  g.traverse(o => { if (o.isMesh) o.castShadow = true; });
+  return g;
+}
+function buildVine() {
+  const g = new THREE.Group();
+  const wood = new THREE.MeshStandardMaterial({ color: 0x5e4328, roughness: 1 });
+  const leaf = new THREE.MeshStandardMaterial({ color: 0x3f7030, roughness: 0.9 });
+  const branch = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.12, 2.3, 10), wood);
+  branch.rotation.z = Math.PI / 2; branch.position.y = 2.15;
+  g.add(branch);
+  for (const vx of [-0.8, -0.3, 0.25, 0.75]) {
+    const len = 0.55 + Math.random() * 0.45;
+    const vine = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.03, len, 6), leaf);
+    vine.position.set(vx, 2.15 - len / 2, 0);
+    const tuft = new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 6), leaf);
+    tuft.position.set(vx, 2.15 - len, 0);
+    g.add(vine, tuft);
+  }
+  g.traverse(o => { if (o.isMesh) o.castShadow = true; });
+  return g;
+}
+
 const cheeseGeo = new THREE.CylinderGeometry(0.4, 0.4, 0.26, 3);
 function buildCheese() {
   const m = new THREE.Mesh(cheeseGeo, mat.cheese);
@@ -745,6 +835,7 @@ const POW = {
 };
 let powers = [], magnetT = 0, starT = 0, rocketT = 0, invulnT = 0, helmet = false, flyY = 0, lastHop = 0, shake = 0, powsThisRun = 0;
 let gliding = false, glideH = 0;   // Night Glider: tap mid-air to glide, tap again (or duck) to drop
+let biome = 'field', biomeT = 0, blend = 0, level = 1;   // each biome is a level; speed resets (mostly) at each new one
 let digging = false, digT = 0, digTrains = 0, digY = 0;   // Rainbow Spike: swipe down to dig — tunnels under up to two trains in a row
 function powHud() {
   document.getElementById('powIcons').textContent =
@@ -758,7 +849,8 @@ let jumpT = -1, duckT = -1;
 const JUMP_DUR = 0.6, DUCK_DUR = 0.6;
 let obstacles = [], treats = [], spawnTimer = 0;
 let speedMult = parseFloat(localStorage.getItem('subwayRatsSpeed') || '0.8');
-function speed() { return (13 + Math.min(22, elapsed * 0.33)) * speedMult; }   // world units/sec
+// speed climbs within a level and resets at the next one, each level starting a notch faster than the last did
+function speed() { return (13 + Math.min(6, (level - 1) * 1.5) + Math.min(22, biomeT * 0.44)) * speedMult; }
 
 function reset() {
   elapsed = 0; score = 0; cheese = 0;
@@ -771,6 +863,7 @@ function reset() {
   magnetT = 0; starT = 0; rocketT = 0; invulnT = 0; helmet = false; flyY = 0; shake = 0; powsThisRun = 0;
   gliding = false; glideH = 0;
   digging = false; digT = 0; digTrains = 0; digY = 0;
+  biome = 'field'; biomeT = 0; blend = 0; level = 1;
   hero.group.visible = true;
   powHud();
 }
@@ -781,7 +874,9 @@ function spawnWave() {
   for (let i = 0; i < nBlocked; i++) {
     const r = Math.random();
     const type = r < 0.32 ? 'train' : r < 0.66 ? 'hurdle' : 'beam';
-    const mesh = type === 'train' ? buildTrain() : type === 'hurdle' ? buildHurdle() : buildBeam();
+    const mesh = type === 'train' ? buildTrain()
+      : type === 'hurdle' ? (blend > 0.5 ? buildLog() : buildHurdle())
+      : (blend > 0.5 ? buildVine() : buildBeam());
     mesh.position.set(LANE_X(order[i]), 0, -WORLD_LEN + (type === 'train' ? -4.5 : 0));
     scene.add(mesh);
     obstacles.push({ mesh, lane: order[i], type, len: type === 'train' ? 9 : 0.4 });
@@ -796,13 +891,14 @@ function spawnWave() {
       treats.push({ mesh: m, lane: open });
     }
   }
-  // rare pizza — worth 100 points
+  // rare pizza — worth 100 points (in the jungle it's a banana, worth 60)
   if (Math.random() < 0.08) {
+    const jungle = blend > 0.5;
     const g = new THREE.Group();
-    g.add(glowSprite(0xffcc88, 2.0), emojiSprite('🍕', 1.1));
+    g.add(glowSprite(0xffcc88, 2.0), emojiSprite(jungle ? '🍌' : '🍕', 1.1));
     g.position.set(LANE_X(order[nBlocked]), 0.8, -WORLD_LEN - 36);
     scene.add(g);
-    treats.push({ mesh: g, kind: 'pizza' });
+    treats.push({ mesh: g, kind: jungle ? 'banana' : 'pizza' });
   }
   // the occasional power-up, floating in an open lane
   if (Math.random() < 0.10) {
@@ -815,6 +911,14 @@ function spawnWave() {
     scene.add(g);
     powers.push({ mesh: g, kind });
   }
+}
+
+function biomeBanner(text) {
+  const b = document.getElementById('biomeBanner');
+  b.textContent = text;
+  b.classList.add('show');
+  clearTimeout(biomeBanner.t);
+  biomeBanner.t = setTimeout(() => b.classList.remove('show'), 2600);
 }
 
 // ---------- update ----------
@@ -849,7 +953,40 @@ function update(dt) {
   // scenery recycle
   for (const t of ties) { t.position.z += v * dt; if (t.position.z > 10) t.position.z -= 46 * 3.8; }
   for (const p of poles) { p.position.z += v * dt; if (p.position.z > 10) p.position.z -= 10 * 18; }
+  for (const t of trees) { t.position.z += v * dt; if (t.position.z > 10) t.position.z -= 10 * 18; }
   for (const c of clouds) { c.position.x += dt * 0.4; if (c.position.x > 70) c.position.x = -70; }
+
+  // biomes: after a while the track runs into the Amazon rainforest, and back out again
+  biomeT += dt;
+  if (biomeT > 50) {
+    biomeT = 0;
+    level++;
+    biome = biome === 'field' ? 'jungle' : 'field';
+    biomeBanner(`LEVEL ${level} · ` + (biome === 'jungle' ? '🌴 THE AMAZON RAINFOREST 🌴' : '🌾 OPEN COUNTRY 🌾'));
+    sfx.power();
+  }
+  blend += ((biome === 'jungle' ? 1 : 0) - blend) * Math.min(1, dt * 0.7);
+  scene.background.lerpColors(BC.skyF, BC.skyJ, blend);
+  scene.fog.color.lerpColors(BC.fogF, BC.fogJ, blend);
+  scene.fog.near = 60 - blend * 25;
+  scene.fog.far = 150 - blend * 45;
+  hemi.color.lerpColors(BC.hemiF, BC.hemiJ, blend);
+  hemi.groundColor.lerpColors(BC.gndF, BC.gndJ, blend);
+  sun.intensity = 1.6 - blend * 0.5;
+  mat.grass.color.lerpColors(BC.white, BC.grassJ, blend);
+  mat.hill.color.lerpColors(BC.white, BC.hillJ, blend);
+  sunGlow.material.opacity = 1 - blend * 0.7;
+  const jungleNow = blend > 0.5;
+  for (const p of poles) p.visible = !jungleNow;
+  for (const t of trees) t.visible = jungleNow;
+  for (const b of butterflies) {
+    b.visible = blend > 0.35;
+    if (!b.visible) continue;
+    b.position.z += v * dt * 0.4;
+    b.position.x += Math.sin(elapsed * 2 + b.userData.o) * dt * 1.5;
+    b.position.y = b.userData.y + Math.sin(elapsed * 3 + b.userData.o) * 0.5;
+    if (b.position.z > 8) b.position.z -= 70;
+  }
 
   const jumpH = jumpT >= 0 ? Math.sin(Math.PI * jumpT / JUMP_DUR) : 0;
   const ducking = duckT >= 0;
@@ -930,7 +1067,7 @@ function update(dt) {
       t.mesh.position.z += (0 - t.mesh.position.z) * Math.min(1, dt * 2.5);
     }
     if (Math.abs(t.mesh.position.x - ratX) < 1.1 && Math.abs(t.mesh.position.z) < 1.1) {
-      if (t.kind === 'pizza') { score += 100 * mult; sfx.pizza(); spawnParts('spark', t.mesh.position, 14, 3, 3); }
+      if (t.kind === 'pizza' || t.kind === 'banana') { score += (t.kind === 'pizza' ? 100 : 60) * mult; sfx.pizza(); spawnParts('spark', t.mesh.position, 14, 3, 3); }
       else { cheese++; score += 25 * mult; sfx.cheese(); spawnParts('spark', t.mesh.position, 6, 2, 2.5); }
       scene.remove(t.mesh); return false;
     }
@@ -979,7 +1116,7 @@ function update(dt) {
 
   // soundtrack keeps pace with the run: style's base tempo, climbing up to +40 bpm at full tilt
   if (typeof Tone !== 'undefined' && musicParts) {
-    const target = MUSIC_STYLES[builtStyle].bpm + Math.min(40, elapsed * 0.5);
+    const target = MUSIC_STYLES[builtStyle].bpm + Math.min(40, biomeT * 0.8);   // tempo resets with each level, like the speed
     if (Math.abs(Tone.Transport.bpm.value - target) > 1) Tone.Transport.bpm.value = target;
   }
 }
