@@ -862,7 +862,11 @@ function reset() {
   magnetT = 0; starT = 0; rocketT = 0; invulnT = 0; helmet = false; flyY = 0; shake = 0; powsThisRun = 0;
   gliding = false; glideH = 0;
   digging = false; digT = 0; digTrains = 0; digY = 0;
-  biome = 'field'; biomeT = 0; blend = 0; level = 1;
+  // ?level=2 in the address starts runs at that level (even levels = the rainforest) — the family test door
+  level = Math.max(1, parseInt(new URLSearchParams(location.search).get('level') || '1', 10) || 1);
+  biome = level % 2 === 0 ? 'jungle' : 'field';
+  blend = biome === 'jungle' ? 1 : 0;
+  biomeT = 0;
   hero.group.visible = true;
   powHud();
 }
