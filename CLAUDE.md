@@ -31,7 +31,7 @@ Key mechanics: 3 lanes; jump/duck; duck-squeeze under trains (hold until passed)
 
 ## Identity & leaderboard model
 
-- A player = name + **rat code** (8-char token in localStorage, shown in ⚙️). First device to score under a name owns it; writes need the token. Same name+code on another device = same player.
+- A player = name + **rat code** (4-char token in localStorage, shown in ⚙️). First device to score under a name owns it; writes need the token. Same name+code on another device = same player. (Codes were 8 chars pre-2026-10-24; the API's `tokenMatches()` still accepts the old length as a prefix for devices that haven't refreshed.)
 - The server has: `claim` (lost-code recovery by connection history), `rename` (row follows, taken names 409), `flag` (country), **adoptions map** (admin list folding duplicate names into the real one — the device self-heals via the `become` response field), ghosts (best-run replay per board player, GC'd when they leave the board).
 - **Never expose tokens via GET.** `publicRows()` is the only shape the board returns.
 - Admin fixes (merging duplicate players, setting flags) are done by editing the data files on the API server directly — ALWAYS append an `admin-*` line to the audit log saying what and why.

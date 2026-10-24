@@ -1467,7 +1467,11 @@ let ratName = localStorage.getItem('ratName') || '';
 let ratToken = localStorage.getItem('ratToken') || '';
 if (!ratToken) {
   const chars = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
-  ratToken = Array.from(crypto.getRandomValues(new Uint8Array(8)), b => chars[b % chars.length]).join('');
+  ratToken = Array.from(crypto.getRandomValues(new Uint8Array(4)), b => chars[b % chars.length]).join('');
+  localStorage.setItem('ratToken', ratToken);
+} else if (ratToken.length > 4) {
+  // codes were 8 chars; the server now stores just the first 4. Devices self-heal on next load.
+  ratToken = ratToken.slice(0, 4);
   localStorage.setItem('ratToken', ratToken);
 }
 // The countries the picker offers: the four the family plays from first, then the rest alphabetically. A code the list doesn't carry still renders, so adding one here is the only change a new country needs.
