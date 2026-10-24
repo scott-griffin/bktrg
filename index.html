@@ -18,10 +18,15 @@
     canvas { display: block; touch-action: none; }
     .overlay {
       position: fixed; inset: 0;
-      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center;
+      justify-content: safe center;     /* overflowing content stays reachable from the top; older browsers keep plain center */
       background: rgba(5, 5, 12, 0.82);
       color: #fff; text-align: center; z-index: 10; padding: 20px;
+      overflow-y: auto;                 /* a tall game-over screen scrolls instead of piling up */
     }
+    /* without this the leaderboard gets squeezed to nothing on a phone and its rows spill out under the Run Again button */
+    .overlay > * { flex-shrink: 0; }
     .overlay h1 {
       font-size: clamp(40px, 9vw, 72px);
       letter-spacing: 5px; text-transform: uppercase;
@@ -1144,7 +1149,7 @@ async function renderTop() {
     el.textContent = '';
     if (!rows.length) { el.textContent = 'No scores yet — be the first!'; return; }
     const medals = ['🥇', '🥈', '🥉'];
-    rows.slice(0, 10).forEach((r, i) => {
+    rows.slice(0, 5).forEach((r, i) => {   // five fits a phone between the score and the Run Again button; 🏆 has the rest
       const d = document.createElement('div');
       d.textContent = `${medals[i] || (i + 1) + '.'} ${r.name} — ${r.score.toLocaleString()}`;
       el.appendChild(d);
