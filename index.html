@@ -53,8 +53,13 @@
       box-shadow: 0 0 30px #ffcc0088; transition: all 0.2s;
     }
     .overlay .go-btn:hover { transform: scale(1.05); box-shadow: 0 0 50px #ffcc00; }
-    .overlay a { color: #666; font-size: 13px; letter-spacing: 2px; margin-top: 26px; text-decoration: none; }
-    .overlay a:hover { color: #ffcc00; }
+    /* pill buttons so the links read as tappable and give a thumb-sized target on phones */
+    .overlay a {
+      color: #ccc; font-size: 15px; letter-spacing: 2px; margin-top: 14px; text-decoration: none;
+      padding: 10px 24px; border: 1px solid #444; border-radius: 999px; background: #ffffff0d;
+      transition: all 0.2s;
+    }
+    .overlay a:hover { color: #ffcc00; border-color: #ffcc00; }
     .controls {
       display: grid; grid-template-columns: auto auto; gap: 6px 16px; justify-content: center;
       color: #aaa; letter-spacing: 2px; font-size: 15px; margin: 10px 0 2px;
