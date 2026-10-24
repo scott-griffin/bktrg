@@ -91,13 +91,15 @@
     .flagTile.sel .cn { color: #ffcc00; }
     .listenBtn { padding: 8px 22px; font-family: 'Georgia', serif; letter-spacing: 1px; color: #111; background: linear-gradient(135deg, #ffcc00, #ff9900); border: none; border-radius: 4px; cursor: pointer; }
     .listenBtn.on { background: linear-gradient(135deg, #ff6644, #cc3300); color: #fff; }
-    .charBtn {
+    .charBtn, .styleBtn {
       background: #111; border: 1px solid #333; border-radius: 8px; color: #aaa;
       padding: 8px 20px; font-family: 'Georgia', serif; cursor: pointer; font-size: 24px;
       display: flex; flex-direction: column; align-items: center; gap: 2px;
     }
-    .charBtn span { font-size: 11px; letter-spacing: 1px; }
-    .charBtn.sel { border-color: #ffcc00; color: #fff; box-shadow: 0 0 12px #ffcc0044; }
+    .charBtn span, .styleBtn span { font-size: 11px; letter-spacing: 1px; }
+    .charBtn.sel, .styleBtn.sel { border-color: #ffcc00; color: #fff; box-shadow: 0 0 12px #ffcc0044; }
+    .styleBtn { font-size: 17px; padding: 6px 4px; flex: 1 1 0; }   /* the same pill as the character row, but five share one row however narrow the phone is */
+    .styleBtn span { font-size: 10px; letter-spacing: 0; }
     #biomeBanner {
       position: fixed; top: 26%; left: 0; right: 0; text-align: center; z-index: 6;
       color: #ffcc00; font-size: clamp(20px, 5vw, 34px); letter-spacing: 4px; font-weight: bold;
@@ -117,7 +119,7 @@
   <div id="errToast" class="hidden" style="position:fixed; bottom:40px; left:50%; transform:translateX(-50%); background:#8b1a0e; color:#fff; padding:10px 18px; border-radius:6px; font-size:12px; z-index:40; max-width:90vw;"></div>
   <div id="hud" class="hidden"><span><span id="charIcon">🐀</span> <b id="hudName"></b></span><span>🧀 <b id="cheeseCt">0</b></span><span>SCORE <b id="scoreCt">0</b></span><span id="powIcons"></span><span id="pauseBtn" style="pointer-events:auto;cursor:pointer">⏸</span><span id="settingsBtn" style="pointer-events:auto;cursor:pointer">⚙️</span></div>
 
-  <div id="settingsPanel" class="hidden" style="position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); background:#14141f; border:1px solid #333; border-radius:8px; padding:28px 32px; z-index:20; text-align:center; box-shadow:0 0 40px #000;">
+  <div id="settingsPanel" class="hidden" style="position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); background:#14141f; border:1px solid #333; border-radius:8px; padding:28px 32px; z-index:20; text-align:center; box-shadow:0 0 40px #000; max-height:88vh; overflow-y:auto;">
     <p style="color:#ffcc00; letter-spacing:3px; font-size:18px; text-transform:uppercase; margin-bottom:18px;">Settings</p>
     <label style="color:#aaa; letter-spacing:2px; font-size:13px;">NAME</label><br>
     <input type="text" id="setName" class="nameInput" maxlength="20" autocomplete="off" style="margin:10px 0 18px;"><br>
@@ -131,7 +133,8 @@
     <label style="color:#aaa; letter-spacing:2px; font-size:13px; display:block; margin-bottom:10px;"><input type="checkbox" id="sfxToggle" style="accent-color:#ffcc00;"> SOUND EFFECTS</label>
     <label style="color:#aaa; letter-spacing:2px; font-size:13px; display:block; margin-bottom:14px;"><input type="checkbox" id="musicToggle" style="accent-color:#ffcc00;"> MUSIC</label>
     <label style="color:#aaa; letter-spacing:2px; font-size:13px;">SOUNDTRACK</label><br>
-    <button id="musicStyleBtn" class="nameInput" style="cursor:pointer; margin:10px 0 20px;">…</button><br>
+    <div id="musicPills" style="display:flex; gap:7px; justify-content:center; max-width:290px; margin:10px auto 0;"></div>
+    <button id="musicStyleBtn" style="display:block; margin:12px auto 18px; padding:7px 18px; font-family:'Georgia',serif; letter-spacing:1px; font-size:12px; color:#ffcc00; background:none; border:1px solid #444; border-radius:4px; cursor:pointer;">♪ HEAR THEM ALL</button>
     <button id="soundTest" style="display:block; margin:0 auto 14px; padding:8px 20px; font-family:'Georgia',serif; letter-spacing:1px; font-size:12px; color:#ffcc00; background:none; border:1px solid #444; border-radius:4px; cursor:pointer;">🔊 TEST SOUND</button>
     <p id="soundInfo" style="color:#777; font-size:11px; letter-spacing:0.5px; max-width:240px; margin:0 auto 16px; line-height:1.6;"></p>
     <button id="settingsClose" style="padding:10px 36px; font-family:'Georgia',serif; letter-spacing:2px; text-transform:uppercase; color:#111; background:linear-gradient(135deg,#ffcc00,#ff9900); border:none; border-radius:4px; cursor:pointer;">Done</button>
@@ -1615,7 +1618,7 @@ const sfx = {
   dig:    () => { if (!sfxOn) return; const t = audio().currentTime; tone(180, 70, 0.3, 'sawtooth', 0.16, t); tone(120, 60, 0.35, 'square', 0.1, t + 0.05); },
   clang:  () => sfxOn && tone(900, 180, 0.3, 'square', 0.2),
 };
-// Tone.js soundtracks: four styles the player picks in settings. Tempo climbs with the game.
+// Tone.js soundtracks: five styles the player picks in settings. Tempo climbs with the game.
 function drumKit(d, kv, sv, hv, snFreq) {
   const kick = new Tone.MembraneSynth({ pitchDecay: 0.055, octaves: 8, volume: kv }).toDestination();
   const snare = new Tone.NoiseSynth({ noise: { type: 'white' }, envelope: { attack: 0.001, decay: 0.18, sustain: 0 }, volume: sv });
@@ -1904,15 +1907,16 @@ musicToggle.addEventListener('change', () => {
 });
 // soundtrack picker — a browse-and-listen screen, like the mockup pages
 const STYLE_INFO = {
-  caper: { title: 'A — Sneaky Caper', desc: 'Sneaky mission music — fat bass, warm string pads, and a real piano shadowing the melody.' },
-  funk:  { title: 'B — Funky Rat', desc: 'A real funk vamp — popping octave bass, ghost notes, clav scratch, horn stab on The One.' },
-  chase: { title: 'C — Train Chase', desc: 'Epic chase — driving drums, timpani, soaring strings, twangy riff, a train whistle in the distance.' },
-  lofi:  { title: 'D — Lo-fi Bounce', desc: 'Slow head-nod beat — huge sliding sub bass, a real piano through a dusty tape wobble.' },
-  cirque: { title: 'E — Circus in the Sky', desc: 'Cirque-style wordless vocals — two soaring synthetic voices over harp arpeggios, deep drone and timpani.' },
+  caper: { icon: '🕵️', short: 'Caper', title: 'A — Sneaky Caper', desc: 'Sneaky mission music — fat bass, warm string pads, and a real piano shadowing the melody.' },
+  funk:  { icon: '🎸', short: 'Funk', title: 'B — Funky Rat', desc: 'A real funk vamp — popping octave bass, ghost notes, clav scratch, horn stab on The One.' },
+  chase: { icon: '🚂', short: 'Chase', title: 'C — Train Chase', desc: 'Epic chase — driving drums, timpani, soaring strings, twangy riff, a train whistle in the distance.' },
+  lofi:  { icon: '🎧', short: 'Lo-fi', title: 'D — Lo-fi Bounce', desc: 'Slow head-nod beat — huge sliding sub bass, a real piano through a dusty tape wobble.' },
+  cirque: { icon: '🎪', short: 'Circus', title: 'E — Circus in the Sky', desc: 'Cirque-style wordless vocals — two soaring synthetic voices over harp arpeggios, deep drone and timpani.' },
 };
 const musicPicker = document.getElementById('musicPicker');
 const musicTiles = document.getElementById('musicTiles');
 const musicStyleBtn = document.getElementById('musicStyleBtn');
+const musicPills = document.getElementById('musicPills');
 let previewing = null;
 function refreshTiles() {
   [...musicTiles.children].forEach(tile => {
@@ -1923,7 +1927,12 @@ function refreshTiles() {
     b.textContent = previewing === key ? '⏹ Stop' : '▶ Listen';
     b.classList.toggle('on', previewing === key);
   });
-  musicStyleBtn.textContent = STYLE_INFO[musicStyle].title + ' ▾';
+  [...musicPills.children].forEach(pill => pill.classList.toggle('sel', pill.dataset.key === musicStyle));
+}
+function pickStyle(key) {
+  musicStyle = key;
+  localStorage.setItem('trainRatMusicStyle', key);
+  refreshTiles();
 }
 function stopPreview() {
   if (previewing && musicParts) Tone.Transport.pause();
@@ -1943,14 +1952,19 @@ Object.entries(STYLE_INFO).forEach(([key, info]) => {
   const tile = document.createElement('div');
   tile.className = 'musicTile';
   tile.dataset.key = key;
-  tile.innerHTML = `<span class="picked"></span><h3>${info.title}</h3><p>${info.desc}</p><button class="listenBtn">▶ Listen</button>`;
+  tile.innerHTML = `<span class="picked"></span><h3>${info.icon} ${info.title}</h3><p>${info.desc}</p><button class="listenBtn">▶ Listen</button>`;
   tile.addEventListener('click', e => {
     if (e.target.classList.contains('listenBtn')) { previewStyle(key); return; }
-    musicStyle = key;
-    localStorage.setItem('trainRatMusicStyle', key);
-    refreshTiles();
+    pickStyle(key);
   });
   musicTiles.appendChild(tile);
+
+  const pill = document.createElement('button');                 // the five soundtracks sit right in settings, like the character row, so you can see there is a choice
+  pill.className = 'styleBtn';
+  pill.dataset.key = key;
+  pill.innerHTML = `${info.icon}<span>${info.short}</span>`;
+  pill.addEventListener('click', () => { sfx.lane(); pickStyle(key); });
+  musicPills.appendChild(pill);
 });
 musicStyleBtn.addEventListener('click', () => { refreshTiles(); musicPicker.classList.remove('hidden'); });
 document.getElementById('musicPickerClose').addEventListener('click', () => { stopPreview(); musicPicker.classList.add('hidden'); });
