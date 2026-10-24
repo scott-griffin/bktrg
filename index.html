@@ -1553,6 +1553,11 @@ async function autoSave(s) {
     if (res.status === 403) { el.textContent = `${ratName} is another rat's name — hang on…`; nameTrouble(ratName, s); renderTop(); return; }
     if (!res.ok) throw 0;
     const j = await res.json();
+    if (j.become && j.become.code) {   // the server folded this device into its real identity — adopt it
+      ratToken = j.become.code; localStorage.setItem('ratToken', ratToken); setCodeInput.value = ratToken;
+      adoptName(j.become.name);
+      showNote(`You're ${j.become.name} on this device now 🐀`);
+    }
     el.textContent = j.rank ? `Saved — ${ratName} is #${j.rank} 🧀` : 'Saved ✓';
   } catch { el.textContent = "Couldn't reach the leaderboard"; }
   renderTop();
