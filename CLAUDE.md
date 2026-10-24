@@ -59,3 +59,4 @@ Key mechanics: 3 lanes; jump/duck; duck-squeeze under trains (hold until passed)
 2. Ghost **racing** (translucent ghost runs alongside your live run; watch mode exists).
 3. More biomes (one palette entry + props each), more characters (mockup-page pattern).
 4. API migration completion: forwarder on the old BrassTix endpoint, then retire it and move the data history archive.
+5. **Retire GitHub Pages** (added 2026-10-24): hosting moved to the grifflow server; Pages still has the bktrg.com custom domain configured as a fallback. Once the cutover has soaked a few days, remove the custom domain / disable Pages in the repo settings so GitHub stops trying to serve the site, and delete the `CNAME` file.
