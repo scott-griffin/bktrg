@@ -210,6 +210,7 @@
     <div style="display:flex; gap:12px; justify-content:center; margin:2px 0 6px;">
       <button class="charBtn" data-char="rat">🐀<span>Rat</span></button>
       <button class="charBtn" data-char="squirrel">🐿️<span>Night Glider</span></button>
+      <button class="charBtn" data-char="echidna">🦔<span>Rainbow Spike</span></button>
     </div>
     <input type="text" id="startName" class="nameInput" maxlength="20" placeholder="your name" autocomplete="off">
     <button class="go-btn" id="startBtn">Run!</button>
@@ -514,7 +515,77 @@ function buildSquirrel() {
   return { group: g, tail, feet, flaps };
 }
 
-const chars = { rat: buildRat(), squirrel: buildSquirrel() };
+// Thomas's second pick: Rainbow Spike — silver-gray echidna, every spine a different color
+function buildEchidna() {
+  const g = new THREE.Group();
+  const fur = new THREE.MeshStandardMaterial({ color: 0x6b7280, roughness: 0.9 });
+  const bellyMat = new THREE.MeshStandardMaterial({ color: 0xe8ecf2, roughness: 0.9 });
+  const darkMat = new THREE.MeshStandardMaterial({ color: 0x14161c, roughness: 0.4 });
+  const whiteMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.3 });
+  const RAINBOW = [0xe74c3c, 0xe67e22, 0xf1c40f, 0x2ecc71, 0x3498db, 0x9b59b6].map(c2 => new THREE.MeshStandardMaterial({ color: c2, roughness: 0.6 }));
+
+  const body = new THREE.Mesh(new THREE.SphereGeometry(0.6, 26, 20), fur);
+  body.scale.set(0.95, 0.72, 1.2); body.position.y = 0.5;
+  const bellyM = new THREE.Mesh(new THREE.SphereGeometry(0.52, 20, 16), bellyMat);
+  bellyM.scale.set(0.8, 0.5, 1.05); bellyM.position.set(0, 0.38, 0);
+  g.add(body, bellyM);
+
+  const spikeGeo = new THREE.ConeGeometry(0.055, 0.32, 6);
+  const up = new THREE.Vector3(0, 1, 0);
+  let si = 0;
+  for (let lat = 0.25; lat < 1.35; lat += 0.26) {
+    const ringR = Math.cos(lat), y = Math.sin(lat);
+    const steps = Math.max(3, Math.round(9 * ringR));
+    for (let i = 0; i < steps; i++) {
+      const a = (i / steps) * Math.PI * 2 + lat * 2;
+      const n = new THREE.Vector3(Math.cos(a) * ringR, y, Math.sin(a) * ringR).normalize();
+      if (n.z < -0.55) continue;                     // keep the face spike-free
+      const s = new THREE.Mesh(spikeGeo, RAINBOW[si % RAINBOW.length]);
+      s.position.set(n.x * 0.57, 0.5 + n.y * 0.45, n.z * 0.7);
+      s.quaternion.setFromUnitVectors(up, n);
+      s.translateY(0.32 * 0.35);
+      g.add(s); si++;
+    }
+  }
+
+  const headG = new THREE.Group();
+  headG.position.set(0, 0.62, -0.72);
+  headG.add(new THREE.Mesh(new THREE.SphereGeometry(0.3, 20, 16), fur));
+  const snout = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.085, 0.55, 12), bellyMat);
+  snout.rotation.x = Math.PI / 2 - 0.35; snout.position.set(0, -0.12, -0.33);
+  const noseTip = new THREE.Mesh(new THREE.SphereGeometry(0.06, 10, 8), darkMat);
+  noseTip.position.set(0, -0.21, -0.58);
+  headG.add(snout, noseTip);
+  for (const side of [-1, 1]) {
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.1, 14, 12), darkMat);
+    eye.position.set(side * 0.14, 0.06, -0.24);
+    const shine = new THREE.Mesh(new THREE.SphereGeometry(0.032, 8, 8), whiteMat);
+    shine.position.set(side * 0.11, 0.1, -0.3);
+    headG.add(eye, shine);
+  }
+  g.add(headG);
+
+  const feet = [];
+  for (const [x, z] of [[-0.42, -0.45], [0.42, -0.45], [-0.45, 0.5], [0.45, 0.5]]) {
+    const leg = new THREE.Mesh(new THREE.SphereGeometry(0.14, 10, 8), fur);
+    leg.scale.set(1, 0.75, 1.1); leg.position.set(x, 0.14, z);
+    leg.userData.y0 = 0.14;
+    g.add(leg); feet.push(leg);
+    for (const cx of [-0.05, 0.05]) {
+      const claw = new THREE.Mesh(new THREE.ConeGeometry(0.03, 0.12, 6), bellyMat);
+      claw.rotation.x = -Math.PI / 2.4; claw.position.set(x + cx, 0.08, z - 0.14);
+      g.add(claw);
+    }
+  }
+
+  const tail = new THREE.Mesh(new THREE.SphereGeometry(0.14, 10, 8), fur);
+  tail.scale.set(1, 0.7, 1.2); tail.position.set(0, 0.42, 0.78);
+  g.add(tail);
+  g.traverse(o => { if (o.isMesh) o.castShadow = true; });
+  return { group: g, tail, feet };
+}
+
+const chars = { rat: buildRat(), squirrel: buildSquirrel(), echidna: buildEchidna() };
 for (const c of Object.values(chars)) { c.group.position.set(0, 0, 0); scene.add(c.group); }
 let charKey = localStorage.getItem('trainRatChar') || 'rat';
 if (!chars[charKey]) charKey = 'rat';
@@ -523,7 +594,7 @@ function setChar(k) {
   charKey = k; hero = chars[k];
   localStorage.setItem('trainRatChar', k);
   for (const [key, c] of Object.entries(chars)) c.group.visible = key === k;
-  document.getElementById('charIcon').textContent = k === 'rat' ? '🐀' : '🐿️';
+  document.getElementById('charIcon').textContent = k === 'rat' ? '🐀' : k === 'squirrel' ? '🐿️' : '🦔';
   document.querySelectorAll('.charBtn').forEach(b => b.classList.toggle('sel', b.dataset.char === k));
   if (!playing) renderer.render(scene, camera);
 }
