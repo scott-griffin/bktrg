@@ -147,7 +147,7 @@
   <footer>© 2026 Train Rat</footer>
 
   <script>
-    fetch('https://dev.brasstix.com/bktrg/leaderboard.php')
+    fetch('https://api.bktrg.com/leaderboard.php')
       .then(r => r.json())
       .then(scores => {
         const tbody = document.getElementById('rows');
