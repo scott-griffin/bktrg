@@ -834,7 +834,7 @@ const POW = {
 };
 let powers = [], magnetT = 0, starT = 0, rocketT = 0, invulnT = 0, helmet = false, flyY = 0, lastHop = 0, shake = 0, powsThisRun = 0;
 let gliding = false, glideH = 0;   // Night Glider: tap mid-air to glide, tap again (or duck) to drop
-let biome = 'field', biomeT = 0, blend = 0;   // the track alternates countryside ↔ Amazon rainforest
+let biome = 'field', biomeT = 0, blend = 0, level = 1;   // each biome is a level; speed resets (mostly) at each new one
 let digging = false, digT = 0, digTrains = 0, digY = 0;   // Rainbow Spike: swipe down to dig — tunnels under up to two trains in a row
 function powHud() {
   document.getElementById('powIcons').textContent =
@@ -848,7 +848,8 @@ let jumpT = -1, duckT = -1;
 const JUMP_DUR = 0.6, DUCK_DUR = 0.6;
 let obstacles = [], treats = [], spawnTimer = 0;
 let speedMult = parseFloat(localStorage.getItem('subwayRatsSpeed') || '0.8');
-function speed() { return (13 + Math.min(22, elapsed * 0.33)) * speedMult; }   // world units/sec
+// speed climbs within a level and resets at the next one, each level starting a notch faster than the last did
+function speed() { return (13 + Math.min(6, (level - 1) * 1.5) + Math.min(22, biomeT * 0.44)) * speedMult; }
 
 function reset() {
   elapsed = 0; score = 0; cheese = 0;
@@ -861,7 +862,7 @@ function reset() {
   magnetT = 0; starT = 0; rocketT = 0; invulnT = 0; helmet = false; flyY = 0; shake = 0; powsThisRun = 0;
   gliding = false; glideH = 0;
   digging = false; digT = 0; digTrains = 0; digY = 0;
-  biome = 'field'; biomeT = 0; blend = 0;
+  biome = 'field'; biomeT = 0; blend = 0; level = 1;
   hero.group.visible = true;
   powHud();
 }
@@ -958,8 +959,10 @@ function update(dt) {
   biomeT += dt;
   if (biomeT > 50) {
     biomeT = 0;
+    level++;
     biome = biome === 'field' ? 'jungle' : 'field';
-    biomeBanner(biome === 'jungle' ? '🌴 THE AMAZON RAINFOREST 🌴' : '🌾 OUT OF THE JUNGLE 🌾');
+    biomeBanner(`LEVEL ${level} · ` + (biome === 'jungle' ? '🌴 THE AMAZON RAINFOREST 🌴' : '🌾 OPEN COUNTRY 🌾'));
+    sfx.power();
   }
   blend += ((biome === 'jungle' ? 1 : 0) - blend) * Math.min(1, dt * 0.7);
   scene.background.lerpColors(BC.skyF, BC.skyJ, blend);
@@ -1112,7 +1115,7 @@ function update(dt) {
 
   // soundtrack keeps pace with the run: style's base tempo, climbing up to +40 bpm at full tilt
   if (typeof Tone !== 'undefined' && musicParts) {
-    const target = MUSIC_STYLES[builtStyle].bpm + Math.min(40, elapsed * 0.5);
+    const target = MUSIC_STYLES[builtStyle].bpm + Math.min(40, biomeT * 0.8);   // tempo resets with each level, like the speed
     if (Math.abs(Tone.Transport.bpm.value - target) > 1) Tone.Transport.bpm.value = target;
   }
 }
