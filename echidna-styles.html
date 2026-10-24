@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Echidna Styles — Train Rat</title>
+  <link rel="icon" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">🦔</text></svg>'>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #0a0a12; color: #fff; font-family: 'Georgia', serif; text-align: center; padding: 30px 14px 60px; }
+    h1 {
+      font-size: clamp(26px, 6vw, 42px); letter-spacing: 4px; text-transform: uppercase;
+      background: linear-gradient(135deg, #ffcc00, #aaa, #ffcc00);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    }
+    .sub { color: #888; letter-spacing: 2px; margin: 8px 0 30px; }
+    .grid { display: flex; flex-wrap: wrap; gap: 18px; justify-content: center; max-width: 1100px; margin: 0 auto; }
+    .tile { background: #12121c; border: 1px solid #2a2a38; border-radius: 10px; padding: 16px 16px 20px; width: 272px; }
+    .tile h2 { color: #ffcc00; font-size: 19px; letter-spacing: 2px; margin: 10px 0 6px; }
+    .tile p { color: #999; font-size: 13px; line-height: 1.5; }
+    canvas { background: linear-gradient(#20304a, #0d0d16); border-radius: 6px; max-width: 100%; }
+    .ask { margin-top: 36px; color: #ffcc00; font-size: 18px; letter-spacing: 2px; }
+    a { color: #666; font-size: 13px; letter-spacing: 2px; text-decoration: none; display: inline-block; margin-top: 20px; }
+    a:hover { color: #ffcc00; }
+  </style>
+</head>
+<body>
+  <h1>Echidna</h1>
+  <p class="sub">For Thomas — pick your spike ball. They spin so you can see every side.</p>
+  <div class="grid">
+    <div class="tile"><canvas id="c0" width="240" height="260"></canvas><h2>A — Classic Echidna</h2><p>The real deal — warm brown, cream spines with dark tips, long snoot, little claws.</p></div>
+    <div class="tile"><canvas id="c1" width="240" height="260"></canvas><h2>B — Big-Eyed Puggle</h2><p>Baby echidna — extra round, huge shiny eyes, soft pink-cream spikes. Dangerously cute.</p></div>
+    <div class="tile"><canvas id="c2" width="240" height="260"></canvas><h2>C — Punk Spike</h2><p>Rust-red tough guy with big gold spikes and sunglasses. Nobody messes with him.</p></div>
+    <div class="tile"><canvas id="c3" width="240" height="260"></canvas><h2>D — Rainbow Spike</h2><p>Silver-gray with every spine a different color. The party echidna.</p></div>
+  </div>
+  <p class="ask">Tell Dad: A, B, C or D?</p>
+  <a href="./">← back to the game</a>
+
+<script type="module">
+import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
+
+const RAINBOW = [0xe74c3c, 0xe67e22, 0xf1c40f, 0x2ecc71, 0x3498db, 0x9b59b6];
+
+function buildEchidna(c) {
+  const g = new THREE.Group();
+  const fur   = new THREE.MeshStandardMaterial({ color: c.fur, roughness: 0.9 });
+  const belly = new THREE.MeshStandardMaterial({ color: c.belly, roughness: 0.9 });
+  const dark  = new THREE.MeshStandardMaterial({ color: 0x14161c, roughness: 0.4 });
+  const white = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.3 });
+
+  const chub = c.chub || 1;
+  // body: a low, wide dome — echidnas are built like spiky bread loaves
+  const body = new THREE.Mesh(new THREE.SphereGeometry(0.6, 26, 20), fur);
+  body.scale.set(0.95 * chub, 0.72 * chub, 1.2); body.position.y = 0.5;
+  const bellyM = new THREE.Mesh(new THREE.SphereGeometry(0.52, 20, 16), belly);
+  bellyM.scale.set(0.8 * chub, 0.5 * chub, 1.05); bellyM.position.set(0, 0.38, 0);
+  g.add(body, bellyM);
+
+  // spines over the back and sides
+  const spikeGeo = new THREE.ConeGeometry(0.055 * (c.spikeFat || 1), c.spikeLen, 6);
+  const up = new THREE.Vector3(0, 1, 0);
+  let si = 0;
+  for (let lat = 0.25; lat < 1.35; lat += 0.26) {
+    const ringR = Math.cos(lat), y = Math.sin(lat);
+    const steps = Math.max(3, Math.round(9 * ringR * (c.spikeDensity || 1)));
+    for (let i = 0; i < steps; i++) {
+      const a = (i / steps) * Math.PI * 2 + lat * 2;
+      const n = new THREE.Vector3(Math.cos(a) * ringR, y, Math.sin(a) * ringR).normalize();
+      if (n.z < -0.55) continue;                     // keep the face spike-free
+      const matS = c.rainbow
+        ? new THREE.MeshStandardMaterial({ color: RAINBOW[si % RAINBOW.length], roughness: 0.6 })
+        : new THREE.MeshStandardMaterial({ color: c.spike, roughness: 0.7 });
+      const s = new THREE.Mesh(spikeGeo, matS);
+      // sit on the body surface and point outward
+      s.position.set(n.x * 0.57 * chub, 0.5 + n.y * 0.45 * chub, n.z * 0.7);
+      s.quaternion.setFromUnitVectors(up, n);
+      s.translateY(c.spikeLen * 0.35);
+      g.add(s); si++;
+    }
+  }
+
+  // head + the famous snoot
+  const headG = new THREE.Group();
+  headG.position.set(0, 0.62, -0.72); headG.scale.setScalar(c.head || 1);
+  headG.add(new THREE.Mesh(new THREE.SphereGeometry(0.3, 20, 16), fur));
+  const snout = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.085, 0.55, 12), belly);
+  snout.rotation.x = Math.PI / 2 - 0.35; snout.position.set(0, -0.12, -0.33);
+  const noseTip = new THREE.Mesh(new THREE.SphereGeometry(0.06, 10, 8), dark);
+  noseTip.position.set(0, -0.21, -0.58);
+  headG.add(snout, noseTip);
+  for (const side of [-1, 1]) {
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(c.eye, 14, 12), dark);
+    eye.position.set(side * 0.14, 0.06, -0.24);
+    const shine = new THREE.Mesh(new THREE.SphereGeometry(c.eye * 0.32, 8, 8), white);
+    shine.position.set(side * 0.11, 0.1, -0.3);
+    headG.add(eye, shine);
+  }
+  if (c.shades) {
+    const lens = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.12, 0.08), dark);
+    lens.position.set(0, 0.07, -0.27);
+    headG.add(lens);
+  }
+  g.add(headG);
+
+  // stubby legs with digging claws
+  for (const [x, z] of [[-0.42, -0.45], [0.42, -0.45], [-0.45, 0.5], [0.45, 0.5]]) {
+    const leg = new THREE.Mesh(new THREE.SphereGeometry(0.14, 10, 8), fur);
+    leg.scale.set(1, 0.75, 1.1); leg.position.set(x, 0.14, z);
+    g.add(leg);
+    for (const cx of [-0.05, 0.05]) {
+      const claw = new THREE.Mesh(new THREE.ConeGeometry(0.03, 0.12, 6), belly);
+      claw.rotation.x = -Math.PI / 2.4; claw.position.set(x + cx, 0.08, z - 0.14);
+      g.add(claw);
+    }
+  }
+
+  // stub tail
+  const tail = new THREE.Mesh(new THREE.SphereGeometry(0.14, 10, 8), fur);
+  tail.scale.set(1, 0.7, 1.2); tail.position.set(0, 0.42, 0.78);
+  g.add(tail);
+  return g;
+}
+
+const CFGS = [
+  { fur: 0x8a6b4b, belly: 0xd9c5a6, spike: 0xe8d9b8, eye: 0.06, spikeLen: 0.34 },
+  { fur: 0xc49a7c, belly: 0xf5e4d4, spike: 0xf0cfc2, eye: 0.14, spikeLen: 0.22, head: 1.3, chub: 1.12, spikeDensity: 0.8 },
+  { fur: 0x9c4530, belly: 0xd9a06c, spike: 0xe0a92f, eye: 0.07, spikeLen: 0.42, spikeFat: 1.5, spikeDensity: 0.65, shades: true },
+  { fur: 0x6b7280, belly: 0xe8ecf2, eye: 0.1, spikeLen: 0.32, rainbow: true },
+];
+
+CFGS.forEach((cfg, i) => {
+  const canvas = document.getElementById('c' + i);
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  renderer.setSize(240, 260);   // locks the on-screen size; the pixel ratio only sharpens the buffer
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(42, 240 / 260, 0.1, 50);
+  camera.position.set(0, 1.5, 3.4);
+  camera.lookAt(0, 0.5, 0);
+  scene.add(new THREE.HemisphereLight(0xcfe8ff, 0x303848, 1.1));
+  const key = new THREE.DirectionalLight(0xfff2cc, 1.5);
+  key.position.set(3, 5, 4);
+  scene.add(key);
+  const disc = new THREE.Mesh(new THREE.CircleGeometry(1.3, 32),
+    new THREE.MeshBasicMaterial({ color: 0x0a0e18, transparent: true, opacity: 0.5 }));
+  disc.rotation.x = -Math.PI / 2;
+  scene.add(disc);
+  const ech = buildEchidna(cfg);
+  scene.add(ech);
+  (function loop(ts) {
+    const t = ts / 1000;
+    ech.rotation.y = t * 0.6;
+    ech.position.y = Math.abs(Math.sin(t * 2.6)) * 0.06;        // waddle-hop
+    renderer.render(scene, camera);
+    requestAnimationFrame(loop);
+  })(0);
+});
+</script>
+</body>
+</html>
