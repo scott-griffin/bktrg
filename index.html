@@ -133,6 +133,7 @@
     <div class="hrow"><span class="hico">⬅️➡️</span><span>Swipe (or arrow keys) to switch tracks.</span></div>
     <div class="hrow"><span class="hico">⬆️</span><span>Swipe up or tap to jump over hurdles.</span></div>
     <div class="hrow"><span class="hico">⬇️</span><span>Swipe down to duck — under signs AND under trains. The rat stays flat until the train has passed.</span></div>
+    <div class="hrow"><span class="hico">🐿️</span><span>Night Glider only: tap again in mid-air to GLIDE over the hurdles. Tap once more (or duck) to drop. You sink slowly, so don't glide forever!</span></div>
 
     <p class="hsec">Watch out</p>
     <div class="hrow"><span class="hico">🚆</span><span>Trains — switch tracks, or duck and squeeze underneath.</span></div>
@@ -641,6 +642,7 @@ const POW = {
   star:   { icon: '⭐', dur: 8 },
 };
 let powers = [], magnetT = 0, starT = 0, rocketT = 0, invulnT = 0, helmet = false, flyY = 0, lastHop = 0, shake = 0, powsThisRun = 0;
+let gliding = false, glideH = 0;   // Night Glider: tap mid-air to glide, tap again (or duck) to drop
 function powHud() {
   document.getElementById('powIcons').textContent =
     (magnetT > 0 ? '🧲' : '') + (helmet ? '⛑️' : '') + (rocketT > 0 ? '🚀' : '') + (starT > 0 ? '⭐' : '');
@@ -664,6 +666,7 @@ function reset() {
   for (const p of particles) scene.remove(p.m);
   obstacles = []; treats = []; powers = []; particles.length = 0; spawnTimer = 0.8;
   magnetT = 0; starT = 0; rocketT = 0; invulnT = 0; helmet = false; flyY = 0; shake = 0; powsThisRun = 0;
+  gliding = false; glideH = 0;
   hero.group.visible = true;
   powHud();
 }
@@ -747,20 +750,28 @@ function update(dt) {
   const jumpH = jumpT >= 0 ? Math.sin(Math.PI * jumpT / JUMP_DUR) : 0;
   const ducking = duckT >= 0;
 
-  // rat pose: scamper-hop gait, lifted high while the rocket is burning
+  // the glide sinks slowly; below hurdle height the flaps give out on their own
+  if (gliding) {
+    glideH -= dt * 0.5;
+    if (glideH < 0.5) { gliding = false; jumpT = JUMP_DUR * 0.85; }
+  }
+  const airH = gliding ? glideH * 0.5 : jumpH;   // what the hurdle check sees
+
+  // pose: scamper-hop gait, lifted while gliding or rocketing
   const phase = (elapsed * 3.3 * (v / 13)) % 1;
-  const hop = jumpT < 0 && !ducking ? Math.abs(Math.sin(phase * Math.PI)) : 0;
+  const hop = jumpT < 0 && !ducking && !gliding ? Math.abs(Math.sin(phase * Math.PI)) : 0;
   flyY += ((rocketT > 0 ? 2.6 : 0) - flyY) * Math.min(1, dt * 4);
   hero.group.position.x = LANE_X(displayLane);
-  hero.group.position.y = jumpH * 2.0 + hop * 0.22 + flyY;
+  hero.group.position.y = (gliding ? glideH : jumpH * 2.0) + hop * 0.22 + flyY;
   hero.group.rotation.z = (displayLane - lane) * 0.3;
   if (ducking) hero.group.scale.set(1.25, 0.5, 1.1);
+  else if (gliding) hero.group.scale.set(1.1, 0.82, 1.05);
   else if (jumpT >= 0 || rocketT > 0) hero.group.scale.set(0.95, 1.12, 1);
   else hero.group.scale.set(1, 0.92 + 0.16 * hop, 1);
   hero.tail.rotation.y = Math.sin(phase * Math.PI * 2) * 0.5;
   hero.feet.forEach((f, i) => { f.position.y = f.userData.y0 + Math.max(0, Math.sin(phase * Math.PI * 4 + i * Math.PI)) * 0.12; });
   if (hero.flaps) {   // the Night Glider spreads its flaps in the air
-    const spread = Math.min(1, 0.35 + jumpH * 0.9 + (rocketT > 0 ? 1 : 0));
+    const spread = Math.min(1, 0.35 + (gliding ? 1 : jumpH * 0.9) + (rocketT > 0 ? 1 : 0));
     hero.flaps.forEach((f, fi) => { f.scale.x = (fi === 0 ? -1 : 1) * spread; });
   }
   hero.group.visible = invulnT <= 0 || Math.floor(elapsed * 12) % 2 === 0;   // helmet save = brief flashing immunity
@@ -777,7 +788,7 @@ function update(dt) {
       if (Math.abs(displayLane - o.lane) > 0.45) continue;
       const zF = o.mesh.position.z - o.len / 2, zB = o.mesh.position.z + o.len / 2;
       if (zF > 0.9 || zB < -0.9) continue;
-      if (o.type === 'hurdle' && jumpH > 0.4) continue;
+      if (o.type === 'hurdle' && airH > 0.4) continue;
       if (o.type === 'beam' && ducking) continue;
       if (o.type === 'train' && ducking) { underTrain = true; continue; }   // squeezed through underneath
       if (helmet) {   // the hard hat takes the hit
@@ -1056,6 +1067,7 @@ const sfx = {
   crash:  () => { if (!sfxOn) return; tone(350, 55, 0.5, 'sawtooth', 0.22); tone(180, 40, 0.5, 'square', 0.16); },
   power:  () => { if (!sfxOn) return; const t = audio().currentTime; tone(523, 784, 0.12, 'triangle', 0.15, t); tone(784, 1046, 0.16, 'triangle', 0.14, t + 0.1); },
   pizza:  () => { if (!sfxOn) return; const t = audio().currentTime; tone(659, 659, 0.08, 'sine', 0.15, t); tone(784, 784, 0.08, 'sine', 0.15, t + 0.08); tone(1046.5, 1046.5, 0.18, 'sine', 0.16, t + 0.16); },
+  glide:  () => sfxOn && tone(620, 420, 0.35, 'triangle', 0.09),
   clang:  () => sfxOn && tone(900, 180, 0.3, 'square', 0.2),
 };
 // Tone.js soundtracks: four styles the player picks in settings. Tempo climbs with the game.
@@ -1404,8 +1416,16 @@ function act(dir) {
   if (!playing || paused) return;
   if (dir === 'left' && lane > 0) { lane--; sfx.lane(); }
   if (dir === 'right' && lane < 2) { lane++; sfx.lane(); }
-  if (dir === 'up' && jumpT < 0) { jumpT = 0; duckT = -1; sfx.jump(); }
-  if (dir === 'down' && duckT < 0) { duckT = 0; jumpT = -1; sfx.duck(); }
+  if (dir === 'up') {
+    if (gliding) { gliding = false; jumpT = JUMP_DUR * 0.75; sfx.duck(); }                     // tap again: fold the flaps and drop
+    else if (charKey === 'squirrel' && jumpT >= 0.08 && rocketT <= 0) {                          // tap mid-jump: spread the flaps and glide
+      gliding = true;
+      glideH = Math.max(Math.sin(Math.PI * jumpT / JUMP_DUR) * 2.0, 1.2);
+      jumpT = -1; sfx.glide();
+    }
+    else if (jumpT < 0) { jumpT = 0; duckT = -1; sfx.jump(); }
+  }
+  if (dir === 'down' && duckT < 0) { gliding = false; duckT = 0; jumpT = -1; sfx.duck(); }
 }
 addEventListener('keydown', e => {
   if (e.target.tagName === 'INPUT') return;
