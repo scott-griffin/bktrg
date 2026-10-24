@@ -186,7 +186,7 @@
     <p style="color:#888; font-size:13px; letter-spacing:1px; margin-top:6px;">You're a rat on the tracks. Run forever. Don't get squished.</p>
 
     <p class="hsec">Your Runner</p>
-    <div class="hrow"><span class="hico">🐀🐿️🦔</span><span>Pick your character on the start screen: the Rat (classic), the Night Glider (can glide), or Rainbow Spike (can dig).</span></div>
+    <div class="hrow"><span class="hico">🐀🐿️🦔🦘</span><span>Pick your character on the start screen: the Rat (classic), the Night Glider (can glide), Rainbow Spike (can dig), or the Golden Hopper (shiny).</span></div>
 
     <p class="hsec">Moves</p>
     <div class="hrow"><span class="hico">⬅️➡️</span><span>Swipe (or arrow keys) to switch tracks.</span></div>
@@ -273,10 +273,11 @@
     </div>
     <p>(or swipe on your phone)</p>
     <p style="color:#ffcc00">New: power-ups and pizza! 🧲 ⛑️ 🚀 ⭐ 🍕</p>
-    <div style="display:flex; gap:12px; justify-content:center; margin:2px 0 6px;">
+    <div style="display:flex; gap:12px; justify-content:center; margin:2px 0 6px; flex-wrap:wrap;">
       <button class="charBtn" data-char="rat">🐀<span>Rat</span></button>
       <button class="charBtn" data-char="squirrel">🐿️<span>Night Glider</span></button>
       <button class="charBtn" data-char="echidna">🦔<span>Rainbow Spike</span></button>
+      <button class="charBtn" data-char="kangaroo">🦘<span>Golden Hopper</span></button>
     </div>
     <input type="text" id="startName" class="nameInput" maxlength="20" placeholder="your name" autocomplete="off">
     <button class="go-btn" id="startBtn">Run!</button>
@@ -758,8 +759,97 @@ function buildEchidna() {
   return { group: g, tail, feet };
 }
 
-const chars = { rat: buildRat(), squirrel: buildSquirrel(), echidna: buildEchidna() };
-const charIcons = { rat: '🐀', squirrel: '🐿️', echidna: '🦔' };
+// Thomas's third pick: Golden Hopper — metallic gold kangaroo with a rainbow tail and rainbow ear-insides
+function buildKangaroo() {
+  const g = new THREE.Group();
+  const inner = new THREE.Group();            // -Z is forward; outer g stays identity so the game's duck/hop scale on hero.group works
+  inner.scale.setScalar(0.72);                 // compact the roo to match the other heroes' silhouettes
+  g.add(inner);
+
+  const fur   = new THREE.MeshStandardMaterial({ color: 0xf0c23a, roughness: 0.4, metalness: 0.65 });
+  const belly = new THREE.MeshStandardMaterial({ color: 0xf8e39b, roughness: 0.8 });
+  const darkMat  = new THREE.MeshStandardMaterial({ color: 0x14161c, roughness: 0.4 });
+  const whiteMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.3 });
+  const RAINBOW = [0xe74c3c, 0xe67e22, 0xf1c40f, 0x2ecc71, 0x3498db, 0x9b59b6]
+    .map(c2 => new THREE.MeshStandardMaterial({ color: c2, roughness: 0.6 }));
+
+  const torso = new THREE.Mesh(new THREE.SphereGeometry(0.5, 24, 20), fur);
+  torso.scale.set(0.85, 1.35, 0.95); torso.position.y = 1.05; torso.rotation.x = 0.12;
+  inner.add(torso);
+  const bel = new THREE.Mesh(new THREE.SphereGeometry(0.44, 20, 16), belly);
+  bel.scale.set(0.7, 1.1, 0.6); bel.position.set(0, 0.95, -0.2); bel.rotation.x = 0.1;
+  inner.add(bel);
+
+  const headG = new THREE.Group();
+  headG.position.set(0, 1.65, -0.1); headG.rotation.x = 0.08;
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.26, 22, 18), fur);
+  head.scale.set(0.9, 1.0, 1.2);
+  const snoutK = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.14, 0.3, 14), fur);
+  snoutK.rotation.x = Math.PI / 2; snoutK.position.set(0, -0.04, -0.28);
+  const noseK = new THREE.Mesh(new THREE.SphereGeometry(0.07, 12, 10), darkMat);
+  noseK.position.set(0, -0.02, -0.44);
+  headG.add(head, snoutK, noseK);
+  for (const side of [-1, 1]) {
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.08, 14, 12), darkMat);
+    eye.position.set(side * 0.14, 0.1, -0.18);
+    const sh = new THREE.Mesh(new THREE.SphereGeometry(0.028, 8, 8), whiteMat);
+    sh.position.set(side * 0.12, 0.14, -0.24);
+    const ear = new THREE.Mesh(new THREE.ConeGeometry(0.09, 0.38, 12), fur);
+    ear.position.set(side * 0.17, 0.3, 0.02); ear.rotation.z = side * 0.18; ear.rotation.x = 0.1;
+    ear.scale.set(1, 1, 0.55);
+    const earIn = new THREE.Mesh(new THREE.ConeGeometry(0.055, 0.3, 10), RAINBOW[side > 0 ? 0 : 3]);
+    earIn.position.set(side * 0.17, 0.28, -0.01); earIn.rotation.z = side * 0.18; earIn.rotation.x = 0.1;
+    earIn.scale.set(1, 1, 0.3);
+    headG.add(eye, sh, ear, earIn);
+  }
+  inner.add(headG);
+
+  for (const side of [-1, 1]) {                 // small front arms tucked at the chest
+    const arm = new THREE.Group();
+    arm.position.set(side * 0.32, 1.15, -0.12);
+    const upper = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.06, 0.28, 10), fur);
+    upper.position.set(0, -0.1, -0.06); upper.rotation.x = 0.55;
+    const fore = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.05, 0.26, 10), fur);
+    fore.position.set(0, -0.22, -0.26); fore.rotation.x = 1.3;
+    const paw = new THREE.Mesh(new THREE.SphereGeometry(0.06, 12, 10), fur);
+    paw.position.set(0, -0.26, -0.42);
+    arm.add(upper, fore, paw);
+    inner.add(arm);
+  }
+
+  const feetGroup = new THREE.Group();          // both hind feet bounce in sync (kangaroo hop, not a running stride)
+  feetGroup.userData.y0 = 0;
+  for (const side of [-1, 1]) {
+    const thigh = new THREE.Mesh(new THREE.SphereGeometry(0.22, 18, 14), fur);
+    thigh.scale.set(1.0, 1.8, 1.3); thigh.position.set(side * 0.24, 0.5, -0.03);
+    inner.add(thigh);
+    const foot = new THREE.Mesh(new THREE.SphereGeometry(0.14, 16, 12), fur);
+    foot.scale.set(0.7, 0.32, 2.1); foot.position.set(side * 0.24, 0.05, -0.33);
+    feetGroup.add(foot);
+    for (const cx of [-0.05, 0, 0.05]) {
+      const claw = new THREE.Mesh(new THREE.ConeGeometry(0.022, 0.08, 6), darkMat);
+      claw.rotation.x = Math.PI / 2.2; claw.position.set(side * 0.24 + cx, 0.045, -0.6);
+      feetGroup.add(claw);
+    }
+  }
+  inner.add(feetGroup);
+
+  const tailG = new THREE.Group();              // rainbow tail trailing behind (+Z); game wags .rotation.y
+  for (let i = 0; i < 11; i++) {
+    const t = i / 10;
+    const r = 0.19 * (1 - t * 0.78);
+    const seg = new THREE.Mesh(new THREE.SphereGeometry(r, 14, 12), RAINBOW[i % RAINBOW.length]);
+    seg.position.set(0, 0.75 - Math.pow(t, 1.3) * 0.68, 0.25 + t * 1.1);
+    tailG.add(seg);
+  }
+  inner.add(tailG);
+
+  g.traverse(o => { if (o.isMesh) o.castShadow = true; });
+  return { group: g, tail: tailG, feet: [feetGroup] };
+}
+
+const chars = { rat: buildRat(), squirrel: buildSquirrel(), echidna: buildEchidna(), kangaroo: buildKangaroo() };
+const charIcons = { rat: '🐀', squirrel: '🐿️', echidna: '🦔', kangaroo: '🦘' };
 for (const c of Object.values(chars)) { c.group.position.set(0, 0, 0); scene.add(c.group); }
 let charKey = localStorage.getItem('trainRatChar') || 'rat';
 if (!chars[charKey]) charKey = 'rat';
