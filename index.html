@@ -850,7 +850,7 @@ const JUMP_DUR = 0.6, DUCK_DUR = 0.6;
 let obstacles = [], treats = [], spawnTimer = 0;
 let speedMult = parseFloat(localStorage.getItem('subwayRatsSpeed') || '0.8');
 // speed climbs within a level and resets at the next one, each level starting a notch faster than the last did
-function speed() { return (13 + Math.min(6, (level - 1) * 1.5) + Math.min(22, biomeT * 0.44)) * speedMult; }
+function speed() { return (13 + Math.min(6, (level - 1) * 1.5) + Math.min(22, biomeT * 0.73)) * speedMult; }
 
 function reset() {
   elapsed = 0; score = 0; cheese = 0;
@@ -962,7 +962,7 @@ function update(dt) {
 
   // biomes: after a while the track runs into the Amazon rainforest, and back out again
   biomeT += dt;
-  if (biomeT > 50) {
+  if (biomeT > 30) {
     biomeT = 0;
     level++;
     biome = biome === 'field' ? 'jungle' : 'field';
@@ -1120,7 +1120,7 @@ function update(dt) {
 
   // soundtrack keeps pace with the run: style's base tempo, climbing up to +40 bpm at full tilt
   if (typeof Tone !== 'undefined' && musicParts) {
-    const target = MUSIC_STYLES[builtStyle].bpm + Math.min(40, biomeT * 0.8);   // tempo resets with each level, like the speed
+    const target = MUSIC_STYLES[builtStyle].bpm + Math.min(40, biomeT * 1.33);   // tempo resets with each level, like the speed
     if (Math.abs(Tone.Transport.bpm.value - target) > 1) Tone.Transport.bpm.value = target;
   }
 }
