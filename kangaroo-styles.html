@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kangaroo Styles — Train Rat</title>
+  <link rel="icon" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">🦘</text></svg>'>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #0a0a12; color: #fff; font-family: 'Georgia', serif; text-align: center; padding: 30px 14px 60px; }
+    h1 {
+      font-size: clamp(26px, 6vw, 42px); letter-spacing: 4px; text-transform: uppercase;
+      background: linear-gradient(135deg, #ffcc00, #aaa, #ffcc00);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    }
+    .sub { color: #888; letter-spacing: 2px; margin: 8px 0 30px; }
+    .grid { display: flex; flex-wrap: wrap; gap: 18px; justify-content: center; max-width: 1100px; margin: 0 auto; }
+    .tile { background: #12121c; border: 1px solid #2a2a38; border-radius: 10px; padding: 16px 16px 20px; width: 272px; }
+    .tile h2 { color: #ffcc00; font-size: 19px; letter-spacing: 2px; margin: 10px 0 6px; }
+    .tile p { color: #999; font-size: 13px; line-height: 1.5; }
+    canvas { background: linear-gradient(#20304a, #0d0d16); border-radius: 6px; max-width: 100%; }
+    .ask { margin-top: 36px; color: #ffcc00; font-size: 18px; letter-spacing: 2px; }
+    a { color: #666; font-size: 13px; letter-spacing: 2px; text-decoration: none; display: inline-block; margin-top: 20px; }
+    a:hover { color: #ffcc00; }
+  </style>
+</head>
+<body>
+  <h1>Kangaroo</h1>
+  <p class="sub">For Thomas — pick your hopper. They spin and bounce so you can see every side.</p>
+  <div class="grid">
+    <div class="tile"><canvas id="c0" width="240" height="260"></canvas><h2>A — Classic Red Roo</h2><p>The real deal — warm rust-red fur, cream belly, big thumping tail, giant back feet built for hopping.</p></div>
+    <div class="tile"><canvas id="c1" width="240" height="260"></canvas><h2>B — Mum &amp; Joey</h2><p>Soft gray fur, cream belly — and a baby joey peeking out of the pouch. Two for the price of one.</p></div>
+    <div class="tile"><canvas id="c2" width="240" height="260"></canvas><h2>C — Boxer Roo</h2><p>Tough gray roo with little red boxing gloves and shades. Hops into the ring, hops out a champ.</p></div>
+    <div class="tile"><canvas id="c3" width="240" height="260"></canvas><h2>D — Golden Hopper</h2><p>Shiny metallic gold with a rainbow tail and rainbow ears. The flashiest roo on the track.</p></div>
+  </div>
+  <p class="ask">Tell Dad: A, B, C or D?</p>
+  <a href="./">← back to the game</a>
+
+<script type="module">
+import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
+
+const RAINBOW = [0xe74c3c, 0xe67e22, 0xf1c40f, 0x2ecc71, 0x3498db, 0x9b59b6];
+
+function buildKangaroo(c) {
+  const g = new THREE.Group();
+  const fur    = new THREE.MeshStandardMaterial({ color: c.fur,   roughness: 0.85, metalness: c.metal || 0 });
+  const belly  = new THREE.MeshStandardMaterial({ color: c.belly, roughness: 0.9 });
+  const dark   = new THREE.MeshStandardMaterial({ color: 0x14161c, roughness: 0.4 });
+  const white  = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.3 });
+  const pink   = new THREE.MeshStandardMaterial({ color: 0xf0a7b2, roughness: 0.9 });
+  const accent = c.accent ? new THREE.MeshStandardMaterial({ color: c.accent, roughness: 0.5 }) : null;
+
+  // torso — tall egg, tipped slightly forward
+  const torso = new THREE.Mesh(new THREE.SphereGeometry(0.5, 24, 20), fur);
+  torso.scale.set(0.85, 1.35, 0.95);
+  torso.position.y = 1.05;
+  torso.rotation.x = -0.12;
+  g.add(torso);
+
+  // chest/belly patch
+  const bel = new THREE.Mesh(new THREE.SphereGeometry(0.44, 20, 16), belly);
+  bel.scale.set(0.7, 1.1, 0.6);
+  bel.position.set(0, 0.95, 0.2);
+  bel.rotation.x = -0.1;
+  g.add(bel);
+
+  // pouch + peeking joey
+  if (c.pouch) {
+    const pouch = new THREE.Mesh(new THREE.SphereGeometry(0.3, 18, 14), fur);
+    pouch.scale.set(0.95, 0.85, 0.6);
+    pouch.position.set(0, 0.7, 0.3);
+    g.add(pouch);
+
+    if (c.joey) {
+      const jHead = new THREE.Mesh(new THREE.SphereGeometry(0.14, 16, 14), fur);
+      jHead.scale.set(0.95, 1.0, 1.15);
+      jHead.position.set(0, 0.88, 0.46);
+      g.add(jHead);
+      const jSnout = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.065, 0.11, 10), fur);
+      jSnout.rotation.x = Math.PI / 2;
+      jSnout.position.set(0, 0.85, 0.58);
+      g.add(jSnout);
+      const jNose = new THREE.Mesh(new THREE.SphereGeometry(0.03, 10, 8), dark);
+      jNose.position.set(0, 0.84, 0.64);
+      g.add(jNose);
+      for (const side of [-1, 1]) {
+        const e = new THREE.Mesh(new THREE.SphereGeometry(0.028, 10, 8), dark);
+        e.position.set(side * 0.06, 0.92, 0.54);
+        g.add(e);
+        const sh = new THREE.Mesh(new THREE.SphereGeometry(0.011, 8, 8), white);
+        sh.position.set(side * 0.054, 0.94, 0.56);
+        g.add(sh);
+        const ear = new THREE.Mesh(new THREE.ConeGeometry(0.035, 0.1, 8), fur);
+        ear.position.set(side * 0.08, 1.02, 0.42);
+        ear.rotation.z = side * 0.1;
+        g.add(ear);
+      }
+    }
+  }
+
+  // head group
+  const headG = new THREE.Group();
+  headG.position.set(0, 1.65, 0.1);
+  headG.rotation.x = -0.08;
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.26, 22, 18), fur);
+  head.scale.set(0.9, 1.0, 1.2);
+  headG.add(head);
+
+  // snout — long and tapered forward
+  const snout = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.14, 0.3, 14), fur);
+  snout.rotation.x = Math.PI / 2;
+  snout.position.set(0, -0.04, 0.28);
+  headG.add(snout);
+  const nose = new THREE.Mesh(new THREE.SphereGeometry(0.07, 12, 10), dark);
+  nose.position.set(0, -0.02, 0.44);
+  headG.add(nose);
+
+  // eyes
+  for (const side of [-1, 1]) {
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(c.eye, 14, 12), dark);
+    eye.position.set(side * 0.14, 0.1, 0.18);
+    headG.add(eye);
+    const sh = new THREE.Mesh(new THREE.SphereGeometry(c.eye * 0.35, 8, 8), white);
+    sh.position.set(side * 0.12, 0.14, 0.24);
+    headG.add(sh);
+  }
+
+  // tall leaf-shaped ears
+  for (const side of [-1, 1]) {
+    const ear = new THREE.Mesh(new THREE.ConeGeometry(0.09, 0.38, 12), fur);
+    ear.position.set(side * 0.17, 0.3, -0.02);
+    ear.rotation.z = side * 0.18;
+    ear.rotation.x = -0.1;
+    ear.scale.set(1, 1, 0.55);
+    headG.add(ear);
+    const innerMat = c.rainbowEars
+      ? new THREE.MeshStandardMaterial({ color: RAINBOW[(side > 0 ? 0 : 3)], roughness: 0.7 })
+      : pink;
+    const inner = new THREE.Mesh(new THREE.ConeGeometry(0.055, 0.3, 10), innerMat);
+    inner.position.set(side * 0.17, 0.28, 0.01);
+    inner.rotation.z = side * 0.18;
+    inner.rotation.x = -0.1;
+    inner.scale.set(1, 1, 0.3);
+    headG.add(inner);
+  }
+
+  // shades across the eyes
+  if (c.shades) {
+    const lens = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.11, 0.08), dark);
+    lens.position.set(0, 0.1, 0.23);
+    headG.add(lens);
+  }
+  g.add(headG);
+
+  // small front arms held in front of the chest — paws or boxing gloves
+  for (const side of [-1, 1]) {
+    const arm = new THREE.Group();
+    arm.position.set(side * 0.32, 1.15, 0.12);
+    const upper = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.06, 0.28, 10), fur);
+    upper.position.set(0, -0.1, 0.06);
+    upper.rotation.x = -0.55;
+    arm.add(upper);
+    const fore = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.05, 0.26, 10), fur);
+    fore.position.set(0, -0.22, 0.26);
+    fore.rotation.x = -1.3;
+    arm.add(fore);
+    if (c.gloves) {
+      const glove = new THREE.Mesh(new THREE.SphereGeometry(0.11, 14, 12), accent);
+      glove.position.set(0, -0.26, 0.42);
+      arm.add(glove);
+      const cuff = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.05, 12), white);
+      cuff.position.set(0, -0.3, 0.33);
+      cuff.rotation.x = -1.3;
+      arm.add(cuff);
+    } else {
+      const paw = new THREE.Mesh(new THREE.SphereGeometry(0.06, 12, 10), fur);
+      paw.position.set(0, -0.26, 0.42);
+      arm.add(paw);
+    }
+    g.add(arm);
+  }
+
+  // powerful hind legs — chunky thigh + huge flat foot
+  for (const side of [-1, 1]) {
+    const thigh = new THREE.Mesh(new THREE.SphereGeometry(0.22, 18, 14), fur);
+    thigh.scale.set(1.0, 1.8, 1.3);
+    thigh.position.set(side * 0.24, 0.5, 0.03);
+    g.add(thigh);
+    const foot = new THREE.Mesh(new THREE.SphereGeometry(0.14, 16, 12), fur);
+    foot.scale.set(0.7, 0.32, 2.1);
+    foot.position.set(side * 0.24, 0.05, 0.33);
+    g.add(foot);
+    for (const cx of [-0.05, 0, 0.05]) {
+      const claw = new THREE.Mesh(new THREE.ConeGeometry(0.022, 0.08, 6), dark);
+      claw.rotation.x = -Math.PI / 2.2;
+      claw.position.set(side * 0.24 + cx, 0.045, 0.6);
+      g.add(claw);
+    }
+  }
+
+  // thick tapering tail curving back and down behind the roo
+  for (let i = 0; i < 11; i++) {
+    const t = i / 10;
+    const r = 0.19 * (1 - t * 0.78);
+    const mat = c.rainbowTail
+      ? new THREE.MeshStandardMaterial({ color: RAINBOW[i % RAINBOW.length], roughness: 0.6 })
+      : fur;
+    const seg = new THREE.Mesh(new THREE.SphereGeometry(r, 14, 12), mat);
+    const z = -0.25 - t * 1.1;
+    const y = 0.75 - Math.pow(t, 1.3) * 0.68;
+    seg.position.set(0, y, z);
+    g.add(seg);
+  }
+
+  return g;
+}
+
+const CFGS = [
+  { fur: 0xa0613c, belly: 0xd9b995, eye: 0.08 },
+  { fur: 0x7f7c76, belly: 0xcfc8b8, eye: 0.09, pouch: true, joey: true },
+  { fur: 0x6b6b6b, belly: 0xcfcfcf, eye: 0.08, gloves: true, accent: 0xcf2a2a, shades: true },
+  { fur: 0xf0c23a, belly: 0xf8e39b, eye: 0.10, metal: 0.65, rainbowTail: true, rainbowEars: true },
+];
+
+CFGS.forEach((cfg, i) => {
+  const canvas = document.getElementById('c' + i);
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  renderer.setSize(240, 260);
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(40, 240 / 260, 0.1, 50);
+  camera.position.set(0, 1.5, 4.6);
+  camera.lookAt(0, 1.0, 0);
+  scene.add(new THREE.HemisphereLight(0xcfe8ff, 0x303848, 1.1));
+  const key = new THREE.DirectionalLight(0xfff2cc, 1.5);
+  key.position.set(3, 5, 4);
+  scene.add(key);
+  const disc = new THREE.Mesh(new THREE.CircleGeometry(1.3, 32),
+    new THREE.MeshBasicMaterial({ color: 0x0a0e18, transparent: true, opacity: 0.5 }));
+  disc.rotation.x = -Math.PI / 2;
+  scene.add(disc);
+  const roo = buildKangaroo(cfg);
+  scene.add(roo);
+  (function loop(ts) {
+    const t = ts / 1000;
+    roo.rotation.y = t * 0.55;
+    roo.position.y = Math.abs(Math.sin(t * 2.4)) * 0.09;
+    renderer.render(scene, camera);
+    requestAnimationFrame(loop);
+  })(0);
+});
+</script>
+</body>
+</html>
