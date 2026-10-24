@@ -74,6 +74,14 @@ function dailySnapshot() {
 function clientIp() {
     return $_SERVER['HTTP_CF_CONNECTING_IP'] ?? $_SERVER['REMOTE_ADDR'] ?? '';
 }
+// Rat codes were 8 chars; they are 4 now. The row's stored token is the authority: a device
+// still holding the old 8-char code authenticates when the row's token is a prefix of what it
+// submits. Short-to-long never matches, so a cleared device can't guess its way past a legacy row.
+function tokenMatches($rowToken, $submittedToken) {
+    if ($rowToken === '' || $rowToken === null) return false;
+    if ($submittedToken === '' || $submittedToken === null) return false;
+    return substr($submittedToken, 0, strlen($rowToken)) === $rowToken;
+}
 function logit($entry) {
     global $logFile;
     $entry['ts'] = date('Y-m-d H:i:s');
@@ -158,7 +166,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         if (!$row || empty($row['token'])) {          // unclaimed: scoring under it will claim it
             echo json_encode(['status' => 'free']);
-        } elseif ($row['token'] === $token) {
+        } elseif (tokenMatches($row['token'], $token)) {
             echo json_encode(['status' => 'yours']);
         } elseif (sameConnectionPlayed($name)) {      // played from this same connection before — we think this is you
             logit(['action' => 'claim-match', 'name' => $name]);
@@ -186,7 +194,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $set = false;
         foreach ($scores as &$row) {
             if (strcasecmp($row['name'], $name) !== 0) continue;
-            if (!empty($row['token']) && $row['token'] !== $token) {
+            if (!empty($row['token']) && !tokenMatches($row['token'], $token)) {
                 flock($fp, LOCK_UN); fclose($fp);
                 logit(['action' => 'flag-rejected-token', 'name' => $name, 'flag' => $code]);
                 http_response_code(403);
@@ -238,7 +246,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             exit;
         }
         if ($fromIdx >= 0) {
-            if (!empty($scores[$fromIdx]['token']) && $scores[$fromIdx]['token'] !== $token) {
+            if (!empty($scores[$fromIdx]['token']) && !tokenMatches($scores[$fromIdx]['token'], $token)) {
                 flock($fp, LOCK_UN); fclose($fp);
                 logit(['action' => 'rename-rejected-token', 'from' => $from, 'to' => $to]);
                 http_response_code(403);
@@ -302,7 +310,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (strcasecmp($row['name'], $name) === 0) {
             $found = true;
             if ($adopt) $become = ['name' => $name, 'code' => $row['token'] ?? ''];   // hand the device the real identity
-            if (!$adopt && !empty($row['token']) && $row['token'] !== $token) {
+            if (!$adopt && !empty($row['token']) && !tokenMatches($row['token'], $token)) {
                 flock($fp, LOCK_UN); fclose($fp);
                 logit(['action' => 'score-rejected-token', 'name' => $name, 'score' => $score, 'cheese' => $cheese, 'secs' => $secs, 'pows' => $pows, 'char' => $char]);   // stats too, so a refused run can be restored whole
                 http_response_code(403);
