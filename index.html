@@ -91,15 +91,18 @@
     .flagTile.sel .cn { color: #ffcc00; }
     .listenBtn { padding: 8px 22px; font-family: 'Georgia', serif; letter-spacing: 1px; color: #111; background: linear-gradient(135deg, #ffcc00, #ff9900); border: none; border-radius: 4px; cursor: pointer; }
     .listenBtn.on { background: linear-gradient(135deg, #ff6644, #cc3300); color: #fff; }
-    .charBtn, .styleBtn {
+    .charBtn {
       background: #111; border: 1px solid #333; border-radius: 8px; color: #aaa;
       padding: 8px 20px; font-family: 'Georgia', serif; cursor: pointer; font-size: 24px;
       display: flex; flex-direction: column; align-items: center; gap: 2px;
     }
-    .charBtn span, .styleBtn span { font-size: 11px; letter-spacing: 1px; }
-    .charBtn.sel, .styleBtn.sel { border-color: #ffcc00; color: #fff; box-shadow: 0 0 12px #ffcc0044; }
-    .styleBtn { font-size: 17px; padding: 6px 4px; flex: 1 1 0; }   /* the same pill as the character row, but five share one row however narrow the phone is */
-    .styleBtn span { font-size: 10px; letter-spacing: 0; }
+    .charBtn span { font-size: 11px; letter-spacing: 1px; }
+    .charBtn.sel { border-color: #ffcc00; color: #fff; box-shadow: 0 0 12px #ffcc0044; }
+    /* the soundtrack control is a door, not a dropdown: it names the track you have and says out loud that four more are behind it */
+    #musicStyleBtn { display: block; width: 270px; max-width: 100%; margin: 10px auto 18px; padding: 11px 14px; background: #111; border: 1px solid #333; border-radius: 8px; color: #fff; font-family: 'Georgia', serif; font-size: 15px; text-align: left; cursor: pointer; }
+    #musicStyleBtn:hover { border-color: #ffcc00; }
+    #musicStyleBtn .chev { float: right; color: #ffcc00; font-size: 18px; line-height: 1; }
+    #musicStyleBtn .hint { display: block; color: #ffcc00; font-size: 10px; letter-spacing: 1.5px; margin-top: 4px; }
     #biomeBanner {
       position: fixed; top: 26%; left: 0; right: 0; text-align: center; z-index: 6;
       color: #ffcc00; font-size: clamp(20px, 5vw, 34px); letter-spacing: 4px; font-weight: bold;
@@ -133,8 +136,7 @@
     <label style="color:#aaa; letter-spacing:2px; font-size:13px; display:block; margin-bottom:10px;"><input type="checkbox" id="sfxToggle" style="accent-color:#ffcc00;"> SOUND EFFECTS</label>
     <label style="color:#aaa; letter-spacing:2px; font-size:13px; display:block; margin-bottom:14px;"><input type="checkbox" id="musicToggle" style="accent-color:#ffcc00;"> MUSIC</label>
     <label style="color:#aaa; letter-spacing:2px; font-size:13px;">SOUNDTRACK</label><br>
-    <div id="musicPills" style="display:flex; gap:7px; justify-content:center; max-width:290px; margin:10px auto 0;"></div>
-    <button id="musicStyleBtn" style="display:block; margin:12px auto 18px; padding:7px 18px; font-family:'Georgia',serif; letter-spacing:1px; font-size:12px; color:#ffcc00; background:none; border:1px solid #444; border-radius:4px; cursor:pointer;">♪ HEAR THEM ALL</button>
+    <button id="musicStyleBtn"></button>
     <button id="soundTest" style="display:block; margin:0 auto 14px; padding:8px 20px; font-family:'Georgia',serif; letter-spacing:1px; font-size:12px; color:#ffcc00; background:none; border:1px solid #444; border-radius:4px; cursor:pointer;">🔊 TEST SOUND</button>
     <p id="soundInfo" style="color:#777; font-size:11px; letter-spacing:0.5px; max-width:240px; margin:0 auto 16px; line-height:1.6;"></p>
     <button id="settingsClose" style="padding:10px 36px; font-family:'Georgia',serif; letter-spacing:2px; text-transform:uppercase; color:#111; background:linear-gradient(135deg,#ffcc00,#ff9900); border:none; border-radius:4px; cursor:pointer;">Done</button>
@@ -1907,16 +1909,16 @@ musicToggle.addEventListener('change', () => {
 });
 // soundtrack picker — a browse-and-listen screen, like the mockup pages
 const STYLE_INFO = {
-  caper: { icon: '🕵️', short: 'Caper', title: 'A — Sneaky Caper', desc: 'Sneaky mission music — fat bass, warm string pads, and a real piano shadowing the melody.' },
-  funk:  { icon: '🎸', short: 'Funk', title: 'B — Funky Rat', desc: 'A real funk vamp — popping octave bass, ghost notes, clav scratch, horn stab on The One.' },
-  chase: { icon: '🚂', short: 'Chase', title: 'C — Train Chase', desc: 'Epic chase — driving drums, timpani, soaring strings, twangy riff, a train whistle in the distance.' },
-  lofi:  { icon: '🎧', short: 'Lo-fi', title: 'D — Lo-fi Bounce', desc: 'Slow head-nod beat — huge sliding sub bass, a real piano through a dusty tape wobble.' },
-  cirque: { icon: '🎪', short: 'Circus', title: 'E — Circus in the Sky', desc: 'Cirque-style wordless vocals — two soaring synthetic voices over harp arpeggios, deep drone and timpani.' },
+  caper: { icon: '🕵️', name: 'Sneaky Caper', desc: 'Sneaky mission music — fat bass, warm string pads, and a real piano shadowing the melody.' },
+  funk:  { icon: '🎸', name: 'Funky Rat', desc: 'A real funk vamp — popping octave bass, ghost notes, clav scratch, horn stab on The One.' },
+  chase: { icon: '🚂', name: 'Train Chase', desc: 'Epic chase — driving drums, timpani, soaring strings, twangy riff, a train whistle in the distance.' },
+  lofi:  { icon: '🎧', name: 'Lo-fi Bounce', desc: 'Slow head-nod beat — huge sliding sub bass, a real piano through a dusty tape wobble.' },
+  cirque: { icon: '🎪', name: 'Circus in the Sky', desc: 'Cirque-style wordless vocals — two soaring synthetic voices over harp arpeggios, deep drone and timpani.' },
 };
 const musicPicker = document.getElementById('musicPicker');
 const musicTiles = document.getElementById('musicTiles');
 const musicStyleBtn = document.getElementById('musicStyleBtn');
-const musicPills = document.getElementById('musicPills');
+const STYLE_COUNT = Object.keys(STYLE_INFO).length;
 let previewing = null;
 function refreshTiles() {
   [...musicTiles.children].forEach(tile => {
@@ -1927,7 +1929,8 @@ function refreshTiles() {
     b.textContent = previewing === key ? '⏹ Stop' : '▶ Listen';
     b.classList.toggle('on', previewing === key);
   });
-  [...musicPills.children].forEach(pill => pill.classList.toggle('sel', pill.dataset.key === musicStyle));
+  const info = STYLE_INFO[musicStyle];
+  musicStyleBtn.innerHTML = `<span class="chev">›</span>${info.icon} ${info.name}<span class="hint">TAP TO HEAR ALL ${STYLE_COUNT}</span>`;
 }
 function pickStyle(key) {
   musicStyle = key;
@@ -1948,23 +1951,16 @@ async function previewStyle(key) {
   previewing = key;
   refreshTiles();
 }
-Object.entries(STYLE_INFO).forEach(([key, info]) => {
+Object.entries(STYLE_INFO).forEach(([key, info], i) => {
   const tile = document.createElement('div');
   tile.className = 'musicTile';
   tile.dataset.key = key;
-  tile.innerHTML = `<span class="picked"></span><h3>${info.icon} ${info.title}</h3><p>${info.desc}</p><button class="listenBtn">▶ Listen</button>`;
+  tile.innerHTML = `<span class="picked"></span><h3>${info.icon} ${String.fromCharCode(65 + i)} — ${info.name}</h3><p>${info.desc}</p><button class="listenBtn">▶ Listen</button>`;
   tile.addEventListener('click', e => {
     if (e.target.classList.contains('listenBtn')) { previewStyle(key); return; }
     pickStyle(key);
   });
   musicTiles.appendChild(tile);
-
-  const pill = document.createElement('button');                 // the five soundtracks sit right in settings, like the character row, so you can see there is a choice
-  pill.className = 'styleBtn';
-  pill.dataset.key = key;
-  pill.innerHTML = `${info.icon}<span>${info.short}</span>`;
-  pill.addEventListener('click', () => { sfx.lane(); pickStyle(key); });
-  musicPills.appendChild(pill);
 });
 musicStyleBtn.addEventListener('click', () => { refreshTiles(); musicPicker.classList.remove('hidden'); });
 document.getElementById('musicPickerClose').addEventListener('click', () => { stopPreview(); musicPicker.classList.add('hidden'); });
