@@ -943,6 +943,8 @@ const POW = {
 };
 let powers = [], magnetT = 0, starT = 0, rocketT = 0, invulnT = 0, helmet = false, flyY = 0, lastHop = 0, shake = 0, powsThisRun = 0;
 let gliding = false, glideH = 0;   // Night Glider: tap mid-air to glide, tap again (or duck) to drop
+let recBuf = [], recT = 0;         // ghost recorder: [lane×10, y×10, flags, v×10] at 10Hz — a best score uploads it
+let watchGhost = null, watchT = 0; // watching someone's replay instead of playing
 let biome = 'field', biomeT = 0, level = 1;   // each biome is a level; speed resets (mostly) at each new one
 let digging = false, digT = 0, digTrains = 0, digY = 0;   // Rainbow Spike: swipe down to dig — tunnels under up to two trains in a row
 function powHud() {
@@ -971,6 +973,7 @@ function reset() {
   magnetT = 0; starT = 0; rocketT = 0; invulnT = 0; helmet = false; flyY = 0; shake = 0; powsThisRun = 0;
   gliding = false; glideH = 0;
   digging = false; digT = 0; digTrains = 0; digY = 0;
+  recBuf = []; recT = 0;
   // ?level=N in the address starts runs at that level (2 = Amazon, 3 = Outback) — the family test door
   level = Math.max(1, parseInt(new URLSearchParams(location.search).get('level') || '1', 10) || 1);
   biome = BIOMES[(level - 1) % 3];
@@ -1036,7 +1039,7 @@ function biomeBanner(text) {
 // ---------- update ----------
 function update(dt) {
   elapsed += dt;
-  const v = speed();
+  const v = watchGhost ? watchV() : speed();
   const mult = starT > 0 ? 2 : 1;
   score += dt * 60 * (v / 13) * mult;
 
@@ -1130,6 +1133,16 @@ function update(dt) {
     const spread = Math.min(1, 0.35 + (gliding ? 1 : jumpH * 0.9) + (rocketT > 0 ? 1 : 0));
     hero.flaps.forEach((f, fi) => { f.scale.x = (fi === 0 ? -1 : 1) * spread; });
   }
+
+  if (watchGhost) ghostPose(dt);   // a replay overrides the pose with the recorded track
+  else {                           // a live run records its own
+    recT += dt;
+    if (recT >= 0.1) {
+      recT -= 0.1;
+      recBuf.push(Math.round(displayLane * 10), Math.round(hero.group.position.y * 10),
+        (ducking ? 1 : 0) | (gliding ? 2 : 0) | (digging ? 4 : 0) | (rocketT > 0 ? 8 : 0), Math.round(v * 10));
+    }
+  }
   hero.group.visible = invulnT <= 0 || Math.floor(elapsed * 12) % 2 === 0;   // helmet save = brief flashing immunity
 
   // juice: dust on each landing, flame while flying
@@ -1138,7 +1151,7 @@ function update(dt) {
   if (rocketT > 0) spawnParts('spark', { x: hero.group.position.x, y: hero.group.position.y + 0.2, z: 1.2 }, 1, 2, 0.5);
 
   // collisions — the rat sits at z=0; rockets and helmet-flashes pass through everything
-  if (rocketT <= 0 && invulnT <= 0) {
+  if (!watchGhost && rocketT <= 0 && invulnT <= 0) {
     let underTrain = false, trainOverhead = false;
     for (const o of obstacles) {
       if (Math.abs(displayLane - o.lane) > 0.45) continue;
@@ -1173,7 +1186,7 @@ function update(dt) {
       t.mesh.position.x += (ratX - t.mesh.position.x) * Math.min(1, dt * 6);
       t.mesh.position.z += (0 - t.mesh.position.z) * Math.min(1, dt * 2.5);
     }
-    if (Math.abs(t.mesh.position.x - ratX) < 1.1 && Math.abs(t.mesh.position.z) < 1.1) {
+    if (!watchGhost && Math.abs(t.mesh.position.x - ratX) < 1.1 && Math.abs(t.mesh.position.z) < 1.1) {
       const tv = { pizza: 100, banana: 60, pie: 70 }[t.kind];
       if (tv) { score += tv * mult; sfx.pizza(); spawnParts('spark', t.mesh.position, 14, 3, 3); }
       else { cheese++; score += 25 * mult; sfx.cheese(); spawnParts('spark', t.mesh.position, 6, 2, 2.5); }
@@ -1185,7 +1198,7 @@ function update(dt) {
 
   // power-up pickup
   powers = powers.filter(p => {
-    if (Math.abs(p.mesh.position.x - ratX) < 1.2 && Math.abs(p.mesh.position.z) < 1.2) {
+    if (!watchGhost && Math.abs(p.mesh.position.x - ratX) < 1.2 && Math.abs(p.mesh.position.z) < 1.2) {
       const k = p.kind;
       if (k === 'magnet') magnetT = POW.magnet.dur;
       else if (k === 'star') starT = POW.star.dur;
@@ -1219,8 +1232,10 @@ function update(dt) {
   camera.position.y = 3.4 + (Math.random() - 0.5) * shake * 0.6;
   camera.lookAt(camera.position.x * 0.4, 1, -12);
 
-  document.getElementById('cheeseCt').textContent = cheese;
-  document.getElementById('scoreCt').textContent = Math.floor(score);
+  if (!watchGhost) {
+    document.getElementById('cheeseCt').textContent = cheese;
+    document.getElementById('scoreCt').textContent = Math.floor(score);
+  }
 
   // soundtrack keeps pace with the run: style's base tempo, climbing up to +40 bpm at full tilt
   if (typeof Tone !== 'undefined' && musicParts) {
@@ -1255,6 +1270,75 @@ function start() {
   clock.getDelta();
   frame();
 }
+// ---------- ghost replays: watch anyone's best run ----------
+const ghostTag = emojiSprite('👻', 1.0);
+function watchV() {
+  const S = watchGhost.samples;
+  const i = Math.min(Math.floor(watchT * 10), S.length / 4 - 1) * 4;
+  return (S[i + 3] || 130) / 10;
+}
+function ghostPose(dt) {
+  watchT += dt;
+  const S = watchGhost.samples, n = Math.floor(S.length / 4);
+  const idx = watchT * 10;
+  if (idx >= n - 1) { exitWatch(); return; }
+  const i = Math.floor(idx), f = idx - i;
+  const a = i * 4, b = (i + 1) * 4;
+  const ln = (S[a] + (S[b] - S[a]) * f) / 10;
+  displayLane = ln; lane = Math.round(Math.max(0, Math.min(2, ln)));
+  hero.group.position.x = LANE_X(ln);
+  hero.group.position.y = (S[a + 1] + (S[b + 1] - S[a + 1]) * f) / 10;
+  const fl = S[a + 2];
+  if (fl & 1) hero.group.scale.set(1.25, 0.5, 1.1);
+  else if (fl & 4) hero.group.scale.set(1.05, 0.92, 1.05);
+  if (hero.flaps) {
+    const spread = (fl & 2) || (fl & 8) ? 1 : 0.35;
+    hero.flaps.forEach((fp, fi) => { fp.scale.x = (fi === 0 ? -1 : 1) * spread; });
+  }
+  ghostTag.position.set(hero.group.position.x, hero.group.position.y + 1.9, 0);
+}
+function startWatch(data, name) {
+  if (!data || !Array.isArray(data.samples) || data.samples.length < 8) { showErr('Replay is empty'); return; }
+  watchGhost = data; watchT = 0;
+  if (chars[data.char]) {
+    for (const [key, c] of Object.entries(chars)) c.group.visible = key === data.char;
+    hero = chars[data.char];
+  }
+  reset();
+  document.getElementById('startScreen').classList.add('hidden');
+  document.getElementById('overScreen').classList.add('hidden');
+  document.getElementById('hud').classList.remove('hidden');
+  document.getElementById('brand').classList.remove('hidden');
+  document.getElementById('hudName').textContent = '👻 ' + (name || data.name || '');
+  document.getElementById('scoreCt').textContent = data.score || '';
+  document.getElementById('cheeseCt').textContent = '–';
+  document.getElementById('pauseBtn').textContent = '⏸';
+  scene.add(ghostTag);
+  playing = true; paused = false;
+  startMusic();
+  clock.getDelta();
+  frame();
+  biomeBanner('👻 WATCHING ' + (name || '').toUpperCase());
+}
+function exitWatch() {
+  watchGhost = null;
+  scene.remove(ghostTag);
+  playing = false;
+  stopMusic();
+  setChar(charKey);
+  document.getElementById('hud').classList.add('hidden');
+  document.getElementById('brand').classList.add('hidden');
+  document.getElementById('startScreen').classList.remove('hidden');
+  renderer.render(scene, camera);
+}
+async function watchByName(name) {
+  try {
+    const res = await fetch(API + '?ghost=' + encodeURIComponent(name));
+    if (!res.ok) throw 0;
+    startWatch(await res.json(), name);
+  } catch { showErr('No replay available for ' + name); }
+}
+
 function gameOver() {
   playing = false;
   stopMusic(); sfx.crash();
@@ -1418,7 +1502,11 @@ async function renderTop() {
     const medals = ['🥇', '🥈', '🥉'];
     rows.slice(0, 5).forEach((r, i) => {   // five fits a phone between the score and the Run Again button; 🏆 has the rest
       const d = document.createElement('div');
-      d.textContent = `${medals[i] || (i + 1) + '.'} ${flagEmoji(r.flag)} ${charIcons[r.char] || ''} ${r.name} — ${r.score.toLocaleString()}`;
+      d.textContent = `${medals[i] || (i + 1) + '.'} ${flagEmoji(r.flag)} ${charIcons[r.char] || ''} ${r.name} — ${r.score.toLocaleString()}` + (r.ghost ? ' ▶' : '');
+      if (r.ghost) {   // tap a row with a replay to watch that run as a ghost
+        d.style.cursor = 'pointer';
+        d.addEventListener('click', () => watchByName(r.name));
+      }
       el.appendChild(d);
     });
   } catch { el.textContent = "Couldn't load the leaderboard."; }
@@ -1431,7 +1519,8 @@ async function autoSave(s) {
     const res = await fetch(API, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: ratName, score: s, token: ratToken, cheese, secs: Math.floor(elapsed), pows: powsThisRun, char: charKey, flag: ratFlag }),
+      body: JSON.stringify({ name: ratName, score: s, token: ratToken, cheese, secs: Math.floor(elapsed), pows: powsThisRun, char: charKey, flag: ratFlag,
+        replay: recBuf.length >= 8 && recBuf.length <= 160000 ? { v: 1, char: charKey, samples: recBuf } : undefined }),
     });
     if (res.status === 403) { el.textContent = `${ratName} is another rat's name — hang on…`; nameTrouble(ratName, s); renderTop(); return; }
     if (!res.ok) throw 0;
@@ -1905,6 +1994,7 @@ renderTop();   // on load, so a player whose flag was set for them sees it in se
 
 // ---------- input ----------
 function act(dir) {
+  if (watchGhost) { exitWatch(); return; }   // any move ends the replay
   if (!playing || paused) return;
   if (dir === 'left' && lane > 0) { lane--; sfx.lane(); }
   if (dir === 'right' && lane < 2) { lane++; sfx.lane(); }
