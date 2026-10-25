@@ -110,15 +110,12 @@
     #musicStyleBtn .hint { display: block; color: #ffcc00; font-size: 10px; letter-spacing: 1.5px; margin-top: 4px; }
     #biomeBanner {
       position: fixed; top: 26%; left: 0; right: 0; text-align: center; z-index: 6;
+      color: #ffcc00; font-size: clamp(20px, 5vw, 34px); letter-spacing: 4px; font-weight: bold;
+      -webkit-text-stroke: 4px #000; paint-order: stroke fill;
+      text-shadow: 0 3px 10px #000;
       opacity: 0; transition: opacity 0.8s; pointer-events: none;
     }
     #biomeBanner.show { opacity: 1; }
-    #biomeBanner span {
-      display: inline-block; color: #ffcc00; font-size: clamp(20px, 5vw, 34px);
-      letter-spacing: 4px; font-weight: bold;
-      background: rgba(0,0,0,0.72); padding: 10px 22px; border-radius: 14px;
-      text-shadow: 0 2px 6px #000; max-width: 92vw;
-    }
     .hsec { color: #ffcc00; letter-spacing: 3px; font-size: 13px; text-transform: uppercase; margin: 18px 0 6px; }
     .hrow { display: flex; gap: 12px; align-items: center; text-align: left; margin: 0 auto; max-width: 430px; padding: 5px 0; color: #ccc; font-size: 14px; line-height: 1.5; }
     .hico { font-size: 24px; width: 48px; text-align: center; flex: none; }
@@ -1446,10 +1443,7 @@ function spawnWave() {
 
 function biomeBanner(text) {
   const b = document.getElementById('biomeBanner');
-  b.innerHTML = '';
-  const s = document.createElement('span');
-  s.textContent = text;
-  b.appendChild(s);
+  b.textContent = text;
   b.classList.add('show');
   clearTimeout(biomeBanner.t);
   biomeBanner.t = setTimeout(() => b.classList.remove('show'), 2600);
