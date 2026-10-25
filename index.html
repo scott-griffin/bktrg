@@ -111,7 +111,9 @@
     #biomeBanner {
       position: fixed; top: 26%; left: 0; right: 0; text-align: center; z-index: 6;
       color: #ffcc00; font-size: clamp(20px, 5vw, 34px); letter-spacing: 4px; font-weight: bold;
-      text-shadow: 0 2px 10px #000; opacity: 0; transition: opacity 0.8s; pointer-events: none;
+      -webkit-text-stroke: 1px #000;
+      text-shadow: -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 2px 2px 0 #000, -2px 0 0 #000, 2px 0 0 #000, 0 -2px 0 #000, 0 2px 0 #000, 0 0 14px #000;
+      opacity: 0; transition: opacity 0.8s; pointer-events: none;
     }
     #biomeBanner.show { opacity: 1; }
     .hsec { color: #ffcc00; letter-spacing: 3px; font-size: 13px; text-transform: uppercase; margin: 18px 0 6px; }
