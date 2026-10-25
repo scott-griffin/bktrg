@@ -254,7 +254,7 @@
       <span>⬇️</span><span>duck</span>
     </div>
     <p>(or swipe on your phone)</p>
-    <p style="color:#ffcc00">New: power-ups and pizza! 🧲 ⛑️ 🚀 ⭐ 🍕</p>
+    <p style="color:#ffcc00">New: power-ups and pizza!<br>🧲 ⛑️ 🚀 ⭐ 🍕</p>
     <div style="display:flex; gap:12px; justify-content:center; margin:2px 0 6px; flex-wrap:wrap;">
       <button class="charBtn" data-char="rat">🐀<span>Rat</span></button>
       <button class="charBtn" data-char="squirrel">🐿️<span>Night Glider</span></button>
@@ -1498,12 +1498,26 @@ function update(dt) {
     biome = BIOMES[(level - 1) % BIOMES.length];
     biomeBanner(`LEVEL ${level}`, BIOME_NAMES[biome]);
     sfx.power();
-    // despawn anything in flight that was built for the previous biome, so outback
-    // boulders don't fly through the deep sea etc. Brief gap before the new wave.
-    for (const o of obstacles) scene.remove(o.mesh);
-    for (const t of treats) scene.remove(t.mesh);
-    for (const p of powers) scene.remove(p.mesh);
-    obstacles = []; treats = []; powers = []; spawnTimer = 1.5;
+    // morph in-flight obstacles and rare treats to the new biome's equivalent at the
+    // same position — an outback boulder becomes a sea clam, a vine becomes a coral arch.
+    // Trains and cheese look the same in every biome; powers are biome-agnostic.
+    const makeObsMesh = (type) => type === 'train' ? null
+      : type === 'hurdle' ? (biome === 'jungle' ? buildLog() : biome === 'outback' ? buildBoulder() : biome === 'sea' ? buildClam() : biome === 'snow' ? buildSnowmanObst() : buildHurdle())
+      : (biome === 'jungle' ? buildVine() : biome === 'outback' ? buildRooSign() : biome === 'sea' ? buildCoralArch() : biome === 'snow' ? buildIcicleArch() : buildBeam());
+    for (const o of obstacles) {
+      const m = makeObsMesh(o.type);
+      if (!m) continue;
+      m.position.copy(o.mesh.position);
+      scene.remove(o.mesh); scene.add(m); o.mesh = m;
+    }
+    const newKind = biome === 'jungle' ? 'banana' : biome === 'outback' ? 'pie' : biome === 'sea' ? 'sushi' : biome === 'snow' ? 'icecream' : 'pizza';
+    for (const t of treats) {
+      if (!t.kind || t.kind === newKind) continue;
+      const g = new THREE.Group();
+      g.add(glowSprite(0xffcc88, 2.0), emojiSprite({ pizza: '🍕', banana: '🍌', pie: '🥧', sushi: '🍣', icecream: '🍦' }[newKind], 1.1));
+      g.position.copy(t.mesh.position);
+      scene.remove(t.mesh); scene.add(g); t.mesh = g; t.kind = newKind;
+    }
   }
   applyBiomeVisuals(Math.min(1, dt * 0.9));
   for (const b of butterflies) {
