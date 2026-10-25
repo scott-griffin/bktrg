@@ -1498,8 +1498,8 @@ let playing = false, paused = false, elapsed = 0, score = 0, cheese = 0;
 let lane = 1, displayLane = 1;
 let jumpT = -1, duckT = -1;
 const JUMP_DUR = 0.6, DUCK_DUR = 0.6;
-const KANG_JUMP_DUR = 0.95, KANG_JUMP_H = 3.6;   // Golden Hopper: a longer, taller arc that clears beams and tops trains
-const TRAIN_ROOF_Y = 2.9;
+const KANG_JUMP_DUR = 0.95, KANG_JUMP_H = 4.0;   // Golden Hopper: a longer, taller arc that clears beams and reaches the top of a train
+const TRAIN_ROOF_Y = 3.75;   // peak of the half-cylindrical roof: body top 2.8 + roof radius 0.95 — hero stands here with feet on the ridge
 let obstacles = [], treats = [], spawnTimer = 0;
 let speedMult = parseFloat(localStorage.getItem('subwayRatsSpeed') || '0.8');
 // speed climbs within a level and resets at the next one, each level starting a notch faster than the last did
@@ -1806,12 +1806,13 @@ function update(dt) {
       if (o.type === 'beam' && ducking) continue;
       if (o.type === 'beam' && hero.group.position.y > 1.9) continue;   // Golden Hopper's tall arc clears a low clearance
       if (o.type === 'train' && ducking) { underTrain = true; continue; }   // squeezed through underneath
-      if (o.type === 'train' && hero.group.position.y > 2.6) {              // Golden Hopper lands on top instead of being squished
+      if (o.type === 'train' && hero.group.position.y >= TRAIN_ROOF_Y - 0.3) {   // Golden Hopper's arc crests at/above the roof ridge — land on top
         onTrain = o;
         sfx.jump();
         spawnParts('dust', { x: hero.group.position.x, y: TRAIN_ROOF_Y, z: 0 }, 6, 2, 2);
         continue;
       }
+      if (o.type === 'train' && hero.group.position.y > 2.8) continue;      // sailed over the body but under the roof ridge — passes clean
       if (helmet) {   // the hard hat takes the hit
         helmet = false; invulnT = 1.5; powHud();
         sfx.clang(); shake = 0.35;
@@ -1878,8 +1879,8 @@ function update(dt) {
   if (Math.abs(camera.fov - targetFov) > 0.2) { camera.fov += (targetFov - camera.fov) * Math.min(1, dt * 3); camera.updateProjectionMatrix(); }
   camLiftK += ((onTrain ? 1 : 0) - camLiftK) * Math.min(1, dt * 4);   // smooth rise/fall of the camera for the roof-ride beat
   camera.position.x = LANE_X(displayLane) * 0.22 + (Math.random() - 0.5) * shake;
-  camera.position.y = 3.4 + camLiftK * 3.1 + (Math.random() - 0.5) * shake * 0.6;
-  camera.lookAt(camera.position.x * 0.4, 1 + camLiftK * 1.6, -12);
+  camera.position.y = 3.4 + camLiftK * 4.1 + (Math.random() - 0.5) * shake * 0.6;   // lift to ~7.5 while riding — hero is at roof peak y=3.75
+  camera.lookAt(camera.position.x * 0.4, 1 + camLiftK * 2.5, -12);                   // tilt up to lookAt y=3.5, centering on the kangaroo's body
 
   if (!watchGhost) {
     document.getElementById('cheeseCt').textContent = cheese;
