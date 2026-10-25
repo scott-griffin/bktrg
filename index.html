@@ -502,7 +502,7 @@ for (let i = 0; i < 3; i++) {
 
 // painted sky horizon per biome — static backdrop plane behind the fog
 const skyTex = {};
-for (const name of ['field', 'jungle', 'outback']) {
+for (const name of ['field', 'jungle', 'outback', 'sea', 'snow']) {
   const t = new THREE.TextureLoader().load(`sky-${name}.png`);
   t.colorSpace = THREE.SRGBColorSpace;
   skyTex[name] = t;
@@ -770,6 +770,10 @@ function applyBiomeVisuals(a) {
   for (const x of poles) x.visible = biome === 'field';
   for (const b of billboards) b.userData.sign.material = billboardMat[biome];
   sky.material.map = skyTex[biome];
+  // field biome prototype: taller sky plane so painted clouds fill more of the upper frame
+  const tall = biome === 'field';
+  sky.scale.y = tall ? 2 : 1;
+  sky.position.y = tall ? 67 : 17;
   for (const x of trees) x.visible = biome === 'jungle';
   for (const x of outbackProps) x.visible = biome === 'outback';
   uluru.visible = biome === 'outback';
