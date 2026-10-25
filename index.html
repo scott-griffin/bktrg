@@ -387,6 +387,11 @@ const mat = {
   pink:   new THREE.MeshStandardMaterial({ color: 0xf0a7b2, roughness: 0.8 }),
   black:  new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.6 }),
   train:  new THREE.MeshStandardMaterial({ color: 0x49536b, roughness: 0.5, metalness: 0.3 }),
+  trainSide: (() => {
+    const t = new THREE.TextureLoader().load('train-hull.png');
+    t.colorSpace = THREE.SRGBColorSpace;
+    return new THREE.MeshStandardMaterial({ map: t, roughness: 0.5, metalness: 0.3 });
+  })(),
   trainRoof: new THREE.MeshStandardMaterial({ color: 0x2e3542, roughness: 0.6 }),
   glass:  new THREE.MeshStandardMaterial({ color: 0x121620, roughness: 0.2, metalness: 0.5 }),
   light:  new THREE.MeshStandardMaterial({ color: 0xffee99, emissive: 0xffee99, emissiveIntensity: 1.4 }),
@@ -965,7 +970,8 @@ const signTex = (() => {    // LOW CLEARANCE sign face
 function buildTrain() {
   const g = new THREE.Group();
   // body rides high on its wheels so a ducked rat can squeeze through underneath
-  const body = new THREE.Mesh(new THREE.BoxGeometry(1.9, 2.3, 9), mat.train);
+  const body = new THREE.Mesh(new THREE.BoxGeometry(1.9, 2.3, 9),
+    [mat.trainSide, mat.trainSide, mat.train, mat.train, mat.train, mat.train]);
   body.position.y = 1.65;
   const roof = new THREE.Mesh(new THREE.CylinderGeometry(0.95, 0.95, 9, 12, 1, false, 0, Math.PI), mat.trainRoof);
   roof.rotation.z = Math.PI / 2; roof.rotation.y = Math.PI / 2; roof.position.y = 2.8;
