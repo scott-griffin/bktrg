@@ -453,19 +453,19 @@ const billboardMat = new THREE.MeshStandardMaterial({ map: billboardTex, roughne
 const billboards = [];
 function buildBillboard() {
   const g = new THREE.Group();
-  const postGeo = new THREE.CylinderGeometry(0.14, 0.18, 5.6, 8);
+  const postGeo = new THREE.CylinderGeometry(0.18, 0.22, 6.0, 8);
   const postL = new THREE.Mesh(postGeo, mat.pole);
-  postL.position.set(-1.9, 2.8, 0); postL.castShadow = true;
+  postL.position.set(-3.3, 3.0, 0); postL.castShadow = true;
   const postR = new THREE.Mesh(postGeo, mat.pole);
-  postR.position.set(1.9, 2.8, 0); postR.castShadow = true;
-  const sign = new THREE.Mesh(new THREE.PlaneGeometry(4.6, 3.07), billboardMat);
-  sign.position.set(0, 4.4, 0);
+  postR.position.set(3.3, 3.0, 0); postR.castShadow = true;
+  const sign = new THREE.Mesh(new THREE.PlaneGeometry(8.0, 5.33), billboardMat);
+  sign.position.set(0, 5.5, 0);
   g.add(postL, postR, sign);
   return g;
 }
 for (let i = 0; i < 3; i++) {
   const b = buildBillboard();
-  const side = i % 2 === 0 ? -11 : 11;
+  const side = i % 2 === 0 ? -8 : 8;
   b.position.set(side, 0, -i * 80 - 20);
   b.rotation.y = side < 0 ? Math.PI / 10 : -Math.PI / 10;
   scene.add(b); billboards.push(b);
