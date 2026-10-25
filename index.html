@@ -2664,6 +2664,12 @@ document.getElementById('flagPickerClose').addEventListener('click', () => flagP
 refreshFlagBtn();
 renderTop();   // on load, so a player whose flag was set for them sees it in settings before their first run of the session
 
+// ?watch=<name> auto-plays that player's ghost — the full-leaderboard page links here when you tap a ▶ row
+{
+  const watchName = new URLSearchParams(location.search).get('watch');
+  if (watchName) watchByName(watchName);
+}
+
 // ---------- input ----------
 function act(dir) {
   if (watchGhost) { exitWatch(); return; }   // any move ends the replay
