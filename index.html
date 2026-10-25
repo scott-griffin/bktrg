@@ -772,7 +772,80 @@ for (let i = 0; i < 24; i++) {
   scene.add(f); flakes.push(f);
 }
 
-// biome palettes: open country, Amazon rainforest, Australian Outback, the Deep Sea, the Snow World
+// anthill props: giant pebbles and giant red-cap mushrooms line the track — ordinary objects enlarged because the rat has shrunk to ant-scale
+const anthillProps = [];
+const dirtMat = new THREE.MeshStandardMaterial({ map: speckleTex('#6b3a1a', ['#4a2612', '#8a5230', '#5c2e14'], 420, 40, 40), roughness: 1 });
+const pebbleMat = new THREE.MeshStandardMaterial({ color: 0x9a8470, roughness: 0.95 });
+const mushCapMat = new THREE.MeshStandardMaterial({ color: 0xd44a3a, roughness: 0.75 });
+const mushStemMat = new THREE.MeshStandardMaterial({ color: 0xf0e4c8, roughness: 0.85 });
+for (let i = 0; i < 10; i++) for (const side of [-7.8, 7.8]) {
+  const g = new THREE.Group();
+  if ((i + (side > 0 ? 1 : 0)) % 2) {
+    for (const [dx, s] of [[0, 2.4], [1.6, 1.5], [-1.5, 1.3]]) {
+      const b = new THREE.Mesh(new THREE.SphereGeometry(s, 12, 10), pebbleMat);
+      b.scale.y = 0.8; b.position.set(dx, s * 0.6, 0); b.castShadow = true; g.add(b);
+    }
+  } else {
+    const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.65, 3.5, 12), mushStemMat);
+    stem.position.y = 1.75; stem.castShadow = true; g.add(stem);
+    const cap = new THREE.Mesh(new THREE.SphereGeometry(1.6, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2), mushCapMat);
+    cap.position.y = 3.5; cap.castShadow = true; g.add(cap);
+    const spotMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.8 });
+    for (const [sx, sy, sz, r] of [[0.6, 3.9, 0.4, 0.2], [-0.5, 4.0, 0.6, 0.18], [0.2, 4.2, -0.5, 0.22], [-0.9, 3.8, -0.2, 0.16]]) {
+      const spot = new THREE.Mesh(new THREE.SphereGeometry(r, 8, 6), spotMat);
+      spot.position.set(sx, sy, sz); g.add(spot);
+    }
+  }
+  g.position.set(side + (Math.random() - 0.5) * 2.5, 0, -i * 18 + 6);
+  g.visible = false;
+  scene.add(g); anthillProps.push(g);
+}
+// tunnel arches: curved dirt ribs that pass overhead in sequence — makes the biome feel like a tube
+const anthillArches = [];
+for (let i = 0; i < 8; i++) {
+  const arch = new THREE.Mesh(new THREE.TorusGeometry(7, 0.9, 10, 24, Math.PI), dirtMat);
+  arch.position.set(0, 0, -i * 24 + 10);
+  arch.castShadow = true;
+  arch.visible = false;
+  scene.add(arch); anthillArches.push(arch);
+}
+// dangling roots from the tunnel ceiling
+const rootsCeiling = [];
+for (let i = 0; i < 24; i++) {
+  const len = 1.2 + Math.random() * 2.5;
+  const root = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.05, len, 6),
+    new THREE.MeshStandardMaterial({ color: 0x3a2412, roughness: 1 }));
+  root.position.set((Math.random() - 0.5) * 12, 8 - len / 2, -10 - Math.random() * 70);
+  root.visible = false;
+  scene.add(root); rootsCeiling.push(root);
+}
+// an overhead dirt dome / chamber ceiling sitting far ahead
+const anthillChamber = new THREE.Mesh(new THREE.SphereGeometry(14, 20, 14, 0, Math.PI * 2, 0, Math.PI / 2), dirtMat);
+anthillChamber.rotation.x = Math.PI;
+anthillChamber.position.set(0, 10, -125);
+anthillChamber.visible = false;
+scene.add(anthillChamber);
+// worker ants scurrying alongside — tiny because they're real-ant-sized while the player is ant-sized too
+const ants = [];
+for (let i = 0; i < 6; i++) {
+  const a = emojiSprite('🐜', 0.9);
+  a.userData.o = i * 1.4;
+  a.position.set(i % 2 ? 6.4 : -6.4, 0.4, -8 - i * 14);
+  a.visible = false;
+  scene.add(a); ants.push(a);
+}
+// dust motes drifting in amber shafts of light
+const motes = [];
+for (let i = 0; i < 20; i++) {
+  const m = glowSprite(0xffd68a, 0.3 + Math.random() * 0.25);
+  m.userData.vy = 0.2 + Math.random() * 0.4;
+  m.userData.ox = Math.random() * Math.PI * 2;
+  m.position.set((Math.random() - 0.5) * 14, 1 + Math.random() * 5, -10 - Math.random() * 60);
+  m.visible = false;
+  scene.add(m); motes.push(m);
+}
+
+// biome palettes: open country, Amazon rainforest, Australian Outback, the Deep Sea, the Snow World, inside an anthill
 const PAL = {};
 for (const [bk, p] of Object.entries({
   field:   { sky: 0x6db3e8, fog: 0xa8cfeb, fogN: 60, fogF: 150, hemi: 0xcfe8ff, gnd: 0x5e9c46, grass: 0xffffff, hill: 0xffffff, sun: 1.6, glow: 1 },
@@ -780,9 +853,11 @@ for (const [bk, p] of Object.entries({
   outback: { sky: 0x7ec0e8, fog: 0xe8c9a0, fogN: 55, fogF: 140, hemi: 0xffe8c8, gnd: 0xc1662f, grass: 0xb8703a, hill: 0xa0522d, sun: 1.8, glow: 1 },
   sea:     { sky: 0x072643, fog: 0x0f3a5c, fogN: 20, fogF: 75, hemi: 0x3a7a98, gnd: 0x6a5a40, grass: 0x1a4a4e, hill: 0x0a1f36, sun: 0.6, glow: 0.05 },
   snow:    { sky: 0xcad8e6, fog: 0xdce8ef, fogN: 40, fogF: 110, hemi: 0xdce8f4, gnd: 0xeef2f6, grass: 0xdce8ec, hill: 0xdbe4ec, sun: 0.9, glow: 0.4 },
+  // inside the anthill: warm sandy dirt, close fog so the tunnel feels enclosed, dim gold overhead glow
+  anthill: { sky: 0x3a1f10, fog: 0x5e3818, fogN: 18, fogF: 60, hemi: 0xffd8a0, gnd: 0x6b3a1a, grass: 0x7a4722, hill: 0x4a2612, sun: 0.8, glow: 0.6 },
 })) PAL[bk] = { ...p, skyC: new THREE.Color(p.sky), fogC: new THREE.Color(p.fog), hemiC: new THREE.Color(p.hemi), gndC: new THREE.Color(p.gnd), grassC: new THREE.Color(p.grass), hillC: new THREE.Color(p.hill) };
-const BIOMES = ['field', 'jungle', 'outback', 'sea', 'snow'];
-const BIOME_NAMES = { field: '🌾 OPEN COUNTRY 🌾', jungle: '🌴 THE AMAZON RAINFOREST 🌴', outback: '🦘 THE AUSTRALIAN OUTBACK 🦘', sea: '🌊 THE DEEP SEA 🌊', snow: '❄️ THE SNOW WORLD ❄️' };
+const BIOMES = ['field', 'jungle', 'outback', 'sea', 'snow', 'anthill'];
+const BIOME_NAMES = { field: '🌾 OPEN COUNTRY 🌾', jungle: '🌴 THE AMAZON RAINFOREST 🌴', outback: '🦘 THE AUSTRALIAN OUTBACK 🦘', sea: '🌊 THE DEEP SEA 🌊', snow: '❄️ THE SNOW WORLD ❄️', anthill: '🐜 INSIDE THE ANTHILL 🐜' };
 function applyBiomeVisuals(a) {
   const p = PAL[biome];
   scene.background.lerp(p.skyC, a);
@@ -796,8 +871,13 @@ function applyBiomeVisuals(a) {
   mat.hill.color.lerp(p.hillC, a);
   sunGlow.material.opacity += (p.glow - sunGlow.material.opacity) * a;
   for (const x of poles) x.visible = biome === 'field';
-  for (const b of billboards) b.userData.sign.material = billboardMat[biome];
-  sky.material.map = skyTex[biome];
+  // billboards and sky are above-ground things — hide them when we're inside the anthill
+  for (const b of billboards) {
+    if (biome === 'anthill') b.visible = false;
+    else if (billboardMat[biome]) { b.userData.sign.material = billboardMat[biome]; b.visible = playing; }
+  }
+  sky.visible = biome !== 'anthill';
+  if (skyTex[biome]) sky.material.map = skyTex[biome];
   // field biome prototype: taller sky plane so painted clouds fill more of the upper frame
   skyBaseScaleY = biome === 'field' ? 2 : 1;
   updateSkyScale();
@@ -810,7 +890,12 @@ function applyBiomeVisuals(a) {
   for (const x of snowProps) x.visible = biome === 'snow';
   snowMountain.visible = biome === 'snow';
   snowCarpet.visible = biome === 'snow';
-  for (const c of clouds) c.visible = biome !== 'sea';   // no sky clouds underwater
+  for (const x of anthillProps) x.visible = biome === 'anthill';
+  for (const a of anthillArches) a.visible = biome === 'anthill';
+  for (const r of rootsCeiling) r.visible = biome === 'anthill';
+  anthillChamber.visible = biome === 'anthill';
+  sunGlow.visible = biome !== 'anthill';   // no sun inside the hill
+  for (const c of clouds) c.visible = biome !== 'sea' && biome !== 'anthill';   // no sky clouds underwater or underground
 }
 
 // ---------- the rat ----------
@@ -1302,6 +1387,39 @@ function buildSnowmanObst() {
   g.traverse(o => { if (o.isMesh) o.castShadow = true; });
   return g;
 }
+// anthill skins: a big pebble to jump over, a dangling-root cluster to duck under
+function buildBigPebble() {
+  const g = new THREE.Group();
+  const rock = new THREE.MeshStandardMaterial({ color: 0xa08a74, roughness: 0.95 });
+  const rockD = new THREE.MeshStandardMaterial({ color: 0x7a6a56, roughness: 1 });
+  for (const [x, s, m] of [[-0.4, 0.45, rock], [0.25, 0.55, rockD], [0.6, 0.32, rock]]) {
+    const b = new THREE.Mesh(new THREE.SphereGeometry(s, 12, 10), m);
+    b.scale.y = 0.78; b.position.set(x, s * 0.62, 0);
+    g.add(b);
+  }
+  g.traverse(o => { if (o.isMesh) o.castShadow = true; });
+  return g;
+}
+function buildRootHang() {
+  const g = new THREE.Group();
+  const woodMat = new THREE.MeshStandardMaterial({ color: 0x4a2c14, roughness: 1 });
+  const rootMat = new THREE.MeshStandardMaterial({ color: 0x3a2412, roughness: 1 });
+  for (const sx of [-1.0, 1.0]) {
+    const post = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.22, 2.6, 8), woodMat);
+    post.position.set(sx, 1.3, 0); g.add(post);
+  }
+  const beam = new THREE.Mesh(new THREE.TorusGeometry(1.0, 0.14, 8, 14, Math.PI), woodMat);
+  beam.position.set(0, 2.3, 0); g.add(beam);
+  for (const [ix, len] of [[-0.85, 0.6], [-0.5, 0.9], [-0.15, 0.65], [0.2, 0.95], [0.55, 0.7], [0.9, 0.55]]) {
+    const root = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.03, len, 6), rootMat);
+    root.position.set(ix, 2.2 - len / 2, 0);
+    const tip = new THREE.Mesh(new THREE.SphereGeometry(0.04, 6, 5), rootMat);
+    tip.position.set(ix, 2.2 - len, 0);
+    g.add(root, tip);
+  }
+  g.traverse(o => { if (o.isMesh) o.castShadow = true; });
+  return g;
+}
 function buildIcicleArch() {
   const g = new THREE.Group();
   const iceMat = new THREE.MeshStandardMaterial({ color: 0xcfeaff, roughness: 0.3, metalness: 0.1 });
@@ -1416,8 +1534,8 @@ function spawnWave() {
     const r = Math.random();
     const type = r < 0.32 ? 'train' : r < 0.66 ? 'hurdle' : 'beam';
     const mesh = type === 'train' ? buildTrain()
-      : type === 'hurdle' ? (biome === 'jungle' ? buildLog() : biome === 'outback' ? buildBoulder() : biome === 'sea' ? buildClam() : biome === 'snow' ? buildSnowmanObst() : buildHurdle())
-      : (biome === 'jungle' ? buildVine() : biome === 'outback' ? buildRooSign() : biome === 'sea' ? buildCoralArch() : biome === 'snow' ? buildIcicleArch() : buildBeam());
+      : type === 'hurdle' ? (biome === 'jungle' ? buildLog() : biome === 'outback' ? buildBoulder() : biome === 'sea' ? buildClam() : biome === 'snow' ? buildSnowmanObst() : biome === 'anthill' ? buildBigPebble() : buildHurdle())
+      : (biome === 'jungle' ? buildVine() : biome === 'outback' ? buildRooSign() : biome === 'sea' ? buildCoralArch() : biome === 'snow' ? buildIcicleArch() : biome === 'anthill' ? buildRootHang() : buildBeam());
     mesh.position.set(LANE_X(order[i]), 0, -WORLD_LEN + (type === 'train' ? -4.5 : 0));
     scene.add(mesh);
     obstacles.push({ mesh, lane: order[i], type, len: type === 'train' ? 9 : 0.4 });
@@ -1432,11 +1550,11 @@ function spawnWave() {
       treats.push({ mesh: m, lane: open });
     }
   }
-  // the rare treat travels with the land: pizza at home, bananas in the jungle, meat pies in the outback, sushi in the sea, ice cream in the snow
+  // the rare treat travels with the land: pizza at home, bananas in the jungle, meat pies in the outback, sushi in the sea, ice cream in the snow, candy inside the anthill
   if (Math.random() < 0.08) {
-    const kind = biome === 'jungle' ? 'banana' : biome === 'outback' ? 'pie' : biome === 'sea' ? 'sushi' : biome === 'snow' ? 'icecream' : 'pizza';
+    const kind = biome === 'jungle' ? 'banana' : biome === 'outback' ? 'pie' : biome === 'sea' ? 'sushi' : biome === 'snow' ? 'icecream' : biome === 'anthill' ? 'candy' : 'pizza';
     const g = new THREE.Group();
-    g.add(glowSprite(0xffcc88, 2.0), emojiSprite({ pizza: '🍕', banana: '🍌', pie: '🥧', sushi: '🍣', icecream: '🍦' }[kind], 1.1));
+    g.add(glowSprite(0xffcc88, 2.0), emojiSprite({ pizza: '🍕', banana: '🍌', pie: '🥧', sushi: '🍣', icecream: '🍦', candy: '🍬' }[kind], 1.1));
     g.position.set(LANE_X(order[nBlocked]), 0.8, -WORLD_LEN - 36);
     scene.add(g);
     treats.push({ mesh: g, kind });
@@ -1521,19 +1639,19 @@ function update(dt) {
     // same position — an outback boulder becomes a sea clam, a vine becomes a coral arch.
     // Trains and cheese look the same in every biome; powers are biome-agnostic.
     const makeObsMesh = (type) => type === 'train' ? null
-      : type === 'hurdle' ? (biome === 'jungle' ? buildLog() : biome === 'outback' ? buildBoulder() : biome === 'sea' ? buildClam() : biome === 'snow' ? buildSnowmanObst() : buildHurdle())
-      : (biome === 'jungle' ? buildVine() : biome === 'outback' ? buildRooSign() : biome === 'sea' ? buildCoralArch() : biome === 'snow' ? buildIcicleArch() : buildBeam());
+      : type === 'hurdle' ? (biome === 'jungle' ? buildLog() : biome === 'outback' ? buildBoulder() : biome === 'sea' ? buildClam() : biome === 'snow' ? buildSnowmanObst() : biome === 'anthill' ? buildBigPebble() : buildHurdle())
+      : (biome === 'jungle' ? buildVine() : biome === 'outback' ? buildRooSign() : biome === 'sea' ? buildCoralArch() : biome === 'snow' ? buildIcicleArch() : biome === 'anthill' ? buildRootHang() : buildBeam());
     for (const o of obstacles) {
       const m = makeObsMesh(o.type);
       if (!m) continue;
       m.position.copy(o.mesh.position);
       scene.remove(o.mesh); scene.add(m); o.mesh = m;
     }
-    const newKind = biome === 'jungle' ? 'banana' : biome === 'outback' ? 'pie' : biome === 'sea' ? 'sushi' : biome === 'snow' ? 'icecream' : 'pizza';
+    const newKind = biome === 'jungle' ? 'banana' : biome === 'outback' ? 'pie' : biome === 'sea' ? 'sushi' : biome === 'snow' ? 'icecream' : biome === 'anthill' ? 'candy' : 'pizza';
     for (const t of treats) {
       if (!t.kind || t.kind === newKind) continue;
       const g = new THREE.Group();
-      g.add(glowSprite(0xffcc88, 2.0), emojiSprite({ pizza: '🍕', banana: '🍌', pie: '🥧', sushi: '🍣', icecream: '🍦' }[newKind], 1.1));
+      g.add(glowSprite(0xffcc88, 2.0), emojiSprite({ pizza: '🍕', banana: '🍌', pie: '🥧', sushi: '🍣', icecream: '🍦', candy: '🍬' }[newKind], 1.1));
       g.position.copy(t.mesh.position);
       scene.remove(t.mesh); scene.add(g); t.mesh = g; t.kind = newKind;
     }
@@ -1586,6 +1704,26 @@ function update(dt) {
     f.position.x += Math.sin(elapsed * 1.2 + f.userData.ox) * dt * 0.5;
     if (f.position.y < 0) { f.position.y = 7 + Math.random() * 2; f.position.z -= 30; }
     if (f.position.z > 8) f.position.z -= 70;
+  }
+  // anthill: tunnel ribs and dangling roots recycle like the other side scenery; little ants scurry alongside
+  for (const g of anthillProps) { g.position.z += v * dt; if (g.position.z > 10) g.position.z -= 10 * 18; }
+  for (const a of anthillArches) { a.position.z += v * dt; if (a.position.z > 12) a.position.z -= 8 * 24; }
+  for (const r of rootsCeiling) { r.position.z += v * dt; if (r.position.z > 10) r.position.z -= 24 * 3.5 + 10; }
+  for (const a of ants) {
+    a.visible = biome === 'anthill';
+    if (!a.visible) continue;
+    a.position.z += v * dt * 0.6;   // they're going our way, slower than us
+    a.position.y = 0.4 + Math.abs(Math.sin(elapsed * 8 + a.userData.o)) * 0.08;   // tiny scurry bob
+    if (a.position.z > 8) a.position.z -= 85;
+  }
+  for (const m of motes) {
+    m.visible = biome === 'anthill';
+    if (!m.visible) continue;
+    m.position.z += v * dt * 0.5;
+    m.position.y += m.userData.vy * dt;
+    m.position.x += Math.sin(elapsed * 0.8 + m.userData.ox) * dt * 0.4;
+    if (m.position.y > 7) { m.position.y = 0.5; m.position.z -= 40; }
+    if (m.position.z > 8) m.position.z -= 60;
   }
 
   const jumpH = jumpT >= 0 ? Math.sin(Math.PI * jumpT / jumpDur) : 0;
