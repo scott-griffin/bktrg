@@ -494,7 +494,7 @@ for (let i = 0; i < 10; i++) for (const side of [-7.5, 7.5]) {
 
 // roadside billboards — same posts in every biome, poster texture swaps on biome change
 const billboardMat = {};
-for (const name of ['field', 'jungle', 'outback', 'sea', 'snow']) {
+for (const name of ['field', 'jungle', 'outback', 'sea', 'snow', 'mangrove']) {
   const t = new THREE.TextureLoader().load(`billboard-${name}.png`);
   t.colorSpace = THREE.SRGBColorSpace;
   billboardMat[name] = new THREE.MeshStandardMaterial({ map: t, roughness: 0.85, side: THREE.DoubleSide });
@@ -524,7 +524,7 @@ for (let i = 0; i < 3; i++) {
 
 // painted sky horizon per biome — static backdrop plane behind the fog
 const skyTex = {};
-for (const name of ['field', 'jungle', 'outback', 'sea', 'snow']) {
+for (const name of ['field', 'jungle', 'outback', 'sea', 'snow', 'mangrove']) {
   const t = new THREE.TextureLoader().load(`sky-${name}.png`);
   t.colorSpace = THREE.SRGBColorSpace;
   skyTex[name] = t;
