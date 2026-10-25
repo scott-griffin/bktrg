@@ -71,9 +71,9 @@
     .score { color: #ffcc00; font-weight: bold; text-align: right; white-space: nowrap; width: 90px; }
     .player { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .time { color: #888; font-size: 15px; text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; width: 56px; }
+    .time.replay { color: #ffcc00; }
+    tr.has-replay:hover .time.replay { filter: drop-shadow(0 0 6px #ffcc00); }
     .flag { width: 36px; font-size: 22px; text-align: center; }
-    .play { color: #ffcc00; margin-left: 6px; font-size: 15px; }
-    tr.has-replay:hover .play { filter: drop-shadow(0 0 6px #ffcc00); }
     .empty { color: #444; text-align: center; padding: 40px; font-size: 16px; letter-spacing: 1px; }
     .loading { color: #555; text-align: center; padding: 40px; letter-spacing: 2px; }
     .back-btn {
@@ -174,15 +174,17 @@
         const charIcons = { rat: '🐀', squirrel: '🐿️', echidna: '🦔', kangaroo: '🦘' };
         const flagEmoji = code => /^[A-Z]{2}$/.test(code || '') ? String.fromCodePoint(...[...code].map(c => 0x1f1e6 + c.charCodeAt(0) - 65)) : '';
         const fmtTime = s => (s == null || s < 0) ? '' : `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
-        tbody.innerHTML = scores.map((s, i) =>
-          `<tr${s.ghost ? ` class="has-replay" data-watch="${encodeURIComponent(s.name)}" title="Watch ${s.name}'s best run"` : ''}>
+        tbody.innerHTML = scores.map((s, i) => {
+          const t = fmtTime(s.secs);
+          const timeCell = s.ghost ? `<td class="time replay" title="Watch ${s.name}'s best run">${t || '▶'}</td>` : `<td class="time">${t}</td>`;
+          return `<tr${s.ghost ? ` class="has-replay" data-watch="${encodeURIComponent(s.name)}"` : ''}>
             <td class="rank">${medals[i] || i+1}</td>
             <td class="flag">${flagEmoji(s.flag)}</td>
-            <td class="player">${charIcons[s.char] || ""} ${s.name}${s.ghost ? '<span class="play">▶</span>' : ''}</td>
-            <td class="time">${fmtTime(s.secs)}</td>
+            <td class="player">${charIcons[s.char] || ""} ${s.name}</td>
+            ${timeCell}
             <td class="score">${s.score.toLocaleString()}</td>
-          </tr>`
-        ).join('');
+          </tr>`;
+        }).join('');
         tbody.querySelectorAll('tr.has-replay').forEach(tr => {
           tr.addEventListener('click', () => {
             location.href = 'index.html?watch=' + tr.dataset.watch;
