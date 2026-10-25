@@ -116,6 +116,7 @@
       opacity: 0; transition: opacity 0.8s; pointer-events: none;
     }
     #biomeBanner.show { opacity: 1; }
+    #biomeBanner .banner-sub { font-size: clamp(14px, 3.8vw, 26px); letter-spacing: 1.5px; display: block; margin-top: 6px; white-space: nowrap; }
     .hsec { color: #ffcc00; letter-spacing: 3px; font-size: 13px; text-transform: uppercase; margin: 18px 0 6px; }
     .hrow { display: flex; gap: 12px; align-items: center; text-align: left; margin: 0 auto; max-width: 430px; padding: 5px 0; color: #ccc; font-size: 14px; line-height: 1.5; }
     .hico { font-size: 24px; width: 48px; text-align: center; flex: none; }
@@ -1436,9 +1437,15 @@ function spawnWave() {
   }
 }
 
-function biomeBanner(text) {
+function biomeBanner(text, subtext) {
   const b = document.getElementById('biomeBanner');
-  b.textContent = text;
+  if (subtext) {
+    b.innerHTML = '<div></div><div class="banner-sub"></div>';
+    b.firstChild.textContent = text;
+    b.lastChild.textContent = subtext;
+  } else {
+    b.textContent = text;
+  }
   b.classList.add('show');
   clearTimeout(biomeBanner.t);
   biomeBanner.t = setTimeout(() => b.classList.remove('show'), 2600);
@@ -1489,7 +1496,7 @@ function update(dt) {
     biomeT = 0;
     level++;
     biome = BIOMES[(level - 1) % BIOMES.length];
-    biomeBanner(`LEVEL ${level} · ` + BIOME_NAMES[biome]);
+    biomeBanner(`LEVEL ${level}`, BIOME_NAMES[biome]);
     sfx.power();
     // despawn anything in flight that was built for the previous biome, so outback
     // boulders don't fly through the deep sea etc. Brief gap before the new wave.
