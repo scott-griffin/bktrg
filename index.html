@@ -1491,6 +1491,12 @@ function update(dt) {
     biome = BIOMES[(level - 1) % BIOMES.length];
     biomeBanner(`LEVEL ${level} · ` + BIOME_NAMES[biome]);
     sfx.power();
+    // despawn anything in flight that was built for the previous biome, so outback
+    // boulders don't fly through the deep sea etc. Brief gap before the new wave.
+    for (const o of obstacles) scene.remove(o.mesh);
+    for (const t of treats) scene.remove(t.mesh);
+    for (const p of powers) scene.remove(p.mesh);
+    obstacles = []; treats = []; powers = []; spawnTimer = 1.5;
   }
   applyBiomeVisuals(Math.min(1, dt * 0.9));
   for (const b of butterflies) {
