@@ -305,21 +305,8 @@
   </div>
 
 <script src="https://cdn.jsdelivr.net/npm/tone@14.8.49/build/Tone.js"></script>
-<script type="importmap">
-{
-  "imports": {
-    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
-    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
-  }
-}
-</script>
 <script type="module">
-import * as THREE from 'three';
-import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
-import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
-import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
-import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
-import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
 
 // iOS silent-switch bypass: a looping silent <audio> element flips the page into "media playback" mode, which the ringer mute switch does not silence — the same mode YouTube uses. Without this, WebAudio games are mute on a silenced iPhone.
 const unmuteLoop = document.createElement('audio');
@@ -353,10 +340,6 @@ renderer.setSize(innerWidth, innerHeight);
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-// filmic tone-map + sRGB output: richer colors and the sun/emissives stop looking flat
-renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.0;
-renderer.outputColorSpace = THREE.SRGBColorSpace;
 document.body.appendChild(renderer.domElement);
 
 const scene = new THREE.Scene();
@@ -367,61 +350,10 @@ const camera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.1, 30
 camera.position.set(0, 3.4, 7.5);
 camera.lookAt(0, 1, -12);
 
-// ---------- post-processing: bloom on emissives + radial speed lines ----------
-// Guarded so if the composer fails to build on an underpowered device the game still runs — render() just falls back to renderer.render().
-let composer = null, bloomPass = null, speedPass = null;
-try {
-  composer = new EffectComposer(renderer);
-  composer.setSize(innerWidth, innerHeight);
-  composer.addPass(new RenderPass(scene, camera));
-  // threshold 0.85 keeps the bloom confined to actual emissives (power-ups, train lights, cheese) instead of smearing the whole image
-  bloomPass = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.55, 0.5, 0.85);
-  composer.addPass(bloomPass);
-  // speed-line radial blur: amount uniform ramps 0 → ~1 with game speed and rocket boost
-  speedPass = new ShaderPass({
-    uniforms: {
-      tDiffuse: { value: null },
-      amount:   { value: 0 },
-      center:   { value: new THREE.Vector2(0.5, 0.55) },
-    },
-    vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
-    fragmentShader: `
-      uniform sampler2D tDiffuse;
-      uniform float amount;
-      uniform vec2 center;
-      varying vec2 vUv;
-      void main() {
-        vec4 col = texture2D(tDiffuse, vUv);
-        if (amount > 0.001) {
-          vec2 dir = vUv - center;
-          vec4 blur = vec4(0.0);
-          const float SAMPLES = 6.0;
-          for (float i = 1.0; i <= SAMPLES; i++) {
-            float t = (i / SAMPLES) * amount * 0.08;
-            blur += texture2D(tDiffuse, vUv - dir * t);
-          }
-          blur /= SAMPLES;
-          float mask = smoothstep(0.08, 0.45, length(dir));
-          col = mix(col, blur, clamp(amount * mask * 0.9, 0.0, 0.75));
-        }
-        gl_FragColor = col;
-      }
-    `,
-  });
-  composer.addPass(speedPass);
-  composer.addPass(new OutputPass());
-} catch (e) {
-  composer = null;
-  console.warn('postprocessing disabled:', e);
-}
-function render() { if (composer) composer.render(); else renderer.render(scene, camera); }
-
 addEventListener('resize', () => {
   camera.aspect = innerWidth / innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(innerWidth, innerHeight);
-  if (composer) composer.setSize(innerWidth, innerHeight);
-  if (bloomPass) bloomPass.setSize(innerWidth, innerHeight);
 });
 
 // ---------- light ----------
@@ -935,7 +867,7 @@ function setChar(k) {
   for (const [key, c] of Object.entries(chars)) c.group.visible = key === k;
   document.getElementById('charIcon').textContent = charIcons[k];
   document.querySelectorAll('.charBtn').forEach(b => b.classList.toggle('sel', b.dataset.char === k));
-  if (!playing) render();
+  if (!playing) renderer.render(scene, camera);
 }
 
 // ---------- obstacle builders ----------
@@ -1103,44 +1035,13 @@ const partMat = {
   spark:  new THREE.MeshBasicMaterial({ color: 0xffd34d }),
   debris: new THREE.MeshBasicMaterial({ color: 0x555f6e }),
   pow:    new THREE.MeshBasicMaterial({ color: 0xffffff }),
-  pollen: new THREE.MeshBasicMaterial({ color: 0xfff4a8 }),
-  rain:   new THREE.MeshBasicMaterial({ color: 0xcfe6ff, transparent: true, opacity: 0.75 }),
-  mote:   new THREE.MeshBasicMaterial({ color: 0xe8c38a, transparent: true, opacity: 0.65 }),
 };
 function spawnParts(kind, pos, n, spread, up) {
-  if (particles.length > 160) return;
+  if (particles.length > 120) return;
   for (let i = 0; i < n; i++) {
     const m = new THREE.Mesh(partGeo, partMat[kind]);
     m.position.set(pos.x + (Math.random() - 0.5) * 0.4, pos.y + Math.random() * 0.3, pos.z + (Math.random() - 0.5) * 0.4);
-    particles.push({ m, vx: (Math.random() - 0.5) * spread, vy: Math.random() * up, vz: Math.random() * spread, life: 0.5 + Math.random() * 0.5, grav: 7, floor: 0.03, scrollMul: 0.6, shrink: true });
-    scene.add(m);
-  }
-}
-
-// atmospheric drizzle per biome: pollen floating up, rain falling fast, dust motes drifting
-// one call per frame; the particle pool caps itself.
-function weatherTick(dt) {
-  if (particles.length > 150) return;
-  const camZ = camera.position.z;
-  const x = (Math.random() - 0.5) * 44;
-  const z = camZ - 10 - Math.random() * 70;
-  if (biome === 'field') {
-    const m = new THREE.Mesh(partGeo, partMat.pollen);
-    m.scale.setScalar(0.5 + Math.random() * 0.5);
-    m.position.set(x, 0.3 + Math.random() * 3.5, z);
-    particles.push({ m, vx: Math.sin(elapsed + x) * 0.4, vy: 0.3 + Math.random() * 0.4, vz: 0, life: 2 + Math.random() * 1.5, grav: 0, floor: -2, scrollMul: 0.9, shrink: false });
-    scene.add(m);
-  } else if (biome === 'jungle') {
-    const m = new THREE.Mesh(partGeo, partMat.rain);
-    m.scale.set(0.35, 2.4, 0.35);                      // stretched streak
-    m.position.set(x, 5 + Math.random() * 4, z);
-    particles.push({ m, vx: 0, vy: -18 - Math.random() * 6, vz: 0, life: 0.8, grav: 0, floor: -4, scrollMul: 0.6, shrink: false });
-    scene.add(m);
-  } else if (biome === 'outback') {
-    const m = new THREE.Mesh(partGeo, partMat.mote);
-    m.scale.setScalar(0.4 + Math.random() * 0.4);
-    m.position.set(x, 0.4 + Math.random() * 2.8, z);
-    particles.push({ m, vx: 1.2 + Math.sin(elapsed * 0.3 + x) * 0.6, vy: (Math.random() - 0.3) * 0.4, vz: 0, life: 2.5 + Math.random() * 1.5, grav: 0, floor: -2, scrollMul: 0.9, shrink: false });
+    particles.push({ m, vx: (Math.random() - 0.5) * spread, vy: Math.random() * up, vz: Math.random() * spread, life: 0.5 + Math.random() * 0.5 });
     scene.add(m);
   }
 }
@@ -1192,7 +1093,6 @@ function reset() {
   applyBiomeVisuals(1);
   hero.group.visible = true;
   powHud();
-  if (speedPass) speedPass.uniforms.amount.value = 0;
 }
 
 function spawnWave() {
@@ -1429,14 +1329,12 @@ function update(dt) {
     const p = particles[i];
     p.life -= dt;
     if (p.life <= 0) { scene.remove(p.m); particles.splice(i, 1); continue; }
-    p.vy -= p.grav * dt;
+    p.vy -= 7 * dt;
     p.m.position.x += p.vx * dt;
-    p.m.position.y = Math.max(p.floor, p.m.position.y + p.vy * dt);
-    p.m.position.z += (p.vz + v * p.scrollMul) * dt;
-    if (p.shrink) p.m.scale.setScalar(Math.max(0.1, p.life * 1.6));
+    p.m.position.y = Math.max(0.03, p.m.position.y + p.vy * dt);
+    p.m.position.z += (p.vz + v * 0.6) * dt;
+    p.m.scale.setScalar(Math.max(0.1, p.life * 1.6));
   }
-  // one weather speck per frame, biome-flavored (field pollen / jungle rain / outback dust)
-  weatherTick(dt);
 
   // camera juice: lean into the lane, widen with speed, shake on impacts
   shake = Math.max(0, shake - shake * 5 * dt);
@@ -1445,13 +1343,6 @@ function update(dt) {
   camera.position.x = LANE_X(displayLane) * 0.22 + (Math.random() - 0.5) * shake;
   camera.position.y = 3.4 + (Math.random() - 0.5) * shake * 0.6;
   camera.lookAt(camera.position.x * 0.4, 1, -12);
-
-  // speed-line radial blur: silent below cruising speed, strong at full tilt, blown out while rocketing
-  if (speedPass) {
-    const target = Math.max(0, (v - 16) / 18) + (rocketT > 0 ? 0.5 : 0);
-    const u = speedPass.uniforms.amount;
-    u.value += (Math.min(1.2, target) - u.value) * Math.min(1, dt * 4);
-  }
 
   if (!watchGhost) {
     document.getElementById('cheeseCt').textContent = cheese;
@@ -1472,7 +1363,7 @@ function frame() {
   requestAnimationFrame(frame);
   const dt = Math.min(0.05, clock.getDelta());
   update(dt);
-  render();
+  renderer.render(scene, camera);
 }
 
 function start() {
@@ -1550,7 +1441,7 @@ function exitWatch() {
   document.getElementById('hud').classList.add('hidden');
   document.getElementById('brand').classList.add('hidden');
   document.getElementById('startScreen').classList.remove('hidden');
-  render();
+  renderer.render(scene, camera);
 }
 async function watchByName(name) {
   try {
@@ -1573,7 +1464,7 @@ function gameOver() {
   document.getElementById('hud').classList.add('hidden');
   document.getElementById('brand').classList.add('hidden');
   document.getElementById('overScreen').classList.remove('hidden');
-  render();
+  renderer.render(scene, camera);
 }
 
 // ---------- leaderboard (shared scoreboard API; one row per name, best score kept) ----------
@@ -2361,7 +2252,7 @@ document.querySelectorAll('.charBtn').forEach(b => b.addEventListener('click', (
 setChar(charKey);
 
 // idle scene behind the start screen
-render();
+renderer.render(scene, camera);
 </script>
 </body>
 </html>
