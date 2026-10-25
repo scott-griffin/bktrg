@@ -309,6 +309,23 @@ function showNote(msg) {
 addEventListener('error', e => showErr(e.message));
 addEventListener('unhandledrejection', e => showErr((e.reason && e.reason.message) || String(e.reason)));
 
+// Auto-reload when a newer index.html lands on the server — compare Last-Modified
+// to the version we loaded with. Set the flag mid-run, actually reload at game-over
+// so we never interrupt a run.
+let liveMTime = null, pendingReload = false;
+async function checkForUpdate() {
+  try {
+    const r = await fetch('/', { method: 'HEAD', cache: 'no-store' });
+    const mtime = r.headers.get('last-modified');
+    if (!mtime) return;
+    if (!liveMTime) { liveMTime = mtime; return; }
+    if (mtime !== liveMTime) pendingReload = true;
+  } catch (e) { /* offline — try again next tick */ }
+}
+checkForUpdate();
+setInterval(checkForUpdate, 60000);
+addEventListener('visibilitychange', () => { if (!document.hidden) checkForUpdate(); });
+
 // ---------- renderer / scene / camera ----------
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(innerWidth, innerHeight);
@@ -1787,6 +1804,7 @@ function gameOver() {
   document.getElementById('brand').classList.add('hidden');
   document.getElementById('overScreen').classList.remove('hidden');
   renderer.render(scene, camera);
+  if (pendingReload) { showNote('new version — reloading…'); setTimeout(() => location.reload(), 1800); }
 }
 
 // ---------- leaderboard (shared scoreboard API; one row per name, best score kept) ----------
