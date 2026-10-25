@@ -419,6 +419,23 @@ snowCarpet.receiveShadow = true;
 snowCarpet.visible = false;
 scene.add(snowCarpet);
 
+// sea sand — overlays BOTH the grass sides and the gravel bed under the tracks during the sea biome,
+// so the ocean floor reads as sand everywhere
+const seaSandMap = speckleTex('#c9a675', ['#b8946a', '#e0c190', '#a68556', '#d4b084'], 420, 40, 40);
+const seaSandMat = new THREE.MeshStandardMaterial({ map: seaSandMap, roughness: 1 });
+const seaSandSides = new THREE.Mesh(new THREE.PlaneGeometry(400, 400), seaSandMat);
+seaSandSides.rotation.x = -Math.PI / 2;
+seaSandSides.position.set(0, -0.055, -120);
+seaSandSides.receiveShadow = true;
+seaSandSides.visible = false;
+scene.add(seaSandSides);
+const seaSandBed = new THREE.Mesh(new THREE.PlaneGeometry(9.4, 400), seaSandMat);
+seaSandBed.rotation.x = -Math.PI / 2;
+seaSandBed.position.set(0, 0.041, -120);   // just above the gravel bed top (bed is 0.12 tall at y=-0.02 → top at 0.04)
+seaSandBed.receiveShadow = true;
+seaSandBed.visible = false;
+scene.add(seaSandBed);
+
 const bed = new THREE.Mesh(new THREE.BoxGeometry(9.4, 0.12, 400), mat.gravel);
 bed.position.set(0, -0.02, -120);
 bed.receiveShadow = true;
@@ -752,6 +769,8 @@ function applyBiomeVisuals(a) {
   uluru.visible = biome === 'outback';
   for (const x of seaProps) x.visible = biome === 'sea';
   shipwreck.visible = biome === 'sea';
+  seaSandSides.visible = biome === 'sea';
+  seaSandBed.visible = biome === 'sea';
   for (const x of snowProps) x.visible = biome === 'snow';
   snowMountain.visible = biome === 'snow';
   snowCarpet.visible = biome === 'snow';
