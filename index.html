@@ -259,7 +259,7 @@
       <button class="charBtn" data-char="kangaroo">🦘<span>Golden Hopper</span></button>
     </div>
     <input type="text" id="startName" class="nameInput" maxlength="20" placeholder="your name" autocomplete="off">
-    <div id="whoAmI" class="hidden" style="color:#888; font-size:12px; letter-spacing:1px; margin:2px 0 6px;"><span id="whoAmIBody"></span> · <a href="#" id="whoAmINotMe" style="color:#ff9933;">not you?</a></div>
+    <div id="whoAmI" class="hidden" style="color:#888; font-size:12px; letter-spacing:1px; margin:2px 0 6px;"><span id="whoAmIBody"></span> · <a href="#" id="whoAmINotMe" style="color:#ff9933; padding:0; margin:0; border:none; background:none; font-size:inherit; letter-spacing:inherit;">not you?</a></div>
     <button class="go-btn" id="startBtn">Run!</button>
     <a href="#" id="helpLink">❓ how to play</a>
     <a href="#" id="settingsLink">⚙️ settings</a>
@@ -477,6 +477,7 @@ for (let i = 0; i < 3; i++) {
   const side = i % 2 === 0 ? -8 : 8;
   b.position.set(side, 0, -i * 80 - 20);
   b.rotation.y = side < 0 ? Math.PI / 10 : -Math.PI / 10;
+  b.visible = false;   // kept off for the start-screen idle render; shown when a run begins
   scene.add(b); billboards.push(b);
 }
 
@@ -1653,6 +1654,7 @@ function start() {
   document.getElementById('hud').classList.remove('hidden');
   document.getElementById('brand').classList.remove('hidden');
   document.getElementById('pauseBtn').textContent = '⏸';
+  for (const b of billboards) b.visible = true;
   playing = true; paused = false;
   audio();   // unlock the audio context on the Run tap, whatever the music setting
   unlockMedia();   // and defeat the iPhone silent switch
@@ -1703,6 +1705,7 @@ function startWatch(data, name) {
   document.getElementById('scoreCt').textContent = data.score || '';
   document.getElementById('cheeseCt').textContent = '–';
   document.getElementById('pauseBtn').textContent = '⏸';
+  for (const b of billboards) b.visible = true;
   scene.add(ghostTag);
   playing = true; paused = false;
   startMusic();
