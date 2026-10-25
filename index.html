@@ -215,12 +215,12 @@
 
     <p class="hsec">Watch Out</p>
     <div class="hrow"><span class="hico">🚆</span><span>Trains — switch tracks, duck and squeeze under, or dig beneath them.</span></div>
-    <div class="hrow"><span class="hico">🚧</span><span>Jump these: striped hurdles, fallen logs (jungle), red boulders (outback), giant clams (sea).</span></div>
-    <div class="hrow"><span class="hico">⚠️</span><span>Duck these: LOW CLEARANCE signs, hanging vines (jungle), kangaroo signs (outback), coral arches (sea).</span></div>
+    <div class="hrow"><span class="hico">🚧</span><span>Jump these: striped hurdles, fallen logs (jungle), red boulders (outback), giant clams (sea), snowmen (snow).</span></div>
+    <div class="hrow"><span class="hico">⚠️</span><span>Duck these: LOW CLEARANCE signs, hanging vines (jungle), kangaroo signs (outback), coral arches (sea), icicle arches (snow).</span></div>
 
     <p class="hsec">Snacks</p>
     <div class="hrow"><span class="hico">🧀</span><span>Cheese — 25 points, everywhere.</span></div>
-    <div class="hrow"><span class="hico">🍕🍌🥧🍣</span><span>The rare glowing treat changes with the land: pizza 100 · banana 60 · meat pie 70 · sushi 80.</span></div>
+    <div class="hrow"><span class="hico">🍕🍌🥧🍣🍦</span><span>The rare glowing treat changes with the land: pizza 100 · banana 60 · meat pie 70 · sushi 80 · ice cream 90.</span></div>
 
     <p class="hsec">Power-ups</p>
     <div class="hrow"><span class="hico">🧲</span><span>Magnet — for 8 seconds, cheese from every track flies to you.</span></div>
@@ -229,9 +229,9 @@
     <div class="hrow"><span class="hico">⭐</span><span>Star — double points for 8 seconds.</span></div>
 
     <p class="hsec">The World</p>
-    <div class="hrow"><span class="hico">🌍</span><span>Every 20 seconds is a new LEVEL in a new land: open country → the Amazon rainforest → the Australian Outback → the Deep Sea → round again, forever.</span></div>
+    <div class="hrow"><span class="hico">🌍</span><span>Every 20 seconds is a new LEVEL in a new land: open country → the Amazon rainforest → the Australian Outback → the Deep Sea → the Snow World → round again, forever.</span></div>
     <div class="hrow"><span class="hico">🐢</span><span>Each level starts slow and speeds up — and every level begins a little faster than the last one did. The music keeps pace with you.</span></div>
-    <div class="hrow"><span class="hico">🤫</span><span>Secret: add ?level=4 to the web address to start in the Deep Sea (any level number works).</span></div>
+    <div class="hrow"><span class="hico">🤫</span><span>Secret: add ?level=5 to the web address to start in the Snow World (any level number works).</span></div>
 
     <p class="hsec">Scoring &amp; Names</p>
     <div class="hrow"><span class="hico">🏁</span><span>Running scores points — the faster the game gets, the faster they come. Your best score saves to the leaderboard automatically.</span></div>
@@ -453,7 +453,7 @@ for (let i = 0; i < 10; i++) for (const side of [-7.5, 7.5]) {
 
 // roadside billboards — same posts in every biome, poster texture swaps on biome change
 const billboardMat = {};
-for (const name of ['field', 'jungle', 'outback', 'sea']) {
+for (const name of ['field', 'jungle', 'outback', 'sea', 'snow']) {
   const t = new THREE.TextureLoader().load(`billboard-${name}.png`);
   t.colorSpace = THREE.SRGBColorSpace;
   billboardMat[name] = new THREE.MeshStandardMaterial({ map: t, roughness: 0.85, side: THREE.DoubleSide });
@@ -640,16 +640,88 @@ for (let i = 0; i < 10; i++) {
   scene.add(b); bubbles.push(b);
 }
 
-// biome palettes: open country, Amazon rainforest, Australian Outback, the Deep Sea
+// snow-world props: snowy pines and little snowmen line the track
+const snowProps = [];
+for (let i = 0; i < 10; i++) for (const side of [-7.8, 7.8]) {
+  const g = new THREE.Group();
+  if ((i + (side > 0 ? 1 : 0)) % 2) {
+    // snowy pine: dark green cone with a white snow cap
+    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.2, 0.9, 8),
+      new THREE.MeshStandardMaterial({ color: 0x5e4328, roughness: 1 }));
+    trunk.position.y = 0.45; trunk.castShadow = true; g.add(trunk);
+    for (const [y, r, h] of [[1.1, 1.1, 1.4], [2.0, 0.85, 1.2], [2.9, 0.6, 1.0]]) {
+      const pine = new THREE.Mesh(new THREE.ConeGeometry(r, h, 10),
+        new THREE.MeshStandardMaterial({ color: 0x2d5a3d, roughness: 0.95 }));
+      pine.position.y = y; pine.castShadow = true; g.add(pine);
+      const cap = new THREE.Mesh(new THREE.ConeGeometry(r * 0.55, h * 0.3, 10),
+        new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9 }));
+      cap.position.y = y + h * 0.35; g.add(cap);
+    }
+  } else {
+    // little snowman: three snowballs with a carrot nose and coal eyes
+    const snowMat = new THREE.MeshStandardMaterial({ color: 0xf4f8fc, roughness: 0.9 });
+    const coalMat = new THREE.MeshStandardMaterial({ color: 0x14161c, roughness: 0.4 });
+    for (const [y, r] of [[0.5, 0.5], [1.3, 0.38], [1.95, 0.28]]) {
+      const s = new THREE.Mesh(new THREE.SphereGeometry(r, 14, 10), snowMat);
+      s.position.y = y; s.castShadow = true; g.add(s);
+    }
+    const nose = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.2, 7),
+      new THREE.MeshStandardMaterial({ color: 0xff8a3a, roughness: 0.8 }));
+    nose.rotation.x = Math.PI / 2; nose.position.set(0, 1.98, -0.3); g.add(nose);
+    for (const sx of [-0.1, 0.1]) {
+      const eye = new THREE.Mesh(new THREE.SphereGeometry(0.03, 8, 8), coalMat);
+      eye.position.set(sx, 2.07, -0.24); g.add(eye);
+    }
+  }
+  g.position.set(side + (Math.random() - 0.5) * 2.5, 0, -i * 18 + 6);
+  g.visible = false;
+  scene.add(g); snowProps.push(g);
+}
+// a snowy mountain peak on the horizon
+const snowMountain = new THREE.Group();
+{
+  const rockMat = new THREE.MeshStandardMaterial({ color: 0x6a7a90, roughness: 1 });
+  const snowCap = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9 });
+  const peak = new THREE.Mesh(new THREE.ConeGeometry(1, 1, 10), rockMat);
+  peak.scale.set(22, 22, 10); peak.position.set(0, 2, 0);
+  const cap = new THREE.Mesh(new THREE.ConeGeometry(1, 1, 10), snowCap);
+  cap.scale.set(14, 10, 7); cap.position.set(0, 15, 0);
+  snowMountain.add(peak, cap);
+}
+snowMountain.position.set(26, -0.5, -125);
+snowMountain.visible = false;
+scene.add(snowMountain);
+// penguins waddle alongside the track
+const penguins = [];
+for (let i = 0; i < 3; i++) {
+  const p = emojiSprite('🐧', 1.5);
+  p.userData.o = i * 2.1;
+  p.position.set(i % 2 ? 6.8 : -6.8, 0.75, -12 - i * 22);
+  p.visible = false;
+  scene.add(p); penguins.push(p);
+}
+// snowflakes falling through the air
+const flakes = [];
+for (let i = 0; i < 24; i++) {
+  const f = emojiSprite('❄️', 0.4 + Math.random() * 0.3);
+  f.userData.vy = -0.6 - Math.random() * 0.5;
+  f.userData.ox = Math.random() * Math.PI * 2;
+  f.position.set((Math.random() - 0.5) * 18, 2 + Math.random() * 7, -10 - Math.random() * 70);
+  f.visible = false;
+  scene.add(f); flakes.push(f);
+}
+
+// biome palettes: open country, Amazon rainforest, Australian Outback, the Deep Sea, the Snow World
 const PAL = {};
 for (const [bk, p] of Object.entries({
   field:   { sky: 0x6db3e8, fog: 0xa8cfeb, fogN: 60, fogF: 150, hemi: 0xcfe8ff, gnd: 0x5e9c46, grass: 0xffffff, hill: 0xffffff, sun: 1.6, glow: 1 },
   jungle:  { sky: 0x8fb98a, fog: 0xa9c795, fogN: 35, fogF: 105, hemi: 0xd8e8c0, gnd: 0x2e5e30, grass: 0x6f9a5f, hill: 0x4f7a3c, sun: 1.1, glow: 0.3 },
   outback: { sky: 0x7ec0e8, fog: 0xe8c9a0, fogN: 55, fogF: 140, hemi: 0xffe8c8, gnd: 0xc1662f, grass: 0xb8703a, hill: 0xa0522d, sun: 1.8, glow: 1 },
   sea:     { sky: 0x1a5f8f, fog: 0x2a7fa0, fogN: 22, fogF: 85, hemi: 0x7cc8dd, gnd: 0xc5a670, grass: 0x3d7a7a, hill: 0x1e4a6b, sun: 0.9, glow: 0.1 },
+  snow:    { sky: 0xcad8e6, fog: 0xdce8ef, fogN: 40, fogF: 110, hemi: 0xdce8f4, gnd: 0xeef2f6, grass: 0xdce8ec, hill: 0xdbe4ec, sun: 0.9, glow: 0.4 },
 })) PAL[bk] = { ...p, skyC: new THREE.Color(p.sky), fogC: new THREE.Color(p.fog), hemiC: new THREE.Color(p.hemi), gndC: new THREE.Color(p.gnd), grassC: new THREE.Color(p.grass), hillC: new THREE.Color(p.hill) };
-const BIOMES = ['field', 'jungle', 'outback', 'sea'];
-const BIOME_NAMES = { field: '🌾 OPEN COUNTRY 🌾', jungle: '🌴 THE AMAZON RAINFOREST 🌴', outback: '🦘 THE AUSTRALIAN OUTBACK 🦘', sea: '🌊 THE DEEP SEA 🌊' };
+const BIOMES = ['field', 'jungle', 'outback', 'sea', 'snow'];
+const BIOME_NAMES = { field: '🌾 OPEN COUNTRY 🌾', jungle: '🌴 THE AMAZON RAINFOREST 🌴', outback: '🦘 THE AUSTRALIAN OUTBACK 🦘', sea: '🌊 THE DEEP SEA 🌊', snow: '❄️ THE SNOW WORLD ❄️' };
 function applyBiomeVisuals(a) {
   const p = PAL[biome];
   scene.background.lerp(p.skyC, a);
@@ -669,6 +741,8 @@ function applyBiomeVisuals(a) {
   uluru.visible = biome === 'outback';
   for (const x of seaProps) x.visible = biome === 'sea';
   shipwreck.visible = biome === 'sea';
+  for (const x of snowProps) x.visible = biome === 'snow';
+  snowMountain.visible = biome === 'snow';
   for (const c of clouds) c.visible = biome !== 'sea';   // no sky clouds underwater
 }
 
@@ -1136,6 +1210,58 @@ function buildCoralArch() {
   return g;
 }
 
+// snow skins: a smiling snowman to jump over, an icicle arch to duck under
+function buildSnowmanObst() {
+  const g = new THREE.Group();
+  const snowMat = new THREE.MeshStandardMaterial({ color: 0xf4f8fc, roughness: 0.9 });
+  const coalMat = new THREE.MeshStandardMaterial({ color: 0x14161c, roughness: 0.4 });
+  for (const [y, r] of [[0.35, 0.4], [0.9, 0.3], [1.35, 0.22]]) {
+    const s = new THREE.Mesh(new THREE.SphereGeometry(r, 14, 10), snowMat);
+    s.position.y = y; g.add(s);
+  }
+  const nose = new THREE.Mesh(new THREE.ConeGeometry(0.045, 0.18, 7),
+    new THREE.MeshStandardMaterial({ color: 0xff8a3a, roughness: 0.8 }));
+  nose.rotation.x = Math.PI / 2; nose.position.set(0, 1.37, -0.24); g.add(nose);
+  for (const sx of [-0.08, 0.08]) {
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.025, 8, 8), coalMat);
+    eye.position.set(sx, 1.45, -0.19); g.add(eye);
+  }
+  // a tiny top hat
+  const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 0.04, 14), coalMat);
+  brim.position.y = 1.58;
+  const crown = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.17, 0.26, 14), coalMat);
+  crown.position.y = 1.72;
+  g.add(brim, crown);
+  g.traverse(o => { if (o.isMesh) o.castShadow = true; });
+  return g;
+}
+function buildIcicleArch() {
+  const g = new THREE.Group();
+  const iceMat = new THREE.MeshStandardMaterial({ color: 0xcfeaff, roughness: 0.3, metalness: 0.1 });
+  const woodMat = new THREE.MeshStandardMaterial({ color: 0x5e4328, roughness: 1 });
+  // two timber posts
+  for (const sx of [-1.0, 1.0]) {
+    const post = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.16, 2.6, 10), woodMat);
+    post.position.set(sx, 1.3, 0);
+    g.add(post);
+  }
+  // a crossbeam with hanging icicles beneath
+  const beam = new THREE.Mesh(new THREE.BoxGeometry(2.3, 0.2, 0.2), woodMat);
+  beam.position.y = 2.3;
+  // snow cap on the beam
+  const cap = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.14, 0.26),
+    new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9 }));
+  cap.position.y = 2.45;
+  g.add(beam, cap);
+  for (const [ix, len] of [[-0.9, 0.55], [-0.55, 0.75], [-0.2, 0.5], [0.15, 0.7], [0.5, 0.55], [0.85, 0.72]]) {
+    const ic = new THREE.Mesh(new THREE.ConeGeometry(0.08, len, 7), iceMat);
+    ic.rotation.x = Math.PI; ic.position.set(ix, 2.2 - len / 2, 0);
+    g.add(ic);
+  }
+  g.traverse(o => { if (o.isMesh) o.castShadow = true; });
+  return g;
+}
+
 const cheeseGeo = new THREE.CylinderGeometry(0.4, 0.4, 0.26, 3);
 function buildCheese() {
   const m = new THREE.Mesh(cheeseGeo, mat.cheese);
@@ -1202,7 +1328,7 @@ function reset() {
   gliding = false; glideH = 0;
   digging = false; digT = 0; digTrains = 0; digY = 0;
   recBuf = []; recT = 0;
-  // ?level=N in the address starts runs at that level (2 = Amazon, 3 = Outback, 4 = Deep Sea) — the family test door
+  // ?level=N in the address starts runs at that level (2 = Amazon, 3 = Outback, 4 = Deep Sea, 5 = Snow World) — the family test door
   level = Math.max(1, parseInt(new URLSearchParams(location.search).get('level') || '1', 10) || 1);
   biome = BIOMES[(level - 1) % BIOMES.length];
   biomeT = 0;
@@ -1218,8 +1344,8 @@ function spawnWave() {
     const r = Math.random();
     const type = r < 0.32 ? 'train' : r < 0.66 ? 'hurdle' : 'beam';
     const mesh = type === 'train' ? buildTrain()
-      : type === 'hurdle' ? (biome === 'jungle' ? buildLog() : biome === 'outback' ? buildBoulder() : biome === 'sea' ? buildClam() : buildHurdle())
-      : (biome === 'jungle' ? buildVine() : biome === 'outback' ? buildRooSign() : biome === 'sea' ? buildCoralArch() : buildBeam());
+      : type === 'hurdle' ? (biome === 'jungle' ? buildLog() : biome === 'outback' ? buildBoulder() : biome === 'sea' ? buildClam() : biome === 'snow' ? buildSnowmanObst() : buildHurdle())
+      : (biome === 'jungle' ? buildVine() : biome === 'outback' ? buildRooSign() : biome === 'sea' ? buildCoralArch() : biome === 'snow' ? buildIcicleArch() : buildBeam());
     mesh.position.set(LANE_X(order[i]), 0, -WORLD_LEN + (type === 'train' ? -4.5 : 0));
     scene.add(mesh);
     obstacles.push({ mesh, lane: order[i], type, len: type === 'train' ? 9 : 0.4 });
@@ -1234,11 +1360,11 @@ function spawnWave() {
       treats.push({ mesh: m, lane: open });
     }
   }
-  // the rare treat travels with the land: pizza at home, bananas in the jungle, meat pies in the outback, sushi in the sea
+  // the rare treat travels with the land: pizza at home, bananas in the jungle, meat pies in the outback, sushi in the sea, ice cream in the snow
   if (Math.random() < 0.08) {
-    const kind = biome === 'jungle' ? 'banana' : biome === 'outback' ? 'pie' : biome === 'sea' ? 'sushi' : 'pizza';
+    const kind = biome === 'jungle' ? 'banana' : biome === 'outback' ? 'pie' : biome === 'sea' ? 'sushi' : biome === 'snow' ? 'icecream' : 'pizza';
     const g = new THREE.Group();
-    g.add(glowSprite(0xffcc88, 2.0), emojiSprite({ pizza: '🍕', banana: '🍌', pie: '🥧', sushi: '🍣' }[kind], 1.1));
+    g.add(glowSprite(0xffcc88, 2.0), emojiSprite({ pizza: '🍕', banana: '🍌', pie: '🥧', sushi: '🍣', icecream: '🍦' }[kind], 1.1));
     g.position.set(LANE_X(order[nBlocked]), 0.8, -WORLD_LEN - 36);
     scene.add(g);
     treats.push({ mesh: g, kind });
@@ -1300,6 +1426,7 @@ function update(dt) {
   for (const t of trees) { t.position.z += v * dt; if (t.position.z > 10) t.position.z -= 10 * 18; }
   for (const o2 of outbackProps) { o2.position.z += v * dt; if (o2.position.z > 10) o2.position.z -= 10 * 18; }
   for (const s of seaProps) { s.position.z += v * dt; if (s.position.z > 10) s.position.z -= 10 * 18; }
+  for (const sn of snowProps) { sn.position.z += v * dt; if (sn.position.z > 10) sn.position.z -= 10 * 18; }
   for (const c of clouds) { c.position.x += dt * 0.4; if (c.position.x > 70) c.position.x = -70; }
 
   // biomes: every 20 seconds the track crosses into the next land (country → Amazon → Outback → Deep Sea → …)
@@ -1343,6 +1470,22 @@ function update(dt) {
     b.position.x += Math.sin(elapsed * 3 + b.position.z) * dt * 0.3;
     if (b.position.y > 8) { b.position.y = 0; b.position.z -= 40; }
     if (b.position.z > 8) b.position.z -= 60;
+  }
+  for (const p of penguins) {
+    p.visible = biome === 'snow';
+    if (!p.visible) continue;
+    p.position.z += v * dt * 0.2;
+    p.position.y = 0.75 + Math.abs(Math.sin(elapsed * 6 + p.userData.o)) * 0.15;   // waddle bob
+    if (p.position.z > 8) p.position.z -= 75;
+  }
+  for (const f of flakes) {
+    f.visible = biome === 'snow';
+    if (!f.visible) continue;
+    f.position.z += v * dt * 0.8;
+    f.position.y += f.userData.vy * dt;
+    f.position.x += Math.sin(elapsed * 1.2 + f.userData.ox) * dt * 0.5;
+    if (f.position.y < 0) { f.position.y = 7 + Math.random() * 2; f.position.z -= 30; }
+    if (f.position.z > 8) f.position.z -= 70;
   }
 
   const jumpH = jumpT >= 0 ? Math.sin(Math.PI * jumpT / JUMP_DUR) : 0;
@@ -1434,7 +1577,7 @@ function update(dt) {
       t.mesh.position.z += (0 - t.mesh.position.z) * Math.min(1, dt * 2.5);
     }
     if (!watchGhost && Math.abs(t.mesh.position.x - ratX) < 1.1 && Math.abs(t.mesh.position.z) < 1.1) {
-      const tv = { pizza: 100, banana: 60, pie: 70, sushi: 80 }[t.kind];
+      const tv = { pizza: 100, banana: 60, pie: 70, sushi: 80, icecream: 90 }[t.kind];
       if (tv) { score += tv * mult; sfx.pizza(); spawnParts('spark', t.mesh.position, 14, 3, 3); }
       else { cheese++; score += 25 * mult; sfx.cheese(); spawnParts('spark', t.mesh.position, 6, 2, 2.5); }
       scene.remove(t.mesh); return false;
