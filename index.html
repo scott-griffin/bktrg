@@ -446,10 +446,13 @@ for (let i = 0; i < 10; i++) for (const side of [-7.5, 7.5]) {
   scene.add(p); poles.push(p);
 }
 
-// roadside billboards (country biome only) — occasional landmarks ~80m apart
-const billboardTex = new THREE.TextureLoader().load('billboard.png');
-billboardTex.colorSpace = THREE.SRGBColorSpace;
-const billboardMat = new THREE.MeshStandardMaterial({ map: billboardTex, roughness: 0.85, side: THREE.DoubleSide });
+// roadside billboards — same posts in every biome, poster texture swaps on biome change
+const billboardMat = {};
+for (const name of ['field', 'jungle', 'outback']) {
+  const t = new THREE.TextureLoader().load(`billboard-${name}.png`);
+  t.colorSpace = THREE.SRGBColorSpace;
+  billboardMat[name] = new THREE.MeshStandardMaterial({ map: t, roughness: 0.85, side: THREE.DoubleSide });
+}
 const billboards = [];
 function buildBillboard() {
   const g = new THREE.Group();
@@ -458,9 +461,10 @@ function buildBillboard() {
   postL.position.set(-3.3, 3.0, 0); postL.castShadow = true;
   const postR = new THREE.Mesh(postGeo, mat.pole);
   postR.position.set(3.3, 3.0, 0); postR.castShadow = true;
-  const sign = new THREE.Mesh(new THREE.PlaneGeometry(8.0, 5.33), billboardMat);
+  const sign = new THREE.Mesh(new THREE.PlaneGeometry(8.0, 5.33), billboardMat.field);
   sign.position.set(0, 5.5, 0);
   g.add(postL, postR, sign);
+  g.userData.sign = sign;
   return g;
 }
 for (let i = 0; i < 3; i++) {
@@ -587,7 +591,7 @@ function applyBiomeVisuals(a) {
   mat.hill.color.lerp(p.hillC, a);
   sunGlow.material.opacity += (p.glow - sunGlow.material.opacity) * a;
   for (const x of poles) x.visible = biome === 'field';
-  for (const x of billboards) x.visible = biome === 'field';
+  for (const b of billboards) b.userData.sign.material = billboardMat[biome];
   for (const x of trees) x.visible = biome === 'jungle';
   for (const x of outbackProps) x.visible = biome === 'outback';
   uluru.visible = biome === 'outback';
