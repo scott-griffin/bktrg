@@ -80,9 +80,9 @@
     }
     #hud span { white-space: nowrap; }
     #hud span b { color: #ffcc00; }
-    #hudName { display: inline-block; max-width: 90px; overflow: hidden; text-overflow: ellipsis; vertical-align: bottom; }
+    #hudName { display: inline-block; max-width: 300px; overflow: hidden; text-overflow: ellipsis; vertical-align: bottom; }
     @media (max-width: 600px) {
-      #hud { font-size: 15px; gap: 11px; }
+      #hud { font-size: 15px; gap: 11px; } #hudName { max-width: 140px; }
     }
     .musicTile { background: #12121c; border: 1px solid #2a2a38; border-radius: 10px; padding: 16px; width: 280px; cursor: pointer; text-align: center; }
     .musicTile.sel { border-color: #ffcc00; box-shadow: 0 0 16px #ffcc0044; }
