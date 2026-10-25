@@ -69,11 +69,16 @@
     tr:nth-child(2) .rank { color: #aaa; font-size: 18px; }
     tr:nth-child(3) .rank { color: #cd7f32; font-size: 16px; }
     .score { color: #ffcc00; font-weight: bold; text-align: right; white-space: nowrap; width: 90px; }
-    .player { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .player { white-space: nowrap; }
     .time { color: #888; font-size: 15px; text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; width: 56px; }
     .time.replay { color: #ffcc00; }
     tr.has-replay:hover .time.replay { filter: drop-shadow(0 0 6px #ffcc00); }
     .flag { width: 36px; font-size: 22px; text-align: center; }
+    /* on narrow phones, the name is more important than the time — drop the time column rather than truncate */
+    @media (max-width: 499px) {
+      .time, th.time-h, col.time-c { display: none; }
+      tr.has-replay .player { color: #ffcc00; }   /* without the gold time cell, the gold name is the replay affordance */
+    }
     .empty { color: #444; text-align: center; padding: 40px; font-size: 16px; letter-spacing: 1px; }
     .loading { color: #555; text-align: center; padding: 40px; letter-spacing: 2px; }
     .back-btn {
@@ -141,7 +146,7 @@
       <col style="width:34px">
       <col style="width:36px">
       <col>
-      <col style="width:56px">
+      <col class="time-c" style="width:56px">
       <col style="width:90px">
     </colgroup>
     <thead>
@@ -149,7 +154,7 @@
         <th></th>
         <th></th>
         <th>Player</th>
-        <th style="text-align:right">Time</th>
+        <th class="time-h" style="text-align:right">Time</th>
         <th style="text-align:right">Score</th>
       </tr>
     </thead>
