@@ -527,16 +527,11 @@ for (const name of ['field', 'jungle', 'outback', 'sea', 'snow']) {
   skyTex[name] = t;
 }
 const sky = new THREE.Mesh(new THREE.PlaneGeometry(300, 100),
-  new THREE.MeshBasicMaterial({ map: skyTex.field, fog: false, depthWrite: false }));
+  new THREE.MeshBasicMaterial({ map: skyTex.field, fog: false, depthWrite: false, transparent: true, opacity: 0.7 }));
 sky.position.set(0, 17, -170);
 scene.add(sky);
 
-// hills + clouds + sun disc (static dressing)
-for (const [x, z, s] of [[-45, -130, 26], [20, -140, 34], [55, -125, 22]]) {
-  const h = new THREE.Mesh(new THREE.SphereGeometry(s, 24, 16), mat.hill);
-  h.position.set(x, -s * 0.72, z);
-  scene.add(h);
-}
+// clouds + sun disc (static dressing — the old sphere hills got removed once the painted sky backdrop supplied the horizon)
 const clouds = [];
 const cloudGeo = new THREE.SphereGeometry(1, 10, 8);
 for (let i = 0; i < 6; i++) {
