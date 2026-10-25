@@ -318,7 +318,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 exit;
             }
             if (empty($row['token']) && $token) $row['token'] = $token;   // first device to show up claims a legacy row
-            if ($flag) $row['flag'] = $flag;   // the flag belongs to the player, not the run, so it lands whether or not this was a best score
+            if ($flag && empty($row['flag'])) $row['flag'] = $flag;   // only seed a flag on an unflagged row — explicit flag changes come through the /flag endpoint, so a stale localStorage flag can't clobber the row
             if ($score > $row['score']) {
                 $row['score'] = $score; $row['date'] = date('Y-m-d');
                 $row['cheese'] = $cheese; $row['secs'] = $secs; $row['pows'] = $pows; $row['char'] = $char;
