@@ -173,6 +173,18 @@
     </div>
   </div>
 
+  <!-- rename-vs-new-player picker: shown when a player with an on-board row tries to change their name in ⚙️ settings -->
+  <div id="namePanel" class="hidden" style="position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); background:#14141f; border:1px solid #333; border-radius:8px; padding:26px 28px; z-index:40; text-align:center; box-shadow:0 0 40px #000; width:320px; max-width:90vw;">
+    <p style="color:#ffcc00; letter-spacing:3px; font-size:16px; text-transform:uppercase; margin-bottom:14px;">Change name?</p>
+    <p style="color:#ccc; font-size:14px; line-height:1.6; letter-spacing:0.5px;">You're <b id="npPrev" style="color:#ffcc00;"></b> with <b id="npPrevScore" style="color:#ffcc00;"></b> on the board.</p>
+    <p style="color:#aaa; font-size:13px; margin:16px 0 4px;">What do you want to do?</p>
+    <button id="npRename" style="display:block; width:100%; margin:12px 0 2px; padding:12px 18px; font-family:'Georgia',serif; letter-spacing:1px; font-size:13px; color:#111; background:linear-gradient(135deg,#ffcc00,#ff9900); border:none; border-radius:4px; cursor:pointer;"></button>
+    <p id="npRenameNote" style="color:#777; font-size:11px; letter-spacing:0.3px; margin:0 0 6px;">your score moves to the new name</p>
+    <button id="npFresh" style="display:block; width:100%; margin:10px 0 2px; padding:12px 18px; font-family:'Georgia',serif; letter-spacing:1px; font-size:13px; color:#ffcc00; background:none; border:1px solid #666; border-radius:4px; cursor:pointer;"></button>
+    <p id="npFreshNote" style="color:#777; font-size:11px; letter-spacing:0.3px; margin:0;"></p>
+    <button id="npCancel" style="margin-top:14px; padding:8px 22px; font-family:'Georgia',serif; letter-spacing:1px; font-size:12px; color:#aaa; background:none; border:1px solid #444; border-radius:4px; cursor:pointer;">Cancel</button>
+  </div>
+
   <div id="musicPicker" class="hidden" style="position:fixed; inset:0; background:rgba(5,5,12,0.96); z-index:30; overflow-y:auto; padding:30px 14px 40px; text-align:center;">
     <p style="color:#ffcc00; letter-spacing:3px; font-size:20px; text-transform:uppercase; margin-bottom:6px;">Soundtrack</p>
     <p style="color:#888; font-size:13px; letter-spacing:1px; margin-bottom:18px;">Tap ▶ to listen · tap a card to pick it</p>
@@ -1527,7 +1539,52 @@ function setName(n) {
 }
 setName(ratName);
 startName.addEventListener('keydown', e => { if (e.key === 'Enter') start(); });
-setNameInput.addEventListener('change', () => { const had = ratName; setName(setNameInput.value); if (!had && ratName) nameTrouble(ratName); });
+// A player with an on-board row typing a new name here used to mean a rename (score followed). Kids read it as 'be someone new',
+// so this intercepts to ask: rename (score follows) or new player (old row stays put, fresh rat code).
+async function handleNameChange(wanted) {
+  wanted = (wanted || '').trim().slice(0, 20);
+  const prev = ratName;
+  if (!prev || !wanted || prev.toLowerCase() === wanted.toLowerCase()) {
+    const hadBefore = !!prev;
+    setName(wanted);
+    if (!hadBefore && ratName) nameTrouble(ratName);
+    return;
+  }
+  let row = null;
+  try {
+    const rows = await (await fetch(API)).json();
+    row = rows.find(r => r.name.toLowerCase() === prev.toLowerCase());
+  } catch {}
+  if (!row || !row.score) { setName(wanted); return; }
+  setNameInput.value = prev;   // revert the field until the choice lands
+  askNameChange(prev, wanted, row);
+}
+function askNameChange(prev, next, row) {
+  const panel = document.getElementById('namePanel');
+  document.getElementById('npPrev').textContent = prev;
+  document.getElementById('npPrevScore').textContent = row.score.toLocaleString();
+  document.getElementById('npRename').textContent = `Rename me to ${next}`;
+  document.getElementById('npFresh').textContent = `New player "${next}"`;
+  document.getElementById('npFreshNote').textContent = `${prev} keeps ${row.score.toLocaleString()}. You start fresh with a new rat code.`;
+  panel.classList.remove('hidden');
+  const close = () => panel.classList.add('hidden');
+  document.getElementById('npRename').onclick = () => { close(); setName(next); };
+  document.getElementById('npFresh').onclick = () => { close(); becomeNewPlayer(next); };
+  document.getElementById('npCancel').onclick = close;
+}
+function becomeNewPlayer(name) {
+  // mint a fresh rat code so the next score creates a brand-new row; the old name/row stays as it is
+  const chars = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+  ratToken = Array.from(crypto.getRandomValues(new Uint8Array(4)), b => chars[b % chars.length]).join('');
+  localStorage.setItem('ratToken', ratToken);
+  setCodeInput.value = ratToken;
+  ratName = name.trim().slice(0, 20);
+  localStorage.setItem('ratName', ratName);
+  applyNameFields();
+  nameTrouble(ratName);   // if the new name is already taken, the claim flow surfaces it
+  renderTop();
+}
+setNameInput.addEventListener('change', () => { handleNameChange(setNameInput.value); });
 const setCodeInput = document.getElementById('setCode');
 setCodeInput.value = ratToken;
 setCodeInput.addEventListener('change', () => {
@@ -2231,7 +2288,7 @@ addEventListener('touchstart', e => {
   touchX = e.touches[0].clientX; touchY = e.touches[0].clientY;
 }, { passive: true });
 addEventListener('touchend', e => {
-  if (e.target.closest && e.target.closest('#pauseBtn, #settingsBtn, #settingsPanel, #musicPicker, #flagPicker, #helpScreen, .overlay')) return;
+  if (e.target.closest && e.target.closest('#pauseBtn, #settingsBtn, #settingsPanel, #namePanel, #musicPicker, #flagPicker, #helpScreen, .overlay')) return;
   if (paused) { if (settingsPanel.classList.contains('hidden')) togglePause(); return; }
   const dx = e.changedTouches[0].clientX - touchX;
   const dy = e.changedTouches[0].clientY - touchY;
