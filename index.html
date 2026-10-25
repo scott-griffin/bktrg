@@ -1580,7 +1580,13 @@ async function nameTrouble(name, score = 0) {
     });
     j = await res.json();
   } catch {}
-  if (!j || (j.status !== 'match' && j.status !== 'taken')) return;
+  if (!j) return;
+  if (j.status === 'yours') {   // the row is already ours — the device just needs to catch up (silently adopt the name)
+    adoptName(name);
+    renderTop();
+    return;
+  }
+  if (j.status !== 'match' && j.status !== 'taken') return;
   if (playing) return;   // never cover the tracks mid-run — game over asks the board again
   showClaim(name, j);
 }
@@ -1659,6 +1665,7 @@ function showNamePicker(takenName, suggest) {
     sugg.appendChild(chip);
   }
   if (sugg.children.length) sugg.classList.remove('hidden');
+  claimPanel.classList.remove('hidden');   // "not you?" opens this cold, so the panel itself needs un-hiding
   const yes = document.getElementById('claimYes'), no = document.getElementById('claimNo');
   yes.textContent = 'Use it'; no.textContent = 'Cancel';
   yes.onclick = async () => {
