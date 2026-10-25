@@ -1820,7 +1820,7 @@ function gameOver() {
   const s = Math.floor(score);
   const best = Math.max(s, parseInt(localStorage.getItem('subwayRatsHigh') || '0', 10));
   localStorage.setItem('subwayRatsHigh', best);
-  document.getElementById('finalScore').textContent = `${s} points · ${cheese} 🧀 · best ${best}`;
+  document.getElementById('finalScore').textContent = `${s.toLocaleString()} points · ${cheese} 🧀 · best ${best.toLocaleString()}`;
   autoSave(s);
   document.getElementById('hud').classList.add('hidden');
   document.getElementById('brand').classList.add('hidden');
