@@ -35,7 +35,7 @@
       filter: drop-shadow(0 0 12px #ffcc0066);
       margin-bottom: 4px;
     }
-    .logo { width: min(88vw, 470px); filter: drop-shadow(0 0 16px #ffcc0055); margin-bottom: 6px; }
+    .logo { width: min(88vw, 420px); height: auto; filter: drop-shadow(0 0 16px #ffcc0055); margin-bottom: 6px; }
     #brand {
       position: fixed; bottom: calc(12px + env(safe-area-inset-bottom)); left: 0; right: 0; text-align: center; z-index: 5;
       color: #ffcc00; letter-spacing: 5px; font-size: 13px; font-weight: bold;
@@ -243,46 +243,7 @@
   </div>
 
   <div class="overlay" id="startScreen">
-    <svg class="logo" viewBox="0 0 640 230" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Train Rat">
-      <defs>
-        <linearGradient id="tr-gold" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stop-color="#ffe066"/>
-          <stop offset="0.55" stop-color="#ffcc00"/>
-          <stop offset="1" stop-color="#ff9900"/>
-        </linearGradient>
-      </defs>
-      <!-- running rat over the wordmark -->
-      <g transform="translate(452 38)">
-        <g stroke="#ffcc0088" stroke-width="4" stroke-linecap="round">
-          <line x1="44" y1="-10" x2="66" y2="-10"/>
-          <line x1="52" y1="0" x2="78" y2="0"/>
-          <line x1="46" y1="10" x2="64" y2="10"/>
-        </g>
-        <g fill="#ffcc00">
-          <path d="M28 2 Q 58 -8 76 8" stroke="#ffcc00" stroke-width="5" fill="none" stroke-linecap="round"/>
-          <ellipse cx="0" cy="0" rx="30" ry="15"/>
-          <circle cx="-32" cy="-5" r="11"/>
-          <polygon points="-41,-8 -56,-3 -41,1"/>
-          <circle cx="-34" cy="-15" r="6"/>
-          <ellipse cx="-16" cy="13" rx="6" ry="3.5"/>
-          <ellipse cx="14" cy="13" rx="7" ry="4"/>
-        </g>
-      </g>
-      <text x="320" y="138" text-anchor="middle" font-family="Georgia, serif" font-weight="bold" font-size="86" letter-spacing="8" fill="url(#tr-gold)" stroke="#201400" stroke-width="4" paint-order="stroke">TRAIN RAT</text>
-      <!-- the track it rides on -->
-      <g fill="#a87400">
-        <rect x="88" y="163" width="14" height="44" rx="3"/>
-        <rect x="168" y="163" width="14" height="44" rx="3"/>
-        <rect x="248" y="163" width="14" height="44" rx="3"/>
-        <rect x="328" y="163" width="14" height="44" rx="3"/>
-        <rect x="408" y="163" width="14" height="44" rx="3"/>
-        <rect x="488" y="163" width="14" height="44" rx="3"/>
-      </g>
-      <g fill="#ffcc00">
-        <rect x="70" y="168" width="450" height="7" rx="3"/>
-        <rect x="52" y="194" width="486" height="7" rx="3"/>
-      </g>
-    </svg>
+    <img class="logo" src="logo.webp" alt="Train Rat" width="1200" height="844">
     <p>Dodge the trains. Grab the cheese. Don't get squished.</p>
     <div class="controls">
       <span>⬅️ ➡️</span><span>switch tracks</span>
