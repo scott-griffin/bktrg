@@ -1485,7 +1485,7 @@ let ratName = localStorage.getItem('ratName') || '';
 // the rat code: a per-device secret that owns your name on the board — type it on another device to be yourself there
 let ratToken = localStorage.getItem('ratToken') || '';
 if (!ratToken) {
-  const chars = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+  const chars = 'BCDFGHJKMNPQRSTVWXYZ23456789';
   ratToken = Array.from(crypto.getRandomValues(new Uint8Array(4)), b => chars[b % chars.length]).join('');
   localStorage.setItem('ratToken', ratToken);
 } else if (ratToken.length > 4) {
@@ -1574,7 +1574,7 @@ function askNameChange(prev, next, row) {
 }
 function becomeNewPlayer(name) {
   // mint a fresh rat code so the next score creates a brand-new row; the old name/row stays as it is
-  const chars = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+  const chars = 'BCDFGHJKMNPQRSTVWXYZ23456789';
   ratToken = Array.from(crypto.getRandomValues(new Uint8Array(4)), b => chars[b % chars.length]).join('');
   localStorage.setItem('ratToken', ratToken);
   setCodeInput.value = ratToken;
