@@ -347,6 +347,7 @@ addEventListener('resize', () => {
   camera.aspect = innerWidth / innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(innerWidth, innerHeight);
+  updateSkyScale();
 });
 
 // ---------- light ----------
@@ -531,6 +532,17 @@ const sky = new THREE.Mesh(new THREE.PlaneGeometry(300, 100),
   new THREE.MeshBasicMaterial({ map: skyTex.field, fog: false, depthWrite: false, transparent: true, opacity: 0.7 }));
 sky.position.set(0, 17, -170);
 scene.add(sky);
+// Scale with viewport aspect so wider screens (iPad, desktop) stay as zoomed-in
+// on the painted horizon as iPhone portrait — otherwise the sky art spreads
+// edge-to-edge and feels tiny. 0.46 is roughly iPhone portrait, where the art was tuned.
+let skyBaseScaleY = 1;   // field biome bumps this to 2; aspect scaling multiplies on top
+function updateSkyScale() {
+  const a = Math.max(1, camera.aspect / 0.46);
+  sky.scale.x = a;
+  sky.scale.y = skyBaseScaleY * a;
+  sky.position.y = -33 + 50 * sky.scale.y;    // keep the plane's bottom pegged at the horizon
+}
+updateSkyScale();
 
 // clouds + sun disc (static dressing — the old sphere hills got removed once the painted sky backdrop supplied the horizon)
 const clouds = [];
@@ -786,9 +798,8 @@ function applyBiomeVisuals(a) {
   for (const b of billboards) b.userData.sign.material = billboardMat[biome];
   sky.material.map = skyTex[biome];
   // field biome prototype: taller sky plane so painted clouds fill more of the upper frame
-  const tall = biome === 'field';
-  sky.scale.y = tall ? 2 : 1;
-  sky.position.y = tall ? 67 : 17;
+  skyBaseScaleY = biome === 'field' ? 2 : 1;
+  updateSkyScale();
   for (const x of trees) x.visible = biome === 'jungle';
   for (const x of outbackProps) x.visible = biome === 'outback';
   uluru.visible = biome === 'outback';
