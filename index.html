@@ -446,6 +446,31 @@ for (let i = 0; i < 10; i++) for (const side of [-7.5, 7.5]) {
   scene.add(p); poles.push(p);
 }
 
+// roadside billboards (country biome only) — occasional landmarks ~80m apart
+const billboardTex = new THREE.TextureLoader().load('billboard.png');
+billboardTex.colorSpace = THREE.SRGBColorSpace;
+const billboardMat = new THREE.MeshStandardMaterial({ map: billboardTex, roughness: 0.85, side: THREE.DoubleSide });
+const billboards = [];
+function buildBillboard() {
+  const g = new THREE.Group();
+  const postGeo = new THREE.CylinderGeometry(0.14, 0.18, 5.6, 8);
+  const postL = new THREE.Mesh(postGeo, mat.pole);
+  postL.position.set(-1.9, 2.8, 0); postL.castShadow = true;
+  const postR = new THREE.Mesh(postGeo, mat.pole);
+  postR.position.set(1.9, 2.8, 0); postR.castShadow = true;
+  const sign = new THREE.Mesh(new THREE.PlaneGeometry(4.6, 3.07), billboardMat);
+  sign.position.set(0, 4.4, 0);
+  g.add(postL, postR, sign);
+  return g;
+}
+for (let i = 0; i < 3; i++) {
+  const b = buildBillboard();
+  const side = i % 2 === 0 ? -11 : 11;
+  b.position.set(side, 0, -i * 80 - 20);
+  b.rotation.y = side < 0 ? Math.PI / 10 : -Math.PI / 10;
+  scene.add(b); billboards.push(b);
+}
+
 // hills + clouds + sun disc (static dressing)
 for (const [x, z, s] of [[-45, -130, 26], [20, -140, 34], [55, -125, 22]]) {
   const h = new THREE.Mesh(new THREE.SphereGeometry(s, 24, 16), mat.hill);
@@ -562,6 +587,7 @@ function applyBiomeVisuals(a) {
   mat.hill.color.lerp(p.hillC, a);
   sunGlow.material.opacity += (p.glow - sunGlow.material.opacity) * a;
   for (const x of poles) x.visible = biome === 'field';
+  for (const x of billboards) x.visible = biome === 'field';
   for (const x of trees) x.visible = biome === 'jungle';
   for (const x of outbackProps) x.visible = biome === 'outback';
   uluru.visible = biome === 'outback';
@@ -1153,6 +1179,7 @@ function update(dt) {
   // scenery recycle
   for (const t of ties) { t.position.z += v * dt; if (t.position.z > 10) t.position.z -= 46 * 3.8; }
   for (const p of poles) { p.position.z += v * dt; if (p.position.z > 10) p.position.z -= 10 * 18; }
+  for (const b of billboards) { b.position.z += v * dt; if (b.position.z > 10) b.position.z -= 3 * 80; }
   for (const t of trees) { t.position.z += v * dt; if (t.position.z > 10) t.position.z -= 10 * 18; }
   for (const o2 of outbackProps) { o2.position.z += v * dt; if (o2.position.z > 10) o2.position.z -= 10 * 18; }
   for (const c of clouds) { c.position.x += dt * 0.4; if (c.position.x > 70) c.position.x = -70; }
