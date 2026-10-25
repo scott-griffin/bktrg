@@ -717,7 +717,7 @@ for (const [bk, p] of Object.entries({
   field:   { sky: 0x6db3e8, fog: 0xa8cfeb, fogN: 60, fogF: 150, hemi: 0xcfe8ff, gnd: 0x5e9c46, grass: 0xffffff, hill: 0xffffff, sun: 1.6, glow: 1 },
   jungle:  { sky: 0x8fb98a, fog: 0xa9c795, fogN: 35, fogF: 105, hemi: 0xd8e8c0, gnd: 0x2e5e30, grass: 0x6f9a5f, hill: 0x4f7a3c, sun: 1.1, glow: 0.3 },
   outback: { sky: 0x7ec0e8, fog: 0xe8c9a0, fogN: 55, fogF: 140, hemi: 0xffe8c8, gnd: 0xc1662f, grass: 0xb8703a, hill: 0xa0522d, sun: 1.8, glow: 1 },
-  sea:     { sky: 0x1a5f8f, fog: 0x2a7fa0, fogN: 22, fogF: 85, hemi: 0x7cc8dd, gnd: 0xc5a670, grass: 0x3d7a7a, hill: 0x1e4a6b, sun: 0.9, glow: 0.1 },
+  sea:     { sky: 0x072643, fog: 0x0f3a5c, fogN: 20, fogF: 75, hemi: 0x3a7a98, gnd: 0x6a5a40, grass: 0x1a4a4e, hill: 0x0a1f36, sun: 0.6, glow: 0.05 },
   snow:    { sky: 0xcad8e6, fog: 0xdce8ef, fogN: 40, fogF: 110, hemi: 0xdce8f4, gnd: 0xeef2f6, grass: 0xdce8ec, hill: 0xdbe4ec, sun: 0.9, glow: 0.4 },
 })) PAL[bk] = { ...p, skyC: new THREE.Color(p.sky), fogC: new THREE.Color(p.fog), hemiC: new THREE.Color(p.hemi), gndC: new THREE.Color(p.gnd), grassC: new THREE.Color(p.grass), hillC: new THREE.Color(p.hill) };
 const BIOMES = ['field', 'jungle', 'outback', 'sea', 'snow'];
