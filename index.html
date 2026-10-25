@@ -1561,8 +1561,16 @@ startName.addEventListener('change', () => { const v = startName.value.trim(); i
 const claimPanel = document.getElementById('claimPanel');
 let pendingScore = 0;   // a score the board refused: saved again the moment the name is sorted out
 function adoptName(n) {
+  const prev = ratName;
   ratName = n.trim().slice(0, 20);
   localStorage.setItem('ratName', ratName);
+  // Switching identities: forget the old flag so the next renderTop pulls the new row's flag from the board.
+  // (renderTop only auto-syncs the flag when ratFlag is empty, so without this a stale flag from the old name stays stuck.)
+  if (prev && prev.toLowerCase() !== ratName.toLowerCase()) {
+    ratFlag = '';
+    localStorage.removeItem('ratFlag');
+    refreshFlagBtn();
+  }
   applyNameFields();
 }
 function saveOrRefresh() {
