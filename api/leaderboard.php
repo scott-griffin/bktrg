@@ -83,9 +83,10 @@ function tokenMatches($rowToken, $submittedToken) {
     return substr($submittedToken, 0, strlen($rowToken)) === $rowToken;
 }
 function logit($entry) {
-    global $logFile;
+    global $logFile, $logSid;
     $entry['ts'] = date('Y-m-d H:i:s');
     $entry['ip'] = clientIp();
+    if ($logSid !== '') $entry['sid'] = $logSid;   // per-tab client session id, so related submissions group at a glance
     file_put_contents($logFile, json_encode($entry) . "\n", FILE_APPEND | LOCK_EX);
 }
 // A country as two uppercase letters, or '' — the picker's list lives in the game, so anything well-formed is accepted here.
@@ -144,10 +145,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     exit;
 }
 
+$logSid = '';   // populated per-POST; left blank for GETs so logit() just skips the sid field
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     dailySnapshot();   // before any mutation, so each day's file is the board at the day's start
     $input = json_decode(file_get_contents('php://input'), true);
     $token = substr(trim($input['token'] ?? ''), 0, 64);
+    $GLOBALS['logSid'] = substr(preg_replace('/[^A-Z0-9]/', '', strtoupper(trim($input['sid'] ?? ''))), 0, 8);
 
     // ---- claim: who owns this name, and is it this player? ----
     // A device that loses its rat code (new phone, cleared browser) is otherwise locked out of its own name for good.
@@ -196,7 +200,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (strcasecmp($row['name'], $name) !== 0) continue;
             if (!empty($row['token']) && !tokenMatches($row['token'], $token)) {
                 flock($fp, LOCK_UN); fclose($fp);
-                logit(['action' => 'flag-rejected-token', 'name' => $name, 'flag' => $code]);
+                logit(['action' => 'flag-rejected-token', 'name' => $name, 'flag' => $code, 'tok_sub' => $token ? substr($token, -4) : '']);
                 http_response_code(403);
                 echo json_encode(['error' => 'not your name']);
                 exit;
@@ -248,7 +252,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($fromIdx >= 0) {
             if (!empty($scores[$fromIdx]['token']) && !tokenMatches($scores[$fromIdx]['token'], $token)) {
                 flock($fp, LOCK_UN); fclose($fp);
-                logit(['action' => 'rename-rejected-token', 'from' => $from, 'to' => $to]);
+                logit(['action' => 'rename-rejected-token', 'from' => $from, 'to' => $to, 'tok_sub' => $token ? substr($token, -4) : '']);
                 http_response_code(403);
                 echo json_encode(['error' => 'not your name']);
                 exit;
@@ -312,7 +316,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($adopt) $become = ['name' => $name, 'code' => $row['token'] ?? ''];   // hand the device the real identity
             if (!$adopt && !empty($row['token']) && !tokenMatches($row['token'], $token)) {
                 flock($fp, LOCK_UN); fclose($fp);
-                logit(['action' => 'score-rejected-token', 'name' => $name, 'score' => $score, 'cheese' => $cheese, 'secs' => $secs, 'pows' => $pows, 'char' => $char]);   // stats too, so a refused run can be restored whole
+                logit(['action' => 'score-rejected-token', 'name' => $name, 'score' => $score, 'cheese' => $cheese, 'secs' => $secs, 'pows' => $pows, 'char' => $char, 'tok_sub' => $token ? substr($token, -4) : '']);   // stats too, so a refused run can be restored whole
                 http_response_code(403);
                 echo json_encode(['error' => 'name taken']);
                 exit;

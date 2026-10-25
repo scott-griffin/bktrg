@@ -1843,6 +1843,14 @@ if (!ratToken) {
   ratToken = ratToken.slice(0, 4);
   localStorage.setItem('ratToken', ratToken);
 }
+// A per-tab random id attached to every POST, so related submissions can be grouped at a glance in the server log
+// (rename→failed-rename→score→claim sequences). Cheap to generate; sessionStorage clears when the tab closes.
+let ratSid = sessionStorage.getItem('ratSid') || '';
+if (!ratSid) {
+  const sidChars = 'BCDFGHJKMNPQRSTVWXYZ23456789';
+  ratSid = Array.from(crypto.getRandomValues(new Uint8Array(4)), b => sidChars[b % sidChars.length]).join('');
+  sessionStorage.setItem('ratSid', ratSid);
+}
 // The countries the picker offers: the four the family plays from first, then the rest alphabetically. A code the list doesn't carry still renders, so adding one here is the only change a new country needs.
 const COUNTRIES = [
   ['AU', 'Australia'], ['US', 'USA'], ['NL', 'Netherlands'], ['DE', 'Germany'],
@@ -1876,7 +1884,7 @@ function setName(n) {
     fetch(API, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ rename: { from: prev, to: ratName }, token: ratToken }),
+      body: JSON.stringify({ rename: { from: prev, to: ratName }, token: ratToken, sid: ratSid }),
     }).then(res => {
       if (res.status === 409 || res.status === 403) {
         const wanted = ratName;
@@ -1973,7 +1981,7 @@ async function nameTrouble(name, score = 0) {
     const res = await fetch(API, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ claim: { name }, token: ratToken }),
+      body: JSON.stringify({ claim: { name }, token: ratToken, sid: ratSid }),
     });
     j = await res.json();
   } catch {}
@@ -2029,7 +2037,7 @@ function askForCode(name, j) {
     const c = codeIn.value.trim().toUpperCase();
     if (!c) return;
     try {
-      const res = await fetch(API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ claim: { name }, token: c }) });
+      const res = await fetch(API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ claim: { name }, token: c, sid: ratSid }) });
       const jj = await res.json();
       if (jj.status === 'yours') {
         ratToken = c; localStorage.setItem('ratToken', c); setCodeInput.value = c;
@@ -2072,7 +2080,7 @@ function showNamePicker(takenName, suggest) {
     // ask the board before committing: taken/match loops into "Is this you?"; free/yours is safe to adopt
     let jj = null;
     try {
-      const res = await fetch(API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ claim: { name: v }, token: ratToken }) });
+      const res = await fetch(API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ claim: { name: v }, token: ratToken, sid: ratSid }) });
       jj = await res.json();
     } catch {}
     if (jj && (jj.status === 'match' || jj.status === 'taken')) {
@@ -2134,7 +2142,7 @@ async function autoSave(s) {
     const res = await fetch(API, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: ratName, score: s, token: ratToken, cheese, secs: Math.floor(elapsed), pows: powsThisRun, char: charKey, flag: ratFlag,
+      body: JSON.stringify({ name: ratName, score: s, token: ratToken, sid: ratSid, cheese, secs: Math.floor(elapsed), pows: powsThisRun, char: charKey, flag: ratFlag,
         replay: recBuf.length >= 8 && recBuf.length <= 160000 ? { v: 1, char: charKey, samples: recBuf } : undefined }),
     });
     if (res.status === 403) { el.textContent = `${ratName} is another rat's name — hang on…`; nameTrouble(ratName, s); renderTop(); return; }
@@ -2600,7 +2608,7 @@ function setFlag(code, push = true) {
   fetch(API, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ flag: { name: ratName, code }, token: ratToken }),
+    body: JSON.stringify({ flag: { name: ratName, code }, token: ratToken, sid: ratSid }),
   }).catch(() => {});
 }
 COUNTRIES.forEach(([code, name]) => {
