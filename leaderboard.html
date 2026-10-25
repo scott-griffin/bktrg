@@ -68,6 +68,7 @@
     tr:nth-child(2) .rank { color: #aaa; font-size: 18px; }
     tr:nth-child(3) .rank { color: #cd7f32; font-size: 16px; }
     .score { color: #ffcc00; font-weight: bold; text-align: right; white-space: nowrap; }
+    .time { color: #888; font-size: 15px; text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
     .flag { width: 36px; font-size: 22px; text-align: center; }
     .play { color: #ffcc00; margin-left: 6px; font-size: 15px; }
     tr.has-replay:hover .play { filter: drop-shadow(0 0 6px #ffcc00); }
@@ -139,11 +140,12 @@
         <th></th>
         <th></th>
         <th>Player</th>
+        <th style="text-align:right">Time</th>
         <th style="text-align:right">Score</th>
       </tr>
     </thead>
     <tbody id="rows">
-      <tr><td colspan="4" class="loading">Loading...</td></tr>
+      <tr><td colspan="5" class="loading">Loading...</td></tr>
     </tbody>
   </table>
 
@@ -156,17 +158,19 @@
       .then(scores => {
         const tbody = document.getElementById('rows');
         if (!scores.length) {
-          tbody.innerHTML = '<tr><td colspan="4" class="empty">No scores yet — be the first!</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="5" class="empty">No scores yet — be the first!</td></tr>';
           return;
         }
         const medals = ['🥇','🥈','🥉'];
         const charIcons = { rat: '🐀', squirrel: '🐿️', echidna: '🦔', kangaroo: '🦘' };
         const flagEmoji = code => /^[A-Z]{2}$/.test(code || '') ? String.fromCodePoint(...[...code].map(c => 0x1f1e6 + c.charCodeAt(0) - 65)) : '';
+        const fmtTime = s => (s == null || s < 0) ? '' : `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
         tbody.innerHTML = scores.map((s, i) =>
           `<tr${s.ghost ? ` class="has-replay" data-watch="${encodeURIComponent(s.name)}" title="Watch ${s.name}'s best run"` : ''}>
             <td class="rank">${medals[i] || i+1}</td>
             <td class="flag">${flagEmoji(s.flag)}</td>
             <td>${charIcons[s.char] || ""} ${s.name}${s.ghost ? ' <span class="play">▶</span>' : ''}</td>
+            <td class="time">${fmtTime(s.secs)}</td>
             <td class="score">${s.score.toLocaleString()}</td>
           </tr>`
         ).join('');
@@ -178,7 +182,7 @@
       })
       .catch(() => {
         document.getElementById('rows').innerHTML =
-          '<tr><td colspan="4" class="empty">Could not load scores.</td></tr>';
+          '<tr><td colspan="5" class="empty">Could not load scores.</td></tr>';
       });
   </script>
 </body>
