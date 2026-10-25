@@ -294,7 +294,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Device adoptions: names that were really one player on extra devices (admin-confirmed, see admin-merge log entries).
     // A run arriving under the old name counts for the real one, and the response hands the device its true identity ('become'),
     // so each stray device heals itself the first time it plays. Entries are cheap to leave in place.
-    $adoptions = ['kiran2' => 'Kiran', 'kiran3' => 'Kiran'];
+    $adoptions = ['kiran2' => 'Kiran', 'kiran3' => 'Kiran', 'willem2' => 'Willem', 'willem3' => 'Willem'];
     $adopt = false; $become = null;
     if (isset($adoptions[strtolower($name)])) {
         logit(['action' => 'adopt', 'from' => $name, 'to' => $adoptions[strtolower($name)], 'score' => $score]);
