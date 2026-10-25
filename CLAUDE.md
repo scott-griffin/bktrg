@@ -14,7 +14,7 @@ Train Rat is a 3D browser endless-runner that Scott builds with his son Thomas (
 
 ## Working rules for concurrent sessions (the important part)
 
-1. **Never work directly on `main`'s tip blind.** Start every task: `git fetch origin && git merge --ff-only origin/main` (or fresh clone), branch if your tooling wants one.
+1. **Never work directly on `main`'s tip blind.** Start every task: `git fetch origin && git merge --ff-only origin/main` (or fresh clone), then `git checkout -b work-$(date +%s)` before you edit. **In the grifflow deploy checkout (`/var/www/trainrat/repo`) a `pre-commit` hook enforces this** — commits on `main` there jam the auto-pull timer, so the hook refuses them until you branch. Push with the rule below; this keeps local `main` clean so the next pull always FFs.
 2. **Push with `git push origin <yourbranch>:main`** (or from main after merging). If the push is rejected, someone else shipped while you worked: `git fetch origin && git merge origin/main`, resolve, re-check, push again. Conflicts in `index.html` are normal; resolve by keeping BOTH features (that is almost always the right answer — two people add different things to the same region).
 3. **Syntax-check before every push.** The page dies silently on a script error:
    `sed -n '/<script type="module">/,/<\/script>/p' index.html | sed '1d;$d' > /tmp/check.mjs && node --check /tmp/check.mjs`
