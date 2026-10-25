@@ -215,6 +215,7 @@
     <div class="hrow"><span class="hico">⬇️</span><span>Swipe down to duck — under signs, vines, AND trains. You stay flat until the train has passed.</span></div>
     <div class="hrow"><span class="hico">🐿️</span><span>Night Glider only: tap again in mid-air to GLIDE over anything jumpable. Tap once more (or duck) to drop. You sink slowly, so don't glide forever!</span></div>
     <div class="hrow"><span class="hico">🦔</span><span>Rainbow Spike only: swipe down to DIG underground — tunnel under TWO trains in a row before popping up. Swipe down again to surface early.</span></div>
+    <div class="hrow"><span class="hico">🦘</span><span>Golden Hopper only: a BIG hop — clear LOW CLEARANCE signs/vines/arches in one bound, or land right on top of a train and ride it until it's gone.</span></div>
 
     <p class="hsec">Watch Out</p>
     <div class="hrow"><span class="hico">🚆</span><span>Trains — switch tracks, duck and squeeze under, or dig beneath them.</span></div>
@@ -1363,6 +1364,7 @@ const POW = {
 };
 let powers = [], magnetT = 0, starT = 0, rocketT = 0, invulnT = 0, helmet = false, flyY = 0, lastHop = 0, shake = 0, powsThisRun = 0;
 let gliding = false, glideH = 0;   // Night Glider: tap mid-air to glide, tap again (or duck) to drop
+let onTrain = null;                 // Golden Hopper: landed on a train — pinned to its roof until it leaves
 let recBuf = [], recT = 0;         // ghost recorder: [lane×10, y×10, flags, v×10] at 10Hz — a best score uploads it
 let watchGhost = null, watchT = 0; // watching someone's replay instead of playing
 let biome = 'field', biomeT = 0, level = 1;   // each biome is a level; speed resets (mostly) at each new one
@@ -1377,6 +1379,8 @@ let playing = false, paused = false, elapsed = 0, score = 0, cheese = 0;
 let lane = 1, displayLane = 1;
 let jumpT = -1, duckT = -1;
 const JUMP_DUR = 0.6, DUCK_DUR = 0.6;
+const KANG_JUMP_DUR = 0.95, KANG_JUMP_H = 3.6;   // Golden Hopper: a longer, taller arc that clears beams and tops trains
+const TRAIN_ROOF_Y = 2.9;
 let obstacles = [], treats = [], spawnTimer = 0;
 let speedMult = parseFloat(localStorage.getItem('subwayRatsSpeed') || '0.8');
 // speed climbs within a level and resets at the next one, each level starting a notch faster than the last did
@@ -1392,6 +1396,7 @@ function reset() {
   obstacles = []; treats = []; powers = []; particles.length = 0; spawnTimer = 0.8;
   magnetT = 0; starT = 0; rocketT = 0; invulnT = 0; helmet = false; flyY = 0; shake = 0; powsThisRun = 0;
   gliding = false; glideH = 0;
+  onTrain = null;
   digging = false; digT = 0; digTrains = 0; digY = 0;
   recBuf = []; recT = 0;
   // ?level=N in the address starts runs at that level (2 = Amazon, 3 = Outback, 4 = Deep Sea, 5 = Snow World) — the family test door
@@ -1470,7 +1475,9 @@ function update(dt) {
   score += dt * 60 * (v / 13) * mult;
 
   displayLane += (lane - displayLane) * Math.min(1, dt * 12);
-  if (jumpT >= 0 && (jumpT += dt) > JUMP_DUR) jumpT = -1;
+  const jumpDur = charKey === 'kangaroo' ? KANG_JUMP_DUR : JUMP_DUR;
+  const jumpH_scale = charKey === 'kangaroo' ? KANG_JUMP_H : 2.0;
+  if (jumpT >= 0 && (jumpT += dt) > jumpDur) jumpT = -1;
   if (duckT >= 0 && (duckT += dt) > DUCK_DUR) duckT = -1;
   let powChanged = false;
   if (magnetT > 0 && (magnetT -= dt) <= 0) powChanged = true;
@@ -1580,7 +1587,7 @@ function update(dt) {
     if (f.position.z > 8) f.position.z -= 70;
   }
 
-  const jumpH = jumpT >= 0 ? Math.sin(Math.PI * jumpT / JUMP_DUR) : 0;
+  const jumpH = jumpT >= 0 ? Math.sin(Math.PI * jumpT / jumpDur) : 0;
   const ducking = duckT >= 0;
 
   // the glide sinks slowly; below hurdle height the flaps give out on their own
@@ -1589,6 +1596,18 @@ function update(dt) {
     if (glideH < 0.5) { gliding = false; jumpT = JUMP_DUR * 0.85; }
   }
   const airH = gliding ? glideH * 0.5 : jumpH;   // what the hurdle check sees
+
+  // Golden Hopper: if we were standing on a train, drop off when the train (or our lane) leaves us
+  if (onTrain) {
+    const o = onTrain;
+    const inLane = Math.abs(displayLane - o.lane) < 0.45;
+    const zF = o.mesh.position.z - o.len / 2, zB = o.mesh.position.z + o.len / 2;
+    if (!inLane || zF > 0.9 || zB < -0.9) {
+      onTrain = null;
+      jumpT = jumpDur * 0.6;   // step off the back and arc down to the ground
+      spawnParts('dust', { x: hero.group.position.x, y: TRAIN_ROOF_Y, z: 0 }, 4, 2, 2);
+    }
+  }
 
   // the dig: sink until only the spines show, spraying dirt
   if (digging) {
@@ -1599,15 +1618,15 @@ function update(dt) {
 
   // pose: scamper-hop gait, lifted while gliding or rocketing, sunk while digging
   const phase = (elapsed * 3.3 * (v / 13)) % 1;
-  const hop = jumpT < 0 && !ducking && !gliding && !digging ? Math.abs(Math.sin(phase * Math.PI)) : 0;
+  const hop = jumpT < 0 && !ducking && !gliding && !digging && !onTrain ? Math.abs(Math.sin(phase * Math.PI)) : 0;
   flyY += ((rocketT > 0 ? 2.6 : 0) - flyY) * Math.min(1, dt * 4);
   hero.group.position.x = LANE_X(displayLane);
-  hero.group.position.y = (gliding ? glideH : jumpH * 2.0) + hop * 0.22 + flyY + digY;
+  hero.group.position.y = onTrain ? TRAIN_ROOF_Y : (gliding ? glideH : jumpH * jumpH_scale) + hop * 0.22 + flyY + digY;
   hero.group.rotation.z = (displayLane - lane) * 0.3;
   if (digging) hero.group.scale.set(1.05, 0.92, 1.05);
   else if (ducking) hero.group.scale.set(1.25, 0.5, 1.1);
   else if (gliding) hero.group.scale.set(1.1, 0.82, 1.05);
-  else if (jumpT >= 0 || rocketT > 0) hero.group.scale.set(0.95, 1.12, 1);
+  else if (onTrain || jumpT >= 0 || rocketT > 0) hero.group.scale.set(0.95, 1.12, 1);
   else hero.group.scale.set(1, 0.92 + 0.16 * hop, 1);
   hero.tail.rotation.y = Math.sin(phase * Math.PI * 2) * 0.5;
   hero.feet.forEach((f, i) => { f.position.y = f.userData.y0 + Math.max(0, Math.sin(phase * Math.PI * 4 + i * Math.PI)) * 0.12; });
@@ -1643,9 +1662,17 @@ function update(dt) {
         if (o.type === 'train') { o.dug = true; trainOverhead = true; }
         continue;
       }
+      if (onTrain) continue;   // riding on top: the train carries you above everything else
       if (o.type === 'hurdle' && airH > 0.4) continue;
       if (o.type === 'beam' && ducking) continue;
+      if (o.type === 'beam' && hero.group.position.y > 1.9) continue;   // Golden Hopper's tall arc clears a low clearance
       if (o.type === 'train' && ducking) { underTrain = true; continue; }   // squeezed through underneath
+      if (o.type === 'train' && hero.group.position.y > 2.6) {              // Golden Hopper lands on top instead of being squished
+        onTrain = o;
+        sfx.jump();
+        spawnParts('dust', { x: hero.group.position.x, y: TRAIN_ROOF_Y, z: 0 }, 6, 2, 2);
+        continue;
+      }
       if (helmet) {   // the hard hat takes the hit
         helmet = false; invulnT = 1.5; powHud();
         sfx.clang(); shake = 0.35;
