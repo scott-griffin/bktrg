@@ -1470,7 +1470,7 @@ function biomeBanner(text, subtext) {
 // ---------- update ----------
 function update(dt) {
   elapsed += dt;
-  const v = watchGhost ? watchV() : speed();
+  const v = (watchGhost ? watchV() : speed()) * (onTrain ? 0.35 : 1);   // slomo while riding the roof: lets you actually watch the hop-across
   const mult = starT > 0 ? 2 : 1;
   score += dt * 60 * (v / 13) * mult;
 
@@ -1618,15 +1618,15 @@ function update(dt) {
 
   // pose: scamper-hop gait, lifted while gliding or rocketing, sunk while digging
   const phase = (elapsed * 3.3 * (v / 13)) % 1;
-  const hop = jumpT < 0 && !ducking && !gliding && !digging && !onTrain ? Math.abs(Math.sin(phase * Math.PI)) : 0;
+  const hop = (jumpT < 0 && !ducking && !gliding && !digging) || onTrain ? Math.abs(Math.sin(phase * Math.PI)) : 0;
   flyY += ((rocketT > 0 ? 2.6 : 0) - flyY) * Math.min(1, dt * 4);
   hero.group.position.x = LANE_X(displayLane);
-  hero.group.position.y = onTrain ? TRAIN_ROOF_Y : (gliding ? glideH : jumpH * jumpH_scale) + hop * 0.22 + flyY + digY;
+  hero.group.position.y = onTrain ? TRAIN_ROOF_Y + hop * 0.5 : (gliding ? glideH : jumpH * jumpH_scale) + hop * 0.22 + flyY + digY;
   hero.group.rotation.z = (displayLane - lane) * 0.3;
   if (digging) hero.group.scale.set(1.05, 0.92, 1.05);
   else if (ducking) hero.group.scale.set(1.25, 0.5, 1.1);
   else if (gliding) hero.group.scale.set(1.1, 0.82, 1.05);
-  else if (onTrain || jumpT >= 0 || rocketT > 0) hero.group.scale.set(0.95, 1.12, 1);
+  else if (!onTrain && (jumpT >= 0 || rocketT > 0)) hero.group.scale.set(0.95, 1.12, 1);
   else hero.group.scale.set(1, 0.92 + 0.16 * hop, 1);
   hero.tail.rotation.y = Math.sin(phase * Math.PI * 2) * 0.5;
   hero.feet.forEach((f, i) => { f.position.y = f.userData.y0 + Math.max(0, Math.sin(phase * Math.PI * 4 + i * Math.PI)) * 0.12; });
