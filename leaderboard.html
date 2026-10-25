@@ -45,6 +45,7 @@
       width: 100%;
       max-width: 500px;
       border-collapse: collapse;
+      table-layout: fixed;
     }
     th {
       text-transform: uppercase;
@@ -67,8 +68,9 @@
     tr:nth-child(1) .rank { color: #ffd700; font-size: 20px; }
     tr:nth-child(2) .rank { color: #aaa; font-size: 18px; }
     tr:nth-child(3) .rank { color: #cd7f32; font-size: 16px; }
-    .score { color: #ffcc00; font-weight: bold; text-align: right; white-space: nowrap; }
-    .time { color: #888; font-size: 15px; text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+    .score { color: #ffcc00; font-weight: bold; text-align: right; white-space: nowrap; width: 90px; }
+    .player { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .time { color: #888; font-size: 15px; text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; width: 56px; }
     .flag { width: 36px; font-size: 22px; text-align: center; }
     .play { color: #ffcc00; margin-left: 6px; font-size: 15px; }
     tr.has-replay:hover .play { filter: drop-shadow(0 0 6px #ffcc00); }
@@ -135,6 +137,13 @@
   <p class="subtitle">🏆 Leaderboard — Top Rats</p>
 
   <table id="board">
+    <colgroup>
+      <col style="width:34px">
+      <col style="width:36px">
+      <col>
+      <col style="width:56px">
+      <col style="width:90px">
+    </colgroup>
     <thead>
       <tr>
         <th></th>
@@ -169,7 +178,7 @@
           `<tr${s.ghost ? ` class="has-replay" data-watch="${encodeURIComponent(s.name)}" title="Watch ${s.name}'s best run"` : ''}>
             <td class="rank">${medals[i] || i+1}</td>
             <td class="flag">${flagEmoji(s.flag)}</td>
-            <td>${charIcons[s.char] || ""} ${s.name}${s.ghost ? ' <span class="play">▶</span>' : ''}</td>
+            <td class="player">${charIcons[s.char] || ""} ${s.name}${s.ghost ? '<span class="play">▶</span>' : ''}</td>
             <td class="time">${fmtTime(s.secs)}</td>
             <td class="score">${s.score.toLocaleString()}</td>
           </tr>`
