@@ -170,10 +170,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             echo json_encode(['status' => 'yours']);
         } elseif (sameConnectionPlayed($name)) {      // played from this same connection before — we think this is you
             logit(['action' => 'claim-match', 'name' => $name]);
-            echo json_encode(['status' => 'match', 'code' => $row['token'], 'score' => $row['score'], 'date' => $row['date'], 'suggest' => freeNames($name, $scores)]);
+            echo json_encode(['status' => 'match', 'code' => $row['token'], 'score' => $row['score'], 'date' => $row['date'], 'flag' => rowFlag($row), 'suggest' => freeNames($name, $scores)]);
         } else {
             logit(['action' => 'claim-denied', 'name' => $name]);
-            echo json_encode(['status' => 'taken', 'score' => $row['score'], 'suggest' => freeNames($name, $scores)]);
+            echo json_encode(['status' => 'taken', 'score' => $row['score'], 'flag' => rowFlag($row), 'suggest' => freeNames($name, $scores)]);
         }
         exit;
     }

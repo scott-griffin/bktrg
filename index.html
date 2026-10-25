@@ -147,17 +147,23 @@
     <button id="settingsClose" style="padding:10px 36px; font-family:'Georgia',serif; letter-spacing:2px; text-transform:uppercase; color:#111; background:linear-gradient(135deg,#ffcc00,#ff9900); border:none; border-radius:4px; cursor:pointer;">Done</button>
   </div>
 
-  <!-- shown when the board turns a name away: either we recognise the connection and hand the rat code back, or we help pick a new name -->
+  <!-- shown when the board turns a name away: lead with the identity preview, let the player confirm or pick a new name -->
   <div id="claimPanel" class="hidden" style="position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); background:#14141f; border:1px solid #333; border-radius:8px; padding:26px 28px; z-index:35; text-align:center; box-shadow:0 0 40px #000; width:320px; max-width:90vw;">
     <p id="claimTitle" style="color:#ffcc00; letter-spacing:3px; font-size:16px; text-transform:uppercase; margin-bottom:12px;"></p>
     <p id="claimBody" style="color:#ccc; font-size:14px; line-height:1.6; letter-spacing:0.5px;"></p>
+    <div id="claimPreview" class="hidden" style="margin:14px 0 6px; padding:14px 10px; border:1px solid #2a2a38; border-radius:6px; background:#1a1a2a;">
+      <div id="claimPreviewFlag" style="font-size:38px; line-height:1;"></div>
+      <div id="claimPreviewName" style="color:#ffcc00; font-size:22px; letter-spacing:2px; margin-top:4px;"></div>
+      <div id="claimPreviewScore" style="color:#888; font-size:12px; letter-spacing:1px; margin-top:4px;"></div>
+    </div>
     <div id="claimCodeWrap" class="hidden" style="margin:16px 0 4px;">
       <span style="color:#aaa; font-size:11px; letter-spacing:2px;">YOUR RAT CODE</span><br>
       <b id="claimCode" style="color:#ffcc00; font-size:26px; letter-spacing:6px;"></b>
     </div>
-    <input type="text" id="claimName" class="nameInput hidden" maxlength="20" autocomplete="off" style="margin:14px 0 4px;">
+    <input type="text" id="claimName" class="nameInput hidden" maxlength="20" autocomplete="off" placeholder="your name" style="margin:14px 0 4px;">
+    <div id="claimSuggest" class="hidden" style="display:flex; flex-wrap:wrap; gap:6px; justify-content:center; margin:6px 0 2px;"></div>
     <div id="claimCodeEntry" class="hidden" style="margin:14px 0 4px; border-top:1px solid #2a2a38; padding-top:12px;">
-      <p style="color:#888; font-size:12px; letter-spacing:1px; margin-bottom:8px;">…or is that you? Type the rat code from your other device<br><span style="color:#555;">(it's in ⚙️ settings over there)</span></p>
+      <p style="color:#888; font-size:12px; letter-spacing:1px; margin-bottom:8px;">Type the rat code from a device you've played on before<br><span style="color:#555;">(ask whoever showed you the game — it's in ⚙️ settings)</span></p>
       <input type="text" id="claimCodeIn" class="nameInput" maxlength="12" autocomplete="off" placeholder="RAT CODE" style="text-transform:uppercase; letter-spacing:3px; width:180px;">
       <button id="claimUseCode" style="margin-top:8px; padding:8px 20px; font-family:'Georgia',serif; letter-spacing:1px; font-size:13px; color:#111; background:linear-gradient(135deg,#ffcc00,#ff9900); border:none; border-radius:4px; cursor:pointer;">THAT'S ME</button>
     </div>
@@ -280,6 +286,7 @@
       <button class="charBtn" data-char="kangaroo">🦘<span>Golden Hopper</span></button>
     </div>
     <input type="text" id="startName" class="nameInput" maxlength="20" placeholder="your name" autocomplete="off">
+    <div id="whoAmI" class="hidden" style="color:#888; font-size:12px; letter-spacing:1px; margin:2px 0 6px;"><span id="whoAmIBody"></span> · <a href="#" id="whoAmINotMe" style="color:#ff9933;">not you?</a></div>
     <button class="go-btn" id="startBtn">Run!</button>
     <a href="#" id="helpLink">❓ how to play</a>
     <a href="#" id="settingsLink">⚙️ settings</a>
@@ -1495,6 +1502,7 @@ const setNameInput = document.getElementById('setName');
 function applyNameFields() {
   document.getElementById('hudName').textContent = ratName;
   startName.value = ratName; setNameInput.value = ratName;
+  if (typeof refreshWhoAmI === 'function') refreshWhoAmI();
 }
 function setName(n) {
   const prev = ratName;
@@ -1558,62 +1566,120 @@ async function nameTrouble(name, score = 0) {
   if (playing) return;   // never cover the tracks mid-run — game over asks the board again
   showClaim(name, j);
 }
+// one panel, two steps: "Is this you?" preview → either adopts, or opens the "What's your name?" picker
+function hideClaimSections() {
+  for (const id of ['claimPreview', 'claimCodeWrap', 'claimName', 'claimSuggest', 'claimCodeEntry']) {
+    document.getElementById(id).classList.add('hidden');
+  }
+}
 function showClaim(name, j) {
-  const nameIn = document.getElementById('claimName');
-  const codeWrap = document.getElementById('claimCodeWrap');
-  const codeEntry = document.getElementById('claimCodeEntry');
   const yes = document.getElementById('claimYes'), no = document.getElementById('claimNo');
   const best = (j.score || 0).toLocaleString();
-  codeEntry.classList.add('hidden');
-  if (j.status === 'match') {
-    document.getElementById('claimTitle').textContent = 'We think this is you';
-    document.getElementById('claimBody').textContent = `${name} has been played from right here before — best score ${best}. Here is the rat code that owns the name. Write it down and you can be ${name} on any device.`;
-    document.getElementById('claimCode').textContent = j.code;
-    codeWrap.classList.remove('hidden'); nameIn.classList.add('hidden');
-    yes.textContent = "That's me"; no.textContent = 'Not me';
-    yes.onclick = () => {
+  hideClaimSections();
+  document.getElementById('claimTitle').textContent = 'Is this you?';
+  document.getElementById('claimBody').textContent = `Someone already runs as ${name}:`;
+  document.getElementById('claimPreviewFlag').textContent = flagEmoji(j.flag) || '🐀';
+  document.getElementById('claimPreviewName').textContent = name;
+  document.getElementById('claimPreviewScore').textContent = `best score ${best}`;
+  document.getElementById('claimPreview').classList.remove('hidden');
+  yes.textContent = "Yes, that's me"; no.textContent = "No, someone else";
+  yes.onclick = () => {
+    if (j.status === 'match') {   // the server already knows this connection — adopt silently
       ratToken = j.code; localStorage.setItem('ratToken', ratToken); setCodeInput.value = ratToken;
       adoptName(name);
       claimPanel.classList.add('hidden');
       showNote(`Welcome back, ${name} 🐀`);
       saveOrRefresh();
-    };
-    no.onclick = () => showClaim(name, { status: 'taken', score: j.score, suggest: j.suggest });
-  } else {
-    document.getElementById('claimTitle').textContent = 'Name taken';
-    document.getElementById('claimBody').textContent = `Another rat already runs as ${name} (best ${best}). Pick a name of your own:`;
-    codeWrap.classList.add('hidden');
-    nameIn.value = (j.suggest && j.suggest[0]) || name.slice(0, 18) + '2';
-    nameIn.classList.remove('hidden');
-    codeEntry.classList.remove('hidden');
-    document.getElementById('claimUseCode').onclick = async () => {
-      const c = document.getElementById('claimCodeIn').value.trim().toUpperCase();
-      if (!c) return;
-      try {   // check the code against the name's owner before adopting it
-        const res = await fetch(API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ claim: { name }, token: c }) });
-        const jj = await res.json();
-        if (jj.status === 'yours') {
-          ratToken = c; localStorage.setItem('ratToken', c); setCodeInput.value = c;
-          adoptName(name);
-          claimPanel.classList.add('hidden');
-          showNote(`Welcome back, ${name} 🐀`);
-          saveOrRefresh();
-        } else showErr(`That code isn't right for ${name}`);
-      } catch { showErr('Could not check the code'); }
-    };
-    yes.textContent = 'Use it'; no.textContent = 'Later';
-    yes.onclick = () => {
-      const v = nameIn.value.trim();
-      if (!v) return;
+    } else {   // taken: ask for the code so we can verify
+      askForCode(name, j);
+    }
+  };
+  no.onclick = () => showNamePicker(name, j.suggest || []);
+  claimPanel.classList.remove('hidden');
+}
+function askForCode(name, j) {
+  hideClaimSections();
+  document.getElementById('claimTitle').textContent = `Prove you're ${name}`;
+  document.getElementById('claimBody').textContent = '';
+  document.getElementById('claimCodeEntry').classList.remove('hidden');
+  const codeIn = document.getElementById('claimCodeIn');
+  codeIn.value = '';
+  document.getElementById('claimUseCode').onclick = async () => {
+    const c = codeIn.value.trim().toUpperCase();
+    if (!c) return;
+    try {
+      const res = await fetch(API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ claim: { name }, token: c }) });
+      const jj = await res.json();
+      if (jj.status === 'yours') {
+        ratToken = c; localStorage.setItem('ratToken', c); setCodeInput.value = c;
+        adoptName(name);
+        claimPanel.classList.add('hidden');
+        showNote(`Welcome back, ${name} 🐀`);
+        saveOrRefresh();
+      } else showErr(`That code isn't right for ${name}`);
+    } catch { showErr('Could not check the code'); }
+  };
+  const yes = document.getElementById('claimYes'), no = document.getElementById('claimNo');
+  yes.textContent = 'Back'; no.textContent = 'Cancel';
+  yes.onclick = () => showClaim(name, j);
+  no.onclick = () => claimPanel.classList.add('hidden');
+  setTimeout(() => codeIn.focus(), 0);
+}
+function showNamePicker(takenName, suggest) {
+  hideClaimSections();
+  document.getElementById('claimTitle').textContent = "What's your name?";
+  document.getElementById('claimBody').textContent = 'Pick a name of your own — nobody else can use it.';
+  const nameIn = document.getElementById('claimName');
+  nameIn.value = ''; nameIn.classList.remove('hidden');
+  const sugg = document.getElementById('claimSuggest');
+  sugg.innerHTML = '';
+  for (const s of (suggest || []).slice(0, 3)) {
+    const chip = document.createElement('button');
+    chip.textContent = s;
+    chip.style.cssText = 'padding:4px 10px; font-family:Georgia,serif; font-size:12px; letter-spacing:1px; color:#ccc; background:#232334; border:1px solid #3a3a4a; border-radius:12px; cursor:pointer;';
+    chip.onclick = () => { nameIn.value = s; nameIn.focus(); };
+    sugg.appendChild(chip);
+  }
+  if (sugg.children.length) sugg.classList.remove('hidden');
+  const yes = document.getElementById('claimYes'), no = document.getElementById('claimNo');
+  yes.textContent = 'Use it'; no.textContent = 'Cancel';
+  yes.onclick = async () => {
+    const v = nameIn.value.trim();
+    if (!v) return;
+    if (takenName && v.toLowerCase() === takenName.toLowerCase()) return;   // picking the same taken name just loops — ignore
+    // ask the board before committing: taken/match loops into "Is this you?"; free/yours is safe to adopt
+    let jj = null;
+    try {
+      const res = await fetch(API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ claim: { name: v }, token: ratToken }) });
+      jj = await res.json();
+    } catch {}
+    if (jj && (jj.status === 'match' || jj.status === 'taken')) {
+      showClaim(v, jj);
+    } else {
       adoptName(v);
       claimPanel.classList.add('hidden');
       saveOrRefresh();
-    };
-    no.onclick = () => claimPanel.classList.add('hidden');
-  }
-  claimPanel.classList.remove('hidden');
+    }
+  };
+  no.onclick = () => claimPanel.classList.add('hidden');
+  setTimeout(() => nameIn.focus(), 0);
 }
 if (ratName) nameTrouble(ratName);   // on load: is this name still ours? (a cleared browser silently loses the code)
+
+// Start-screen "not you?" chip — opens the picker without needing to know what a rat code is
+function refreshWhoAmI() {
+  const el = document.getElementById('whoAmI');
+  const body = document.getElementById('whoAmIBody');
+  if (!el || !body) return;
+  if (!ratName) { el.classList.add('hidden'); return; }
+  body.textContent = `you're ${flagEmoji(ratFlag) || '🐀'} ${ratName}`;
+  el.classList.remove('hidden');
+}
+refreshWhoAmI();
+document.getElementById('whoAmINotMe').addEventListener('click', e => {
+  e.preventDefault();
+  showNamePicker('', []);
+});
 
 async function renderTop() {
   const el = document.getElementById('topList');
@@ -2107,6 +2173,7 @@ function setFlag(code, push = true) {
   ratFlag = code;
   localStorage.setItem('ratFlag', code);
   refreshFlagBtn();
+  if (typeof refreshWhoAmI === 'function') refreshWhoAmI();
   if (!push || !ratName) return;   // with no name yet there is no row to write to; the first saved score carries the flag instead
   fetch(API, {
     method: 'POST',
