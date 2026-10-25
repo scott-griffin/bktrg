@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Toon Styles — Train Rat</title>
+  <link rel="icon" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">🐀</text></svg>'>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #0a0a12; color: #fff; font-family: 'Georgia', serif; text-align: center; padding: 30px 14px 60px; }
+    h1 {
+      font-size: clamp(26px, 6vw, 42px); letter-spacing: 4px; text-transform: uppercase;
+      background: linear-gradient(135deg, #ffcc00, #aaa, #ffcc00);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    }
+    .sub { color: #888; letter-spacing: 2px; margin: 8px 0 30px; max-width: 600px; margin-left: auto; margin-right: auto; line-height: 1.6; }
+    .grid { display: flex; flex-wrap: wrap; gap: 18px; justify-content: center; max-width: 1100px; margin: 0 auto; }
+    .tile { background: #12121c; border: 1px solid #2a2a38; border-radius: 10px; padding: 16px 16px 20px; width: 272px; }
+    .tile h2 { color: #ffcc00; font-size: 19px; letter-spacing: 2px; margin: 10px 0 6px; }
+    .tile p { color: #999; font-size: 13px; line-height: 1.5; }
+    canvas { background: linear-gradient(#20304a, #0d0d16); border-radius: 6px; max-width: 100%; }
+    .ask { margin-top: 36px; color: #ffcc00; font-size: 18px; letter-spacing: 2px; }
+    a { color: #666; font-size: 13px; letter-spacing: 2px; text-decoration: none; display: inline-block; margin-top: 20px; }
+    a:hover { color: #ffcc00; }
+  </style>
+</head>
+<body>
+  <h1>Toon Shading</h1>
+  <p class="sub">For Thomas — four cartoon looks for the rat. "Toon shading" means instead of smooth shadows, you get flat bands of color like in a comic book.</p>
+  <div class="grid">
+    <div class="tile"><canvas id="c0" width="240" height="260"></canvas><h2>A — Normal</h2><p>What the rat looks like right now — smooth lighting, realistic shading. The reference.</p></div>
+    <div class="tile"><canvas id="c1" width="240" height="260"></canvas><h2>B — Soft Toon</h2><p>Five flat bands of light instead of smooth shadows. Cartoony but gentle, no inked outlines.</p></div>
+    <div class="tile"><canvas id="c2" width="240" height="260"></canvas><h2>C — Classic Cel</h2><p>Three strong bands — the Saturday-morning-cartoon look. Clean light, clean shadow, nothing in between.</p></div>
+    <div class="tile"><canvas id="c3" width="240" height="260"></canvas><h2>D — Comic Ink</h2><p>Two bands and a bold black outline around every piece. Looks drawn in a comic book.</p></div>
+  </div>
+  <p class="ask">Tell Dad: A, B, C or D?</p>
+  <a href="./">← back to the game</a>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js"
+  }
+}
+</script>
+<script type="module">
+import * as THREE from 'three';
+
+// A 1D gradient map with N stops turns MeshToonMaterial into N flat bands.
+// Nearest filter = sharp step transitions (otherwise it blends back to smooth).
+function stepGradient(steps) {
+  const c = document.createElement('canvas');
+  c.width = steps; c.height = 1;
+  const ctx = c.getContext('2d');
+  for (let i = 0; i < steps; i++) {
+    const v = Math.round(255 * (i + 1) / steps);
+    ctx.fillStyle = `rgb(${v},${v},${v})`;
+    ctx.fillRect(i, 0, 1, 1);
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.minFilter = THREE.NearestFilter;
+  t.magFilter = THREE.NearestFilter;
+  t.generateMipmaps = false;
+  return t;
+}
+
+// Four style factories: each returns { mat(color) → Material, outline: bool }.
+// Variant A uses the game's current MeshStandardMaterial as the reference.
+const STYLES = [
+  // A — current PBR, no outline
+  { outline: false, mat: color => new THREE.MeshStandardMaterial({ color, roughness: 0.9 }) },
+  // B — soft toon, five bands
+  (() => { const g = stepGradient(5); return { outline: false, mat: color => new THREE.MeshToonMaterial({ color, gradientMap: g }) }; })(),
+  // C — classic cel, three bands
+  (() => { const g = stepGradient(3); return { outline: false, mat: color => new THREE.MeshToonMaterial({ color, gradientMap: g }) }; })(),
+  // D — two-tone + inked outline (back-side black shell slightly expanded)
+  (() => { const g = stepGradient(2); return { outline: true, mat: color => new THREE.MeshToonMaterial({ color, gradientMap: g }) }; })(),
+];
+
+// The rat, parameterized on a material factory. Mirrors buildRat() in index.html but swaps materials in.
+function buildRat(style) {
+  const g = new THREE.Group();
+  const fur     = style.mat(0x8d93a0);
+  const furDark = style.mat(0x767c88);
+  const pink    = style.mat(0xf0a7b2);
+  const black   = style.mat(0x222222);
+
+  const body = new THREE.Mesh(new THREE.SphereGeometry(0.55, 24, 18), fur);
+  body.scale.set(0.85, 0.75, 1.25); body.position.set(0, 0.5, 0);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.34, 20, 16), fur);
+  head.position.set(0, 0.72, -0.72);
+  const snout = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.34, 14), furDark);
+  snout.rotation.x = -Math.PI / 2; snout.position.set(0, 0.64, -1.05);
+  const nose = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 8), pink);
+  nose.position.set(0, 0.64, -1.22);
+  const earGeo = new THREE.SphereGeometry(0.16, 12, 10);
+  const earL = new THREE.Mesh(earGeo, pink); earL.scale.z = 0.4; earL.position.set(-0.22, 1.02, -0.68);
+  const earR = earL.clone(); earR.position.x = 0.22;
+  // eyes (not in buildRat but help the toon look read on a small tile)
+  const eyeGeo = new THREE.SphereGeometry(0.055, 10, 8);
+  const eyeL = new THREE.Mesh(eyeGeo, black); eyeL.position.set(-0.14, 0.78, -0.98);
+  const eyeR = eyeL.clone(); eyeR.position.x = 0.14;
+  const haunchGeo = new THREE.SphereGeometry(0.3, 14, 12);
+  const haunchL = new THREE.Mesh(haunchGeo, furDark); haunchL.position.set(-0.38, 0.34, 0.42);
+  const haunchR = haunchL.clone(); haunchR.position.x = 0.38;
+  const footGeo = new THREE.SphereGeometry(0.11, 10, 8);
+  const feet = [];
+  for (const [x, z] of [[-0.42, 0.55], [0.42, 0.55], [-0.28, -0.6], [0.28, -0.6]]) {
+    const f = new THREE.Mesh(footGeo, pink);
+    f.scale.set(1, 0.6, 1.4); f.position.set(x, 0.07, z);
+    g.add(f); feet.push(f);
+  }
+  const tailCurve = new THREE.CatmullRomCurve3([
+    new THREE.Vector3(0, 0.4, 0.6), new THREE.Vector3(0, 0.25, 1.3),
+    new THREE.Vector3(0.25, 0.12, 1.9), new THREE.Vector3(0.1, 0.06, 2.5),
+  ]);
+  const tail = new THREE.Mesh(new THREE.TubeGeometry(tailCurve, 20, 0.06, 8), pink);
+  g.add(body, head, snout, nose, earL, earR, eyeL, eyeR, haunchL, haunchR, tail);
+
+  if (style.outline) {
+    // ink outline: clone every mesh with a back-side black shell, slightly inflated along normals
+    const ink = new THREE.MeshBasicMaterial({ color: 0x111111, side: THREE.BackSide });
+    const shells = [];
+    g.traverse(o => { if (o.isMesh) shells.push(o); });
+    for (const m of shells) {
+      const s = new THREE.Mesh(m.geometry, ink);
+      s.position.copy(m.position);
+      s.rotation.copy(m.rotation);
+      s.scale.copy(m.scale).multiplyScalar(1.08);
+      g.add(s);
+    }
+  }
+
+  return g;
+}
+
+STYLES.forEach((style, i) => {
+  const canvas = document.getElementById('c' + i);
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  renderer.setSize(240, 260);
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(40, 240 / 260, 0.1, 50);
+  camera.position.set(0, 1.2, 4.6);
+  camera.lookAt(0, 0.5, 0);
+  scene.add(new THREE.HemisphereLight(0xcfe8ff, 0x303848, 1.1));
+  const key = new THREE.DirectionalLight(0xfff2cc, 1.4);
+  key.position.set(3, 5, 4);
+  scene.add(key);
+  const disc = new THREE.Mesh(new THREE.CircleGeometry(1.3, 32),
+    new THREE.MeshBasicMaterial({ color: 0x0a0e18, transparent: true, opacity: 0.5 }));
+  disc.rotation.x = -Math.PI / 2;
+  scene.add(disc);
+  const rat = buildRat(style);
+  scene.add(rat);
+  (function loop(ts) {
+    const t = ts / 1000;
+    rat.rotation.y = Math.sin(t * 0.6) * 0.5;
+    rat.position.y = Math.abs(Math.sin(t * 2.4)) * 0.08;
+    renderer.render(scene, camera);
+    requestAnimationFrame(loop);
+  })(0);
+});
+</script>
+</body>
+</html>
