@@ -410,6 +410,15 @@ grass.rotation.x = -Math.PI / 2; grass.position.set(0, -0.06, -120);
 grass.receiveShadow = true;
 scene.add(grass);
 
+// snow carpet — overlays the grass plane during the snow biome so the sides read white, not green
+const snowCarpet = new THREE.Mesh(new THREE.PlaneGeometry(400, 400),
+  new THREE.MeshStandardMaterial({ map: speckleTex('#f4f8fc', ['#ffffff', '#dce8f4', '#e8edf2'], 300, 40, 40), roughness: 0.9 }));
+snowCarpet.rotation.x = -Math.PI / 2;
+snowCarpet.position.set(0, -0.055, -120);
+snowCarpet.receiveShadow = true;
+snowCarpet.visible = false;
+scene.add(snowCarpet);
+
 const bed = new THREE.Mesh(new THREE.BoxGeometry(9.4, 0.12, 400), mat.gravel);
 bed.position.set(0, -0.02, -120);
 bed.receiveShadow = true;
@@ -581,21 +590,22 @@ const CORAL_COLORS = [0xff6f91, 0xff9f6b, 0xffd45a, 0xff5577, 0xdd77ff];
 for (let i = 0; i < 10; i++) for (const side of [-7.8, 7.8]) {
   const g = new THREE.Group();
   if ((i + (side > 0 ? 1 : 0)) % 2) {
-    // coral stack: three stacked cones in bright reef colors
+    // coral stack: three stacked cones in bright reef colors — emissive so they glow bioluminescent against the dark water
     for (const [dx, h, ci] of [[0, 1.4, 0], [0.45, 0.9, 1], [-0.4, 0.7, 2]]) {
-      const col = new THREE.MeshStandardMaterial({ color: CORAL_COLORS[(i + ci) % CORAL_COLORS.length], roughness: 0.85 });
+      const cc = CORAL_COLORS[(i + ci) % CORAL_COLORS.length];
+      const col = new THREE.MeshStandardMaterial({ color: cc, emissive: cc, emissiveIntensity: 0.5, roughness: 0.85 });
       const c = new THREE.Mesh(new THREE.ConeGeometry(0.3, h, 7), col);
       c.position.set(dx, h / 2, 0); c.castShadow = true; g.add(c);
     }
   } else {
-    // sea anemone: fat pink base + wavy fingers
+    // sea anemone: fat pink base + wavy fingers — also bioluminescent so they read as colorful in deep water
     const base = new THREE.Mesh(new THREE.SphereGeometry(0.5, 10, 8),
-      new THREE.MeshStandardMaterial({ color: 0xee4477, roughness: 0.9 }));
+      new THREE.MeshStandardMaterial({ color: 0xee4477, emissive: 0xee4477, emissiveIntensity: 0.45, roughness: 0.9 }));
     base.scale.y = 0.7; base.position.y = 0.4; base.castShadow = true; g.add(base);
     for (let f = 0; f < 7; f++) {
       const a = (f / 7) * Math.PI * 2;
       const finger = new THREE.Mesh(new THREE.ConeGeometry(0.07, 0.6, 6),
-        new THREE.MeshStandardMaterial({ color: 0xff9fc0, roughness: 0.9 }));
+        new THREE.MeshStandardMaterial({ color: 0xff9fc0, emissive: 0xff9fc0, emissiveIntensity: 0.45, roughness: 0.9 }));
       finger.position.set(Math.cos(a) * 0.3, 0.75, Math.sin(a) * 0.3);
       finger.rotation.z = Math.cos(a) * 0.4;
       finger.rotation.x = -Math.sin(a) * 0.4;
@@ -744,6 +754,7 @@ function applyBiomeVisuals(a) {
   shipwreck.visible = biome === 'sea';
   for (const x of snowProps) x.visible = biome === 'snow';
   snowMountain.visible = biome === 'snow';
+  snowCarpet.visible = biome === 'snow';
   for (const c of clouds) c.visible = biome !== 'sea';   // no sky clouds underwater
 }
 
@@ -1177,8 +1188,8 @@ function buildRooSign() {
 // sea skins: a giant open clam to jump over, a bone-arch of whale ribs to duck under
 function buildClam() {
   const g = new THREE.Group();
-  const shellMat = new THREE.MeshStandardMaterial({ color: 0x7cc8e8, roughness: 0.6 });
-  const innerMat = new THREE.MeshStandardMaterial({ color: 0xffe4ec, roughness: 0.5 });
+  const shellMat = new THREE.MeshStandardMaterial({ color: 0x7cc8e8, emissive: 0x4a90ab, emissiveIntensity: 0.35, roughness: 0.6 });
+  const innerMat = new THREE.MeshStandardMaterial({ color: 0xffe4ec, emissive: 0xffb0c8, emissiveIntensity: 0.4, roughness: 0.5 });
   const bottom = new THREE.Mesh(new THREE.SphereGeometry(0.9, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2), shellMat);
   bottom.scale.set(1, 0.5, 1); bottom.rotation.x = Math.PI; bottom.position.y = 0.4;
   const top = new THREE.Mesh(new THREE.SphereGeometry(0.9, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2), shellMat);
@@ -1194,8 +1205,8 @@ function buildClam() {
 }
 function buildCoralArch() {
   const g = new THREE.Group();
-  const coralL = new THREE.MeshStandardMaterial({ color: 0xff6f91, roughness: 0.85 });
-  const coralR = new THREE.MeshStandardMaterial({ color: 0xff9f6b, roughness: 0.85 });
+  const coralL = new THREE.MeshStandardMaterial({ color: 0xff6f91, emissive: 0xff6f91, emissiveIntensity: 0.5, roughness: 0.85 });
+  const coralR = new THREE.MeshStandardMaterial({ color: 0xff9f6b, emissive: 0xff9f6b, emissiveIntensity: 0.5, roughness: 0.85 });
   for (const [sx, m] of [[-1.1, coralL], [1.1, coralR]]) {
     const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.28, 2.4, 10), m);
     stem.position.set(sx, 1.2, 0);
