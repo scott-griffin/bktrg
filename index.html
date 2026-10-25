@@ -1365,6 +1365,7 @@ const POW = {
 let powers = [], magnetT = 0, starT = 0, rocketT = 0, invulnT = 0, helmet = false, flyY = 0, lastHop = 0, shake = 0, powsThisRun = 0;
 let gliding = false, glideH = 0;   // Night Glider: tap mid-air to glide, tap again (or duck) to drop
 let onTrain = null;                 // Golden Hopper: landed on a train — pinned to its roof until it leaves
+let camLiftK = 0;                   // 0..1, lerps to 1 while onTrain so the camera rises up and tilts down onto the roof
 let recBuf = [], recT = 0;         // ghost recorder: [lane×10, y×10, flags, v×10] at 10Hz — a best score uploads it
 let watchGhost = null, watchT = 0; // watching someone's replay instead of playing
 let biome = 'field', biomeT = 0, level = 1;   // each biome is a level; speed resets (mostly) at each new one
@@ -1396,7 +1397,7 @@ function reset() {
   obstacles = []; treats = []; powers = []; particles.length = 0; spawnTimer = 0.8;
   magnetT = 0; starT = 0; rocketT = 0; invulnT = 0; helmet = false; flyY = 0; shake = 0; powsThisRun = 0;
   gliding = false; glideH = 0;
-  onTrain = null;
+  onTrain = null; camLiftK = 0;
   digging = false; digT = 0; digTrains = 0; digY = 0;
   recBuf = []; recT = 0;
   // ?level=N in the address starts runs at that level (2 = Amazon, 3 = Outback, 4 = Deep Sea, 5 = Snow World) — the family test door
@@ -1737,9 +1738,10 @@ function update(dt) {
   shake = Math.max(0, shake - shake * 5 * dt);
   const targetFov = 60 + Math.min(14, Math.max(0, (v - 10) * 0.5)) + (rocketT > 0 ? 6 : 0);
   if (Math.abs(camera.fov - targetFov) > 0.2) { camera.fov += (targetFov - camera.fov) * Math.min(1, dt * 3); camera.updateProjectionMatrix(); }
+  camLiftK += ((onTrain ? 1 : 0) - camLiftK) * Math.min(1, dt * 4);   // smooth rise/fall of the camera for the roof-ride beat
   camera.position.x = LANE_X(displayLane) * 0.22 + (Math.random() - 0.5) * shake;
-  camera.position.y = 3.4 + (Math.random() - 0.5) * shake * 0.6;
-  camera.lookAt(camera.position.x * 0.4, 1, -12);
+  camera.position.y = 3.4 + camLiftK * 3.1 + (Math.random() - 0.5) * shake * 0.6;
+  camera.lookAt(camera.position.x * 0.4, 1 + camLiftK * 1.6, -12);
 
   if (!watchGhost) {
     document.getElementById('cheeseCt').textContent = cheese;
