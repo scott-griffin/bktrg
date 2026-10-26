@@ -327,9 +327,31 @@ hero.group.position.set(CENTER, 0, 0);
 scene.add(hero.group);
 
 // ---------- audio (Tone.js) ----------
-// Default soundtrack is the game's "Funky Rat" style (A9 vamp, popping bass, clav scratch, horn stabs).
-// On top of that, PROPOSED fires: C-B-C trill at launch, kick + distorted guitar on landing + bounces.
-// iOS requires a user gesture to unlock audio, so the sound button initializes on first tap.
+// Audio values read from the SAME localStorage key the Sound Lab writes to — tweaks made in
+// /kangaroo-sfx-lab.html automatically apply here on next page load.
+const DEFAULT_V = {
+  whooshVol: 6, whooshDur: 1.6, whooshFilterLo: 140, whooshFilterHi: 3100,
+  whooshSweepT: 1.6, whooshQ: 1.3,
+  whooshAttack: 0.25, whooshDecay: 1.3, whooshSustain: 0.15, whooshRelease: 0.25,
+  trillGap: 0.12,
+  chordDelay: 0.47, chordDur: 3.0,
+  chordNotes: 'A2,C4,E4,A5',
+  trillNotes: 'B4,A4',
+  distortion: 0.35, distortionWet: 0.5, reverbWet: 0.22,
+  chebyOrder: 1, eqMidCut: 0,
+  guitarVol: -4, kickVol: -4,
+  b2KickNote: 'G1', b2GuitarNote: 'G4,C4,D4,C5', b2GuitarDur: 0.6,
+  b3KickNote: 'C2', b3Chord: 'A3,D4,E4', b3ChordDur: 1.4,
+  kickNote: 'C1', kickDur: 0.5,
+  tLaunch: 0, tApex: 1.4, tLand: 2.0, tB2: 3.0, tB3: 4.0,
+  funkBpm: 98,
+};
+const LS_KEY = 'kangarooSfxLabV1';
+let V;
+try { V = { ...DEFAULT_V, ...JSON.parse(localStorage.getItem(LS_KEY) || '{}') }; }
+catch (e) { V = { ...DEFAULT_V }; }
+const toNotes = s => (s || '').split(',').map(n => n.trim()).filter(Boolean);
+
 const audio = { ready: false, on: false, funkParts: [] };
 
 // pitch helper from the game
@@ -401,42 +423,39 @@ async function initAudio() {
   // iOS can return from Tone.start() with the context still suspended until a real user gesture — bail if so.
   if (Tone.getContext().state !== 'running') return;
 
-  Tone.Transport.bpm.value = 98;
+  Tone.Transport.bpm.value = V.funkBpm;
   Tone.Transport.swing = 0.12;
   Tone.Transport.swingSubdivision = '16n';
 
-  // default background: the game's Funky Rat vamp
   audio.funkParts = buildFunkRat();
 
-  // cinematic layer: REAL electric guitar samples (nbrosowsky/tonejs-instruments) through light distortion + reverb.
-  // The Sampler interpolates between A2/C3/A3/C4/A4/C5/A5 for notes it doesn't have (B4, E3, E4, etc).
-  const dist   = new Tone.Distortion({ distortion: 0.35, wet: 0.5 });
-  const reverb = new Tone.Reverb({ decay: 2.0, wet: 0.22 });
-  dist.chain(reverb, Tone.Destination);
+  // Guitar FX chain: EQ3 (mid scoop) → Chebyshev (harmonic bite) → Distortion → Reverb → Destination
+  audio.eq     = new Tone.EQ3({ low: 0, mid: V.eqMidCut, high: 0, lowFrequency: 300, highFrequency: 2200 });
+  audio.cheby  = new Tone.Chebyshev({ order: Math.max(1, Math.round(V.chebyOrder)) });
+  audio.dist   = new Tone.Distortion({ distortion: V.distortion, wet: V.distortionWet });
+  audio.reverb = new Tone.Reverb({ decay: 2.0, wet: V.reverbWet });
+  audio.eq.chain(audio.cheby, audio.dist, audio.reverb, Tone.Destination);
 
   audio.guitar = new Tone.Sampler({
     urls: { A2: 'A2.mp3', C3: 'C3.mp3', A3: 'A3.mp3', C4: 'C4.mp3', A4: 'A4.mp3', C5: 'C5.mp3', A5: 'A5.mp3' },
     baseUrl: 'https://nbrosowsky.github.io/tonejs-instruments/samples/guitar-electric/',
     release: 1.5,
-  }).connect(dist);
-  audio.guitar.volume.value = -4;
+  }).connect(audio.eq);
+  audio.guitar.volume.value = V.guitarVol;
 
   audio.cineKick = new Tone.MembraneSynth({
     pitchDecay: 0.05, octaves: 6,
     envelope: { attack: 0.001, decay: 0.42, sustain: 0 },
   }).toDestination();
-  audio.cineKick.volume.value = -4;
+  audio.cineKick.volume.value = V.kickVol;
 
-  // Trill uses the same guitar sampler now (real plucks instead of a square wave)
-
-  // Jump-press WHOOSH — pink noise with a wide rising sweep. Bigger / louder / longer per Scott.
-  audio.whooshFilter = new Tone.Filter({ frequency: 180, type: 'bandpass', Q: 1.3 });   // lower Q = less pinched, more air
+  audio.whooshFilter = new Tone.Filter({ frequency: V.whooshFilterLo, type: 'bandpass', Q: V.whooshQ });
   audio.whoosh = new Tone.NoiseSynth({
     noise: { type: 'pink' },
-    envelope: { attack: 0.25, decay: 1.3, sustain: 0.15, release: 0.25 },               // longer tail
+    envelope: { attack: V.whooshAttack, decay: V.whooshDecay, sustain: V.whooshSustain, release: V.whooshRelease },
   });
   audio.whoosh.chain(audio.whooshFilter, Tone.Destination);
-  audio.whoosh.volume.value = -3;                                                        // noticeably louder
+  audio.whoosh.volume.value = V.whooshVol;
 
   // wait for the guitar samples to download before marking ready — otherwise the first beat's trill + chord are silent
   try { await Tone.loaded(); } catch (e) { /* best-effort */ }
@@ -487,33 +506,32 @@ function sfxTick() {
   // Jump press (T_LAUNCH): WHOOSH — long, loud, wide-sweeping noise rise
   if (!sfxFired.whoosh && beatT >= T_LAUNCH) {
     sfxFired.whoosh = true;
-    audio.whooshFilter.frequency.cancelScheduledValues(now);
-    audio.whooshFilter.frequency.setValueAtTime(160, now);
-    audio.whooshFilter.frequency.exponentialRampToValueAtTime(3600, now + 1.4);
-    audio.whoosh.triggerAttackRelease('1.6s', now);
+    audio.whooshFilter.frequency.cancelScheduledValues(0);
+    audio.whooshFilter.frequency.setValueAtTime(V.whooshFilterLo, now);
+    audio.whooshFilter.frequency.exponentialRampToValueAtTime(V.whooshFilterHi, now + V.whooshSweepT);
+    audio.whoosh.triggerAttackRelease(V.whooshDur + 's', now);
   }
-  // Apex of jump (T_APEX): trill C-B-[chord] — the chord lands AT the 3rd trill note timing,
-  // with C5 as the top of the chord so the 3rd note of the trill IS the top of the chord.
+  // Apex of jump (T_APEX): trill lead-in resolves INTO the sustained chord as the 3rd beat lands
   if (!sfxFired.trill && beatT >= T_APEX) {
     sfxFired.trill = true;
-    audio.guitar.triggerAttackRelease('C5', '8n', now);           // trill note 1
-    audio.guitar.triggerAttackRelease('B4', '8n', now + 0.15);    // trill note 2
-    audio.guitar.triggerAttackRelease(['A2', 'E3', 'A3', 'C4', 'E4', 'C5'], '3.0s', now + 0.30);  // chord LANDS as the 3rd note
+    const trillNotes = toNotes(V.trillNotes);
+    trillNotes.forEach((n, i) => audio.guitar.triggerAttackRelease(n, '8n', now + i * V.trillGap));
+    audio.guitar.triggerAttackRelease(toNotes(V.chordNotes), V.chordDur + 's', now + V.chordDelay);
   }
-  // Impact: kick accent only — the apex chord is still ringing, so landing is punctuation, not a new chord
+  // Impact: kick accent only — the apex chord is still ringing
   if (!sfxFired.impact && impactTGame >= 0) {
     sfxFired.impact = true;
-    audio.cineKick.triggerAttackRelease('C1', '0.5s', now);
+    audio.cineKick.triggerAttackRelease(V.kickNote, V.kickDur + 's', now);
   }
   if (!sfxFired.b2 && impactTGame >= LANDINGS[1]) {
     sfxFired.b2 = true;
-    audio.cineKick.triggerAttackRelease('G1', '0.18s', now);
-    audio.guitar.triggerAttackRelease('G4', '0.6s', now);                   // small riff accent on top of the ringing chord
+    audio.cineKick.triggerAttackRelease(V.b2KickNote, '0.18s', now);
+    audio.guitar.triggerAttackRelease(toNotes(V.b2GuitarNote), V.b2GuitarDur + 's', now);
   }
   if (!sfxFired.b3 && impactTGame >= LANDINGS[2]) {
     sfxFired.b3 = true;
-    audio.cineKick.triggerAttackRelease('C2', '0.22s', now);
-    audio.guitar.triggerAttackRelease(['A3', 'C4', 'E4'], '1.4s', now);     // resolve chord re-struck as the beat ends
+    audio.cineKick.triggerAttackRelease(V.b3KickNote, '0.22s', now);
+    audio.guitar.triggerAttackRelease(toNotes(V.b3Chord), V.b3ChordDur + 's', now);
   }
 }
 
