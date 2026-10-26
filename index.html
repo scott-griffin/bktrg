@@ -1678,6 +1678,9 @@ let powers = [], magnetT = 0, starT = 0, rocketT = 0, invulnT = 0, helmet = fals
 let gliding = false, glideH = 0;   // Night Glider: tap mid-air to glide, tap again (or duck) to drop
 let onTrain = null;                 // Golden Hopper: landed on a train — pinned to its roof until it leaves
 let camLiftK = 0;                   // 0..1, lerps to 1 while onTrain so the camera rises up and tilts down onto the roof
+// first-of-run roof-landing cinematic: side-profile camera orbit + slomo + guitar sting + bend-bounce-bend hero squash
+let cineUsed = false, cineActive = false, cineT = 0;
+const cineFired = { trill: false, chord: false, b2: false, b3: false };
 let recBuf = [], recT = 0;         // ghost recorder: [lane×10, y×10, flags, v×10] at 10Hz — a best score uploads it
 let watchGhost = null, watchT = 0; // watching someone's replay instead of playing
 let biome = 'field', biomeT = 0, level = 1;   // each biome is a level; speed resets (mostly) at each new one
@@ -1711,6 +1714,8 @@ function reset() {
   magnetT = 0; starT = 0; rocketT = 0; invulnT = 0; helmet = false; flyY = 0; shake = 0; powsThisRun = 0;
   gliding = false; glideH = 0;
   onTrain = null; camLiftK = 0;
+  cineUsed = false; cineActive = false; cineT = 0;
+  cineFired.trill = cineFired.chord = cineFired.b2 = cineFired.b3 = false;
   digging = false; digT = 0; digTrains = 0; digY = 0;
   recBuf = []; recT = 0;
   // start-screen level buttons set startLevel; ?level=N in the URL is the fallback (and the long-standing family test door)
@@ -1786,7 +1791,17 @@ function biomeBanner(text, subtext) {
 function update(dt) {
   elapsed += dt;
   speedSum += speedMult * dt;
-  const v = (watchGhost ? watchV() : speed()) * (onTrain ? 0.35 : 1);   // slomo while riding the roof: lets you actually watch the hop-across
+  // advance cinematic clock and schedule its layered sound events
+  if (cineActive) {
+    cineT += dt;
+    if (!cineFired.trill && cineT >= 0.4) { cineFired.trill = true; cineFireTrill(); }
+    if (!cineFired.chord && cineT >= 0.7) { cineFired.chord = true; cineFireChord(); }
+    if (!cineFired.b2    && cineT >= 1.3) { cineFired.b2    = true; cineFireB2(); }
+    if (!cineFired.b3    && cineT >= 1.8) { cineFired.b3    = true; cineFireB3(); }
+    if (cineT >= 2.5) cineActive = false;
+  }
+  const vMult = cineActive ? cineTimeScale(cineT) : (onTrain ? 0.35 : 1);
+  const v = (watchGhost ? watchV() : speed()) * vMult;   // cine's deeper slomo overrides onTrain's 0.35 for the one-shot moment
   const mult = starT > 0 ? 2 : 1;
   score += dt * 60 * (v / 13) * mult;
 
@@ -2024,6 +2039,16 @@ function update(dt) {
   else if (ducking) hero.group.scale.set(1.25, 0.5, 1.1);
   else if (gliding) hero.group.scale.set(1.1, 0.82, 1.05);
   else if (!onTrain && (jumpT >= 0 || rocketT > 0)) hero.group.scale.set(0.95, 1.12, 1);
+  else if (cineActive && onTrain && cineT > 0.9) {
+    // bend-bounce-bend on bounces 2 and 3 of the cinematic — knees deeply bent at each landing, extended at each apex
+    const bounceT = cineT - 0.9;              // seconds since first roof contact beat
+    const bounceLen = 0.5;                     // ~0.5s per bounce cycle
+    const bt = (bounceT % bounceLen) / bounceLen;
+    const sq = -Math.cos(bt * 2 * Math.PI);   // -1 at landing, +1 at apex, -1 at next landing
+    const yAmp  = sq > 0 ? sq * 0.18 : sq * 0.35;
+    const xzAmp = -yAmp * 0.55;
+    hero.group.scale.set(1 + xzAmp, 1 + yAmp, 1 + xzAmp);
+  }
   else hero.group.scale.set(1, 0.92 + 0.16 * hop, 1);
   hero.tail.rotation.y = Math.sin(phase * Math.PI * 2) * 0.5;
   hero.feet.forEach((f, i) => { f.position.y = f.userData.y0 + Math.max(0, Math.sin(phase * Math.PI * 4 + i * Math.PI)) * 0.12; });
@@ -2136,9 +2161,22 @@ function update(dt) {
   const targetFov = 60 + Math.min(14, Math.max(0, (v - 10) * 0.5)) + (rocketT > 0 ? 6 : 0);
   if (Math.abs(camera.fov - targetFov) > 0.2) { camera.fov += (targetFov - camera.fov) * Math.min(1, dt * 3); camera.updateProjectionMatrix(); }
   camLiftK += ((onTrain ? 1 : 0) - camLiftK) * Math.min(1, dt * 4);   // smooth rise/fall of the camera for the roof-ride beat
-  camera.position.x = LANE_X(displayLane) * 0.22 + curveX(0, elapsed) + (Math.random() - 0.5) * shake;
-  camera.position.y = 3.4 + camLiftK * 4.1 + (Math.random() - 0.5) * shake * 0.6;   // lift to ~7.5 while riding — hero is at roof peak y=3.75
-  camera.lookAt(camera.position.x * 0.4 + curveX(-18, elapsed) * 0.5, 1 + camLiftK * 2.5, -12);
+  if (cineActive) {
+    // orbit from chase cam (0°) to a ~85° side-profile over 0.5s, hold through the bounces, swing back last 0.5s
+    const kIn  = Math.min(1, cineT / 0.5);
+    const kOut = Math.max(0, (cineT - 2.0) / 0.5);
+    const swingK = kIn * (1 - Math.min(1, kOut));
+    const theta = swingK * (85 * Math.PI / 180);
+    const r = 7.5 + swingK * 2.5;
+    const h = 3.4 + swingK * 1.1;
+    camera.position.set(Math.sin(theta) * r, h, Math.cos(theta) * r);
+    const heroY = hero.group.position.y;
+    camera.lookAt(swingK * 0, (1 - swingK) * 1 + swingK * (heroY - 0.3), (1 - swingK) * -12);
+  } else {
+    camera.position.x = LANE_X(displayLane) * 0.22 + curveX(0, elapsed) + (Math.random() - 0.5) * shake;
+    camera.position.y = 3.4 + camLiftK * 4.1 + (Math.random() - 0.5) * shake * 0.6;   // lift to ~7.5 while riding — hero is at roof peak y=3.75
+    camera.lookAt(camera.position.x * 0.4 + curveX(-18, elapsed) * 0.5, 1 + camLiftK * 2.5, -12);
+  }
 
   if (!watchGhost) {
     document.getElementById('cheeseCt').textContent = cheese;
@@ -2701,6 +2739,73 @@ function drumSeq(d, kit, pattern, sub) {
 }
 const sub12 = n => Tone.Frequency(n).transpose(-12);
 
+// ---------- cinematic beat sound (THRASH profile from /kangaroo-cinematic.html) ----------
+// Fires once per run when the Golden Hopper lands on his first train. Guitar sampler + EQ + Chebyshev
+// + distortion + reverb chain for a mid-scooped high-gain tone. Loaded lazily on first trigger.
+let cineAudio = null;
+function initCineAudio() {
+  if (cineAudio || typeof Tone === 'undefined') return;
+  try {
+    const eq = new Tone.EQ3({ low: 2, mid: -10, high: 3, lowFrequency: 300, highFrequency: 2200 });
+    const cheby = new Tone.Chebyshev({ order: 25 });
+    const dist = new Tone.Distortion({ distortion: 0.9, wet: 1.0 });
+    const reverb = new Tone.Reverb({ decay: 1.8, wet: 0.3 });
+    eq.chain(cheby, dist, reverb, Tone.getDestination());
+    const guitar = new Tone.Sampler({
+      urls: { A2:'A2.mp3', C3:'C3.mp3', A3:'A3.mp3', C4:'C4.mp3', A4:'A4.mp3', C5:'C5.mp3', A5:'A5.mp3' },
+      baseUrl: 'https://nbrosowsky.github.io/tonejs-instruments/samples/guitar-electric/',
+      release: 1.5,
+    }).connect(eq);
+    guitar.volume.value = -2;
+    const kick = new Tone.MembraneSynth({ pitchDecay: 0.08, octaves: 8, envelope: { attack: 0.001, decay: 0.5, sustain: 0 } }).toDestination();
+    kick.volume.value = 0;
+    const whooshNoise = new Tone.NoiseSynth({ noise: { type: 'pink' }, envelope: { attack: 0.2, decay: 1.2, sustain: 0.2, release: 0.3 } });
+    const whooshFilter = new Tone.Filter({ frequency: 200, type: 'bandpass', Q: 2.5 });
+    const whooshDist = new Tone.Distortion({ distortion: 0.6, wet: 0.4 });
+    whooshNoise.chain(whooshFilter, whooshDist, reverb);
+    whooshNoise.volume.value = -2;
+    cineAudio = { guitar, kick, whoosh: whooshNoise, whooshFilter };
+  } catch (e) { showErr('cine audio: ' + e.message); }
+}
+function cineFireWhoosh() {
+  if (!cineAudio) return;
+  const now = Tone.now();
+  cineAudio.whooshFilter.frequency.cancelScheduledValues(0);
+  cineAudio.whooshFilter.frequency.setValueAtTime(140, now);
+  cineAudio.whooshFilter.frequency.exponentialRampToValueAtTime(4000, now + 1.1);
+  cineAudio.whoosh.triggerAttackRelease('1.4s', now);
+}
+function cineFireTrill() {
+  if (!cineAudio) return;
+  const now = Tone.now();
+  ['C5','B4','C5','B4'].forEach((n, i) => cineAudio.guitar.triggerAttackRelease(n, '16n', now + i * 0.08));
+}
+function cineFireChord() {
+  if (!cineAudio) return;
+  const now = Tone.now();
+  cineAudio.guitar.triggerAttackRelease(['A1','A2','E3','A3','E4','A4'], '3.5s', now);
+  cineAudio.kick.triggerAttackRelease('C1', '0.6s', now);
+}
+function cineFireB2() {
+  if (!cineAudio) return;
+  const now = Tone.now();
+  cineAudio.guitar.triggerAttackRelease(['A3','E4','A4'], '0.5s', now);
+  cineAudio.kick.triggerAttackRelease('G1', '0.3s', now);
+}
+function cineFireB3() {
+  if (!cineAudio) return;
+  const now = Tone.now();
+  cineAudio.guitar.triggerAttackRelease(['E4','A4','C5'], '1.2s', now);
+  cineAudio.kick.triggerAttackRelease('C2', '0.3s', now);
+}
+// slomo curve for the cinematic beat (t in real seconds since jump press)
+function cineTimeScale(t) {
+  if (t < 0.5) return 1.0 + (0.4 - 1.0) * (t / 0.5);        // ease into slomo over 0.5s
+  if (t < 2.0) return 0.4;                                    // held during descent + bounces
+  if (t < 2.5) return 0.4 + (1.0 - 0.4) * ((t - 2.0) / 0.5); // ease back out
+  return 1.0;
+}
+
 // one sampled grand piano (Salamander), shared across styles and loaded once on first use — never disposed with a style's parts
 let pianoSampler = null;
 function getPiano() {
@@ -3075,6 +3180,7 @@ renderTop();   // on load, so a player whose flag was set for them sees it in se
 function act(dir) {
   if (watchGhost) { exitWatch(); return; }   // any move ends the replay
   if (!playing || paused) return;
+  if (cineActive) return;                     // input blocked during the first-roof-landing cinematic
   if (dir === 'left' && lane > 0) { lane--; sfx.lane(); }
   if (dir === 'right' && lane < 2) { lane++; sfx.lane(); }
   if (dir === 'up') {
@@ -3084,7 +3190,25 @@ function act(dir) {
       glideH = Math.max(Math.sin(Math.PI * jumpT / JUMP_DUR) * 2.0, 1.2);
       jumpT = -1; sfx.glide();
     }
-    else if (jumpT < 0) { jumpT = 0; duckT = -1; sfx.jump(); }
+    else if (jumpT < 0) {
+      jumpT = 0; duckT = -1;
+      // first-of-run Golden Hopper roof-landing cinematic: fires when jumping toward a train in the current lane
+      if (!cineUsed && charKey === 'kangaroo') {
+        const landableTrain = obstacles.find(o =>
+          o.type === 'train' && o.lane === lane &&
+          o.mesh.position.z >= -speed() * KANG_JUMP_DUR * 1.1 &&
+          o.mesh.position.z <= 2
+        );
+        if (landableTrain) {
+          cineUsed = true; cineActive = true; cineT = 0;
+          cineFired.trill = cineFired.chord = cineFired.b2 = cineFired.b3 = false;
+          initCineAudio();
+          cineFireWhoosh();
+          return;   // skip the plain jump sfx — the whoosh takes over
+        }
+      }
+      sfx.jump();
+    }
   }
   if (dir === 'down') {
     if (charKey === 'echidna') {
