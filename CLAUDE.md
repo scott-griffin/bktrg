@@ -46,6 +46,10 @@ Key mechanics: 3 lanes; jump/duck; duck-squeeze under trains (hold until passed)
 - Audio/music/samples come from CDNs (jsDelivr Three/Tone, tonejs.github.io piano). The game must keep degrading gracefully (silent but playable) when they're unreachable — guard with `typeof Tone === 'undefined'`, `loadedOrTimeout()`.
 - Keyboard handler must ignore `e.target.tagName === 'INPUT'`, and the window touch handler must ignore taps inside panels (see the `closest(...)` guard) — new overlays must be added to that guard.
 
+## Tried and rejected (don't rebuild unless the premise changes)
+
+- **Anthill vertical up/down (2026-10-26).** Prototype at `/anthill.html` (deleted) layered a traveling-sine `heightY(z, t)` onto the curves work: tie rows pitched along the tangent, hero + camera rode the hills, the continuous rail BoxGeometry got per-vertex Y shifts, and the ground plane was subdivided into 80 strips with each vertex's Y driven by `heightY`. Mechanically it all worked — hero stayed on top of the ground, rails/ties/ground rose and fell together, no z-fighting. Scott scrapped it anyway because it didn't *render* well: the undulating ground + rails + close anthill fog produced a flat, undercooked look rather than a tunnel-ride feel. The fundamental issue is probably that the anthill's dense fog (near=18, far=60) cuts off the far hill crests, so the eye never sees a full "crest the hill, see the valley" beat — just the near-field warping. If you revisit this: the fix isn't more amplitude or a different wave; it's probably widening the anthill fog, OR committing to a true tube-geometry tunnel the camera flies through, OR giving up on vertical and shipping a different "inside" feel (spiral, chambers, forks). The curve work in `index.html` (`curveX`, continuous rail BoxGeometry, tangent-rotated tie rows) is the shipped good — keep it, don't let an anthill retry destabilize it.
+
 ## Who works where
 
 - **Grifflow server session**: primary development + hosts the API and its data.
