@@ -664,9 +664,13 @@ scene.add(uluru);
 // kangaroos hop alongside in the outback
 const kangas = [];
 for (let i = 0; i < 3; i++) {
+  const onRight = i % 2 === 1;
   const k = emojiSprite('🦘', 1.6);
+  // 🦘 glyph points one direction; mirror right-side sprites so both sides face outward
+  // instead of one side's kangaroos reading as hopping backward.
+  if (onRight) { k.material.map.repeat.x = -1; k.material.map.offset.x = 1; k.material.map.needsUpdate = true; }
   k.userData.o = i * 2.1;
-  k.position.set(i % 2 ? 6.8 : -6.8, 0.8, -12 - i * 22);
+  k.position.set(onRight ? 6.8 : -6.8, 0.8, -12 - i * 22);
   k.visible = false;
   scene.add(k); kangas.push(k);
 }
