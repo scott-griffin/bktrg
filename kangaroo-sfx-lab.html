@@ -58,8 +58,17 @@
     }
     .param-label { color: #aaa; text-align: left; font-family: ui-monospace, monospace; }
     .param input[type="range"] { width: 100%; accent-color: #ffcc00; }
+    .param input[type="text"] {
+      grid-column: 2 / span 3;
+      background: #0a0a12; color: #ffcc00; border: 1px solid #333;
+      border-radius: 4px; padding: 5px 8px;
+      font-family: ui-monospace, monospace; font-size: 12px; letter-spacing: 1px;
+    }
+    .param input[type="text"]:focus { outline: none; border-color: #ffcc00; }
     .param-val { color: #80c8ff; text-align: right; font-family: ui-monospace, monospace; font-size: 11px; }
     .param-unit { color: #666; text-align: left; font-size: 10px; }
+    .presets { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-bottom: 10px; }
+    .presets button { padding: 8px 14px; font-size: 11px; min-width: 90px; }
 
     .hint { color: #666; font-size: 11px; letter-spacing: 1px; margin: 20px 0 10px; }
     a { color: #666; font-size: 12px; letter-spacing: 2px; text-decoration: none; display: inline-block; margin-top: 10px; }
@@ -103,6 +112,16 @@
   </div>
 
   <div class="section">
+    <div class="section-title">Guitar tone presets</div>
+    <div class="presets">
+      <button data-preset="clean">CLEAN</button>
+      <button data-preset="crunch">CRUNCH</button>
+      <button data-preset="power">POWER</button>
+      <button data-preset="metal">METAL</button>
+    </div>
+  </div>
+
+  <div class="section">
     <div class="section-title">Live parameters</div>
     <div class="params" id="params"></div>
   </div>
@@ -116,21 +135,22 @@ const toast = document.getElementById('toast');
 const statusEl = document.getElementById('status');
 addEventListener('error', e => { toast.textContent = '⚠ ' + e.message; toast.style.display = 'block'; });
 
-// ------- DEFAULT PARAMETER VALUES (sliders write back into V live) -------
+// ------- DEFAULT PARAMETER VALUES (sliders write back into V live; persisted to localStorage) -------
+// These defaults are Scott's hand-tuned settings as of 2026-10-26.
 const DEFAULT_V = {
   // whoosh
-  whooshVol: -3, whooshDur: 1.6, whooshFilterLo: 160, whooshFilterHi: 3600,
-  whooshSweepT: 1.4, whooshQ: 1.3,
+  whooshVol: 6, whooshDur: 1.3, whooshFilterLo: 140, whooshFilterHi: 3100,
+  whooshSweepT: 1.45, whooshQ: 1.3,
   whooshAttack: 0.25, whooshDecay: 1.3, whooshSustain: 0.15, whooshRelease: 0.25,
-  // trill (lead-in — 3rd note is replaced by the chord landing)
-  trillGap: 0.15,
+  // trill lead-in (3rd note replaced by the chord)
+  trillGap: 0.08,
   // chord
-  chordDelay: 0.30, chordDur: 3.0,
-  // chord notes stored as a comma string (so the slider UI stays simple; parsed on trigger)
+  chordDelay: 0.24, chordDur: 3.0,
   chordNotes: 'A2,E3,A3,C4,E4,C5',
-  trillNotes: 'C5,B4',   // lead-in only
-  // guitar tone
+  trillNotes: 'C5,B4',
+  // guitar tone — Chebyshev + Distortion + EQ3 mid-scoop chain for the "power guitar" sound
   distortion: 0.35, distortionWet: 0.5, reverbWet: 0.22,
+  chebyOrder: 1, eqMidCut: 0,
   guitarVol: -4, kickVol: -4,
   // bounces
   b2KickNote: 'G1', b2GuitarNote: 'G4', b2GuitarDur: 0.6,
@@ -138,11 +158,19 @@ const DEFAULT_V = {
   // kick on landing
   kickNote: 'C1', kickDur: 0.5,
   // full-sequence timing (seconds between events in real time)
-  tLaunch: 0, tApex: 1.2, tLand: 3.0, tB2: 4.2, tB3: 5.2,
+  tLaunch: 0, tApex: 1.5, tLand: 2.5, tB2: 3.5, tB3: 4.5,
   // funk vamp
   funkBpm: 98,
 };
-const V = { ...DEFAULT_V };
+const LS_KEY = 'kangarooSfxLabV1';
+let V;
+try {
+  const saved = JSON.parse(localStorage.getItem(LS_KEY) || '{}');
+  V = { ...DEFAULT_V, ...saved };
+} catch (e) { V = { ...DEFAULT_V }; }
+function persistV() {
+  try { localStorage.setItem(LS_KEY, JSON.stringify(V)); } catch (e) {}
+}
 
 // ------- SLIDER DESCRIPTORS -------
 const PARAMS = [
@@ -160,9 +188,19 @@ const PARAMS = [
   // guitar tone
   { group: 'Guitar tone', key: 'distortion',    label: 'Distortion', min: 0, max: 1, step: 0.01, apply: v => audio.dist && (audio.dist.distortion = v) },
   { group: 'Guitar tone', key: 'distortionWet', label: 'Dist wet',   min: 0, max: 1, step: 0.01, apply: v => audio.dist && (audio.dist.wet.value   = v) },
+  { group: 'Guitar tone', key: 'chebyOrder',    label: 'Chebyshev',  min: 1, max: 50, step: 1,   apply: v => audio.cheby && (audio.cheby.order = Math.max(1, Math.round(v))) },
+  { group: 'Guitar tone', key: 'eqMidCut',      label: 'EQ mid cut', min: -14, max: 6, step: 0.5, unit: 'dB', apply: v => audio.eq && (audio.eq.mid.value = v) },
   { group: 'Guitar tone', key: 'reverbWet',     label: 'Reverb wet', min: 0, max: 1, step: 0.01, apply: v => audio.reverb && (audio.reverb.wet.value = v) },
   { group: 'Guitar tone', key: 'guitarVol',     label: 'Guitar vol', min: -24, max: 6, step: 0.5, unit: 'dB', apply: v => audio.guitar && (audio.guitar.volume.value = v) },
   { group: 'Guitar tone', key: 'kickVol',       label: 'Kick vol',   min: -24, max: 6, step: 0.5, unit: 'dB', apply: v => audio.cineKick && (audio.cineKick.volume.value = v) },
+  // notes — text inputs (comma-separated for chords)
+  { group: 'Notes', key: 'trillNotes', label: 'Trill',       type: 'notes' },
+  { group: 'Notes', key: 'chordNotes', label: 'Chord',       type: 'notes' },
+  { group: 'Notes', key: 'b2GuitarNote', label: 'Bounce 2',  type: 'notes' },
+  { group: 'Notes', key: 'b3Chord',    label: 'Bounce 3',    type: 'notes' },
+  { group: 'Notes', key: 'kickNote',   label: 'Land kick',   type: 'notes' },
+  { group: 'Notes', key: 'b2KickNote', label: 'Bounce 2 kick', type: 'notes' },
+  { group: 'Notes', key: 'b3KickNote', label: 'Bounce 3 kick', type: 'notes' },
   // bounces
   { group: 'Bounces', key: 'b2GuitarDur', label: 'Bounce 2 dur', min: 0.1, max: 3.0, step: 0.05, unit: 's' },
   { group: 'Bounces', key: 'b3ChordDur',  label: 'Bounce 3 dur', min: 0.3, max: 4.0, step: 0.1,  unit: 's' },
@@ -187,21 +225,32 @@ function buildSliders() {
       const row = document.createElement('div');
       row.className = 'param';
       const id = 'p_' + p.key;
-      row.innerHTML = `
-        <label class="param-label" for="${id}">${p.label}</label>
-        <input type="range" id="${id}" min="${p.min}" max="${p.max}" step="${p.step}" value="${V[p.key]}">
-        <span class="param-val" id="${id}_v">${V[p.key]}</span>
-        <span class="param-unit">${p.unit || ''}</span>
-      `;
-      g.appendChild(row);
-      const input = row.querySelector('input');
-      const val   = row.querySelector('.param-val');
-      input.addEventListener('input', () => {
-        const n = parseFloat(input.value);
-        V[p.key] = n;
-        val.textContent = n.toFixed(p.step < 0.1 ? 2 : (p.step < 1 ? 1 : 0));
-        if (p.apply) p.apply(n);
-      });
+      if (p.type === 'notes') {
+        row.innerHTML = `
+          <label class="param-label" for="${id}">${p.label}</label>
+          <input type="text" id="${id}" value="${V[p.key]}" spellcheck="false" autocapitalize="characters">
+        `;
+        g.appendChild(row);
+        const input = row.querySelector('input');
+        input.addEventListener('input', () => { V[p.key] = input.value.trim(); persistV(); });
+      } else {
+        row.innerHTML = `
+          <label class="param-label" for="${id}">${p.label}</label>
+          <input type="range" id="${id}" min="${p.min}" max="${p.max}" step="${p.step}" value="${V[p.key]}">
+          <span class="param-val" id="${id}_v">${V[p.key]}</span>
+          <span class="param-unit">${p.unit || ''}</span>
+        `;
+        g.appendChild(row);
+        const input = row.querySelector('input');
+        const val   = row.querySelector('.param-val');
+        input.addEventListener('input', () => {
+          const n = parseFloat(input.value);
+          V[p.key] = n;
+          val.textContent = n.toFixed(p.step < 0.1 ? 2 : (p.step < 1 ? 1 : 0));
+          if (p.apply) p.apply(n);
+          persistV();
+        });
+      }
     }
     container.appendChild(g);
   }
@@ -210,12 +259,42 @@ function resetParams() {
   Object.assign(V, DEFAULT_V);
   for (const p of PARAMS) {
     const input = document.getElementById('p_' + p.key);
-    const val   = document.getElementById('p_' + p.key + '_v');
     if (!input) continue;
     input.value = V[p.key];
-    val.textContent = V[p.key];
+    const val = document.getElementById('p_' + p.key + '_v');
+    if (val) val.textContent = V[p.key];
     if (p.apply) p.apply(V[p.key]);
   }
+  persistV();
+}
+
+// -------- GUITAR PRESETS --------
+const PRESETS = {
+  clean:  { distortion: 0.05, distortionWet: 0.2, chebyOrder: 1,  eqMidCut: 0,   reverbWet: 0.18 },
+  crunch: { distortion: 0.35, distortionWet: 0.5, chebyOrder: 1,  eqMidCut: 0,   reverbWet: 0.22 },
+  power:  { distortion: 0.70, distortionWet: 0.9, chebyOrder: 10, eqMidCut: -6,  reverbWet: 0.25 },
+  metal:  { distortion: 0.85, distortionWet: 1.0, chebyOrder: 30, eqMidCut: -10, reverbWet: 0.3  },
+};
+function applyPreset(name) {
+  const p = PRESETS[name]; if (!p) return;
+  Object.assign(V, p);
+  for (const key of Object.keys(p)) {
+    const input = document.getElementById('p_' + key);
+    if (input) input.value = V[key];
+    const val = document.getElementById('p_' + key + '_v');
+    if (val) val.textContent = V[key];
+    const descr = PARAMS.find(x => x.key === key);
+    if (descr && descr.apply) descr.apply(V[key]);
+  }
+  persistV();
+}
+for (const b of document.querySelectorAll('button[data-preset]')) {
+  b.onclick = async (e) => {
+    e.stopPropagation();
+    if (!audio.ready) { await initAudio(); if (!audio.ready) return; }
+    applyPreset(b.dataset.preset);
+    b.classList.add('active'); setTimeout(() => b.classList.remove('active'), 200);
+  };
 }
 buildSliders();
 
@@ -295,15 +374,18 @@ async function initAudio() {
 
   audio.funkParts = buildFunkRat();
 
+  // Guitar FX chain: EQ3 (mid scoop) → Chebyshev (harmonic bite) → Distortion → Reverb → Destination
+  audio.eq     = new Tone.EQ3({ low: 0, mid: V.eqMidCut, high: 0, lowFrequency: 300, highFrequency: 2200 });
+  audio.cheby  = new Tone.Chebyshev({ order: Math.max(1, Math.round(V.chebyOrder)) });
   audio.dist   = new Tone.Distortion({ distortion: V.distortion, wet: V.distortionWet });
   audio.reverb = new Tone.Reverb({ decay: 2.0, wet: V.reverbWet });
-  audio.dist.chain(audio.reverb, Tone.Destination);
+  audio.eq.chain(audio.cheby, audio.dist, audio.reverb, Tone.Destination);
 
   audio.guitar = new Tone.Sampler({
     urls: { A2: 'A2.mp3', C3: 'C3.mp3', A3: 'A3.mp3', C4: 'C4.mp3', A4: 'A4.mp3', C5: 'C5.mp3', A5: 'A5.mp3' },
     baseUrl: 'https://nbrosowsky.github.io/tonejs-instruments/samples/guitar-electric/',
     release: 1.5,
-  }).connect(audio.dist);
+  }).connect(audio.eq);
   audio.guitar.volume.value = V.guitarVol;
 
   audio.cineKick = new Tone.MembraneSynth({
@@ -333,7 +415,7 @@ const toNotes = s => s.split(',').map(n => n.trim()).filter(Boolean);
 const sfx = {
   whoosh() {
     const now = Tone.now();
-    audio.whooshFilter.frequency.cancelScheduledValues(now);
+    audio.whooshFilter.frequency.cancelScheduledValues(0);
     audio.whooshFilter.frequency.setValueAtTime(V.whooshFilterLo, now);
     audio.whooshFilter.frequency.exponentialRampToValueAtTime(V.whooshFilterHi, now + V.whooshSweepT);
     audio.whoosh.triggerAttackRelease(V.whooshDur + 's', now);
@@ -358,7 +440,7 @@ const sfx = {
   b2() {
     const now = Tone.now();
     audio.cineKick.triggerAttackRelease(V.b2KickNote, '0.18s', now);
-    audio.guitar.triggerAttackRelease(V.b2GuitarNote, V.b2GuitarDur + 's', now);
+    audio.guitar.triggerAttackRelease(toNotes(V.b2GuitarNote), V.b2GuitarDur + 's', now);
   },
   b3() {
     const now = Tone.now();
@@ -367,7 +449,7 @@ const sfx = {
   },
   full() {
     const t0 = Tone.now();
-    audio.whooshFilter.frequency.cancelScheduledValues(t0 + V.tLaunch);
+    audio.whooshFilter.frequency.cancelScheduledValues(0);
     audio.whooshFilter.frequency.setValueAtTime(V.whooshFilterLo, t0 + V.tLaunch);
     audio.whooshFilter.frequency.exponentialRampToValueAtTime(V.whooshFilterHi, t0 + V.tLaunch + V.whooshSweepT);
     audio.whoosh.triggerAttackRelease(V.whooshDur + 's', t0 + V.tLaunch);
