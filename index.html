@@ -269,7 +269,7 @@
       <button class="charBtn" data-char="echidna">🦔<span>Rainbow Spike</span></button>
       <button class="charBtn" data-char="kangaroo">🦘<span>Golden Hopper</span></button>
     </div>
-    <div style="margin:4px 0 6px;">
+    <div id="levelPickerWrap" style="margin:4px 0 6px; display:none;">
       <div style="color:#888; font-size:11px; letter-spacing:2px; margin-bottom:4px;">START ON LEVEL</div>
       <div id="levelPicker" style="display:flex; gap:6px; justify-content:center; flex-wrap:wrap;">
         <button class="lvlBtn sel" data-level="1">1<span>🌾</span></button>
@@ -1645,6 +1645,7 @@ let camLiftK = 0;                   // 0..1, lerps to 1 while onTrain so the cam
 let recBuf = [], recT = 0;         // ghost recorder: [lane×10, y×10, flags, v×10] at 10Hz — a best score uploads it
 let watchGhost = null, watchT = 0; // watching someone's replay instead of playing
 let biome = 'field', biomeT = 0, level = 1;   // each biome is a level; speed resets (mostly) at each new one
+let startLevel = null;   // start-screen level buttons set this; declared early because applyNameFields reads it during module init
 let digging = false, digT = 0, digTrains = 0, digY = 0;   // Rainbow Spike: swipe down to dig — tunnels under up to two trains in a row
 function powHud() {
   document.getElementById('powIcons').textContent =
@@ -2230,6 +2231,7 @@ function applyNameFields() {
   document.getElementById('hudName').textContent = ratName;
   startName.value = ratName; setNameInput.value = ratName;
   if (typeof refreshWhoAmI === 'function') refreshWhoAmI();
+  if (typeof updateLevelPickerVisibility === 'function') updateLevelPickerVisibility();
 }
 function setName(n) {
   const prev = ratName;
@@ -3044,7 +3046,6 @@ document.addEventListener('visibilitychange', () => {
 document.querySelectorAll('.charBtn').forEach(b => b.addEventListener('click', () => { setChar(b.dataset.char); sfx.lane(); }));
 
 // start-screen level-jump buttons: pick a biome to begin in; URL ?level=N pre-selects the matching tile
-let startLevel = null;
 const _urlLvl = parseInt(new URLSearchParams(location.search).get('level') || '', 10);
 if (_urlLvl >= 1) {
   startLevel = _urlLvl;
@@ -3055,6 +3056,21 @@ document.querySelectorAll('.lvlBtn').forEach(b => b.addEventListener('click', ()
   document.querySelectorAll('.lvlBtn').forEach(x => x.classList.toggle('sel', x === b));
   sfx.lane();
 }));
+
+// level picker is a dev door for Scott only — show it when the saved or typed name is "scott" (case-insensitive)
+function updateLevelPickerVisibility() {
+  const typed = (startName && startName.value || '').trim().toLowerCase();
+  const saved = (ratName || '').trim().toLowerCase();
+  const show = typed === 'scott' || saved === 'scott';
+  const wrap = document.getElementById('levelPickerWrap');
+  if (wrap) wrap.style.display = show ? '' : 'none';
+  if (!show) {
+    startLevel = null;
+    document.querySelectorAll('.lvlBtn').forEach(x => x.classList.toggle('sel', x.dataset.level === '1'));
+  }
+}
+startName.addEventListener('input', updateLevelPickerVisibility);
+updateLevelPickerVisibility();
 setChar(charKey);
 
 // idle scene behind the start screen
