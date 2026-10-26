@@ -496,8 +496,13 @@ unlockAudio();
 addEventListener('click',      () => { if (!audio.ready) unlockAudio(); }, { capture: true });
 addEventListener('touchstart', () => { if (!audio.ready) unlockAudio(); }, { capture: true, passive: true });
 
-const sfxFired = { whoosh: false, trill: false, impact: false, b2: false, b3: false };
+const sfxFired = { whoosh: false, trillChord: false, impact: false, b2: false, b3: false };
 function resetSfx() { for (const k in sfxFired) sfxFired[k] = false; }
+
+// The trill → chord phrase takes V.chordDelay REAL seconds. Near landing the slomo is at its minimum
+// (0.15x — see timeScalePROPOSED), so V.chordDelay REAL seconds = V.chordDelay * 0.15 GAME seconds.
+// Fire the phrase that far before T_LAND so the chord's attack lands exactly at the visual landing.
+const MIN_TIMESCALE_AT_LANDING = 0.15;
 
 function sfxTick() {
   if (!audio.on || !audio.ready || variant !== 1) return;
@@ -511,17 +516,19 @@ function sfxTick() {
     audio.whooshFilter.frequency.exponentialRampToValueAtTime(V.whooshFilterHi, now + V.whooshSweepT);
     audio.whoosh.triggerAttackRelease(V.whooshDur + 's', now);
   }
-  // Apex of jump (T_APEX): trill lead-in notes only (they ring through the descent via the sampler's release)
-  if (!sfxFired.trill && beatT >= T_APEX) {
-    sfxFired.trill = true;
+  // Trill → chord fires as ONE phrase (same as the lab's TRILL → CHORD button). We fire the trill
+  // early enough that the chord lands exactly at the visual roof landing.
+  const leadInGameOffset = V.chordDelay * MIN_TIMESCALE_AT_LANDING;
+  if (!sfxFired.trillChord && beatT >= T_LAND - leadInGameOffset) {
+    sfxFired.trillChord = true;
     const trillNotes = toNotes(V.trillNotes);
     trillNotes.forEach((n, i) => audio.guitar.triggerAttackRelease(n, '8n', now + i * V.trillGap));
+    audio.guitar.triggerAttackRelease(toNotes(V.chordNotes), V.chordDur + 's', now + V.chordDelay);
   }
-  // First visual landing (impactTGame >= 0): the big chord slams AT the feet-on-roof moment, kick on top
+  // Kick accent at the same visual landing (chord is slamming from the scheduled trill→chord above)
   if (!sfxFired.impact && impactTGame >= 0) {
     sfxFired.impact = true;
     audio.cineKick.triggerAttackRelease(V.kickNote, V.kickDur + 's', now);
-    audio.guitar.triggerAttackRelease(toNotes(V.chordNotes), V.chordDur + 's', now);
   }
   if (!sfxFired.b2 && impactTGame >= LANDINGS[1]) {
     sfxFired.b2 = true;
