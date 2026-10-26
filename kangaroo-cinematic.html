@@ -93,7 +93,7 @@
 
   <div class="descs" id="descs">
     <div class="desc" data-v="0"><h3>CURRENT</h3><p>What the game does today — the world slows to about ⅓ speed and the camera lifts up to look down at the roof.</p></div>
-    <div class="desc on" data-v="1"><h3>PROPOSED</h3><p>Camera starts a slow, seamless swing to a near-side profile well before the kangaroo jumps — you see the arc from the side in slow motion, knees tucked at apex, feet extending for the landing. Impact on the roof is deepest slow-mo (0.15×). Then speed ramps back up through two more bounces, and the camera swings quickly back to the regular chase view before the train slides past. Sound is on by default — the Funky Rat vamp plays underneath (same as the game's funk style). A whoosh fires when the kangaroo jumps; a fast C-B-C trill lands at the peak of the arc; the roof landing hits with a kick + distorted power chord in A; two more guitar stabs on the second and third bounces. CURRENT plays just the funk — no stings — for comparison. (If your browser blocks autoplay, tap anywhere once to unlock.)</p></div>
+    <div class="desc on" data-v="1"><h3>PROPOSED</h3><p>Camera starts a slow, seamless swing to a near-side profile well before the kangaroo jumps — you see the arc from the side in slow motion, knees tucked at apex, feet extending for the landing. Impact on the roof is deepest slow-mo (0.15×). Then speed ramps back up through two more bounces, and the camera swings quickly back to the regular chase view before the train slides past. Sound is on by default — the Funky Rat vamp plays underneath (same as the game's funk style). A whoosh fires when the kangaroo jumps; at the peak of the arc, a slow C-B-C trill resolves into a big sustained A chord that rings through the descent, the landing (just a kick accent — the chord is already there), and into the bounces; a small riff lands on bounce 2, and bounce 3 strikes a resolve chord. CURRENT plays just the funk — no stings — for comparison. (If your browser blocks autoplay, tap anywhere once to unlock.)</p></div>
   </div>
 
   <p class="pick">A good fit, or still off?</p>
@@ -494,30 +494,30 @@ function sfxTick() {
     audio.whooshFilter.frequency.exponentialRampToValueAtTime(3600, now + 1.4);
     audio.whoosh.triggerAttackRelease('1.6s', now);
   }
-  // Apex of jump (T_APEX): slow C-B-C trill (mordent) — 150ms between notes, final note held
+  // Apex of jump (T_APEX): trill C-B-C that resolves INTO a big sustained power chord
+  // The chord slams in right after the last trill note and rings through the descent + landing + bounces.
   if (!sfxFired.trill && beatT >= T_APEX) {
     sfxFired.trill = true;
-    audio.trill.triggerAttackRelease('C5', '8n',  now);
-    audio.trill.triggerAttackRelease('B4', '8n',  now + 0.18);
-    audio.trill.triggerAttackRelease('C5', '4n',  now + 0.36);
+    audio.trill.triggerAttackRelease('C5', '8n', now);
+    audio.trill.triggerAttackRelease('B4', '8n', now + 0.15);
+    audio.trill.triggerAttackRelease('C5', '16n', now + 0.30);
+    // sustained chord — A add-C voicing so the C4 catches the last trill note
+    audio.guitar.triggerAttackRelease(['A2', 'E3', 'A3', 'C4', 'E4'], '3.0s', now + 0.42);
   }
-  // Impact: BIG kick + sustained distorted power chord
+  // Impact: kick accent only — the apex chord is still ringing, so landing is punctuation, not a new chord
   if (!sfxFired.impact && impactTGame >= 0) {
     sfxFired.impact = true;
-    audio.cineKick.triggerAttackRelease('C1', '0.4s', now);
-    audio.guitar.triggerAttackRelease(['A2', 'E3', 'A3'], '1.6s', now);     // held through the bounces
-    audio.guitar.triggerAttackRelease('C4', '0.4s', now + 0.3);
-    audio.guitar.triggerAttackRelease('E4', '0.5s', now + 0.5);
+    audio.cineKick.triggerAttackRelease('C1', '0.5s', now);
   }
   if (!sfxFired.b2 && impactTGame >= LANDINGS[1]) {
     sfxFired.b2 = true;
     audio.cineKick.triggerAttackRelease('G1', '0.18s', now);
-    audio.guitar.triggerAttackRelease('G4', '0.7s', now);                   // held longer
+    audio.guitar.triggerAttackRelease('G4', '0.6s', now);                   // small riff accent on top of the ringing chord
   }
   if (!sfxFired.b3 && impactTGame >= LANDINGS[2]) {
     sfxFired.b3 = true;
     audio.cineKick.triggerAttackRelease('C2', '0.22s', now);
-    audio.guitar.triggerAttackRelease(['A3', 'C4', 'E4'], '1.4s', now);     // resolve chord rings out
+    audio.guitar.triggerAttackRelease(['A3', 'C4', 'E4'], '1.4s', now);     // resolve chord re-struck as the beat ends
   }
 }
 
