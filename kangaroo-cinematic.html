@@ -746,6 +746,21 @@ function kneeTuck(flyT) {
   return lerp(0.55, 0, (flyT - 0.5) / 0.5);
 }
 
+// Bend–bounce–bend squash for bounces 2 and 3 (Scott's visual ask):
+// -1 at landing (knees deeply bent, body squished), +1 at apex (legs extended), -1 again at next landing.
+// Returns 0 outside bounces 2 and 3 so bounce 1 keeps its existing short impact squash.
+function roofBounceSquash(iT) {
+  if (iT < LANDINGS[1] || iT >= LANDINGS[3]) return 0;
+  for (let i = 1; i <= 2; i++) {
+    const start = LANDINGS[i], end = LANDINGS[i + 1];
+    if (iT >= start && iT < end) {
+      const t = (iT - start) / (end - start);
+      return -Math.cos(t * 2 * Math.PI);
+    }
+  }
+  return 0;
+}
+
 function timeScalePROPOSED() {
   // approach: normal
   if (beatT < T_LAUNCH) return 1.0;
@@ -942,6 +957,12 @@ function tick() {
     hero.group.scale.set(lerp(1.06, 1, t), lerp(0.86, 1, t), lerp(1.06, 1, t));
   } else if (beatT >= T_LAUNCH && beatT < T_LAND) {
     hero.group.scale.set(0.95, 1.12, 1);
+  } else if (impactTGame >= LANDINGS[1] && impactTGame < LANDINGS[3] && dismountTReal < 0) {
+    // bounces 2 and 3: dramatic knee bend at each landing, full extension at each apex
+    const sq = roofBounceSquash(impactTGame);
+    const yAmp  = sq > 0 ? sq * 0.18 : sq * 0.35;   // compress more than stretch for readable "bend"
+    const xzAmp = -yAmp * 0.55;
+    hero.group.scale.set(1 + xzAmp, 1 + yAmp, 1 + xzAmp);
   } else {
     hero.group.scale.set(1, 1, 1);
   }
