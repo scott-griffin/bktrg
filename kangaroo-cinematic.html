@@ -93,7 +93,7 @@
 
   <div class="descs" id="descs">
     <div class="desc" data-v="0"><h3>CURRENT</h3><p>What the game does today — the world slows to about ⅓ speed and the camera lifts up to look down at the roof.</p></div>
-    <div class="desc on" data-v="1"><h3>PROPOSED</h3><p>Camera starts a slow, seamless swing to a near-side profile well before the kangaroo jumps — you see the arc from the side in slow motion, knees tucked at apex, feet extending for the landing. Impact on the roof is deepest slow-mo (0.15×). Then speed ramps back up through two more bounces, and the camera swings quickly back to the regular chase view before the train slides past. <strong>Tap "sound" above the stage</strong> to hear the proposed cinematic sting — a rising whoosh into the swing, a bass drone through the airborne arc, a kick + distorted guitar chord on landing, then a short riff over the bounces. These would layer over whatever soundtrack is already playing in the game.</p></div>
+    <div class="desc on" data-v="1"><h3>PROPOSED</h3><p>Camera starts a slow, seamless swing to a near-side profile well before the kangaroo jumps — you see the arc from the side in slow motion, knees tucked at apex, feet extending for the landing. Impact on the roof is deepest slow-mo (0.15×). Then speed ramps back up through two more bounces, and the camera swings quickly back to the regular chase view before the train slides past. <strong>Tap "sound" above the stage</strong>: the Funky Rat vamp plays underneath (same as the game's funk style). At launch, a fast C-B-C trill signals the jump; the first roof landing hits with a kick + distorted power chord in A; two more guitar stabs land on the second and third bounces. CURRENT plays just the funk — no stings — for comparison.</p></div>
   </div>
 
   <p class="pick">A good fit, or still off?</p>
@@ -327,13 +327,86 @@ hero.group.position.set(CENTER, 0, 0);
 scene.add(hero.group);
 
 // ---------- audio (Tone.js) ----------
-// Synthesized cinematic sounds that would layer OVER the game's existing soundtrack.
+// Default soundtrack is the game's "Funky Rat" style (A9 vamp, popping bass, clav scratch, horn stabs).
+// On top of that, PROPOSED fires: C-B-C trill at launch, kick + distorted guitar on landing + bounces.
 // iOS requires a user gesture to unlock audio, so the sound button initializes on first tap.
-const audio = { ready: false, on: false };
+const audio = { ready: false, on: false, funkParts: [] };
+
+// pitch helper from the game
+const sub12 = n => (typeof Tone !== 'undefined') ? Tone.Frequency(n).transpose(-12) : n;
+
+function buildFunkRat() {
+  // Ported from index.html buildFunk() — same patterns, slightly lower overall mix so cinematic sfx can layer on top.
+  const d = [];
+  const arr32 = m => Array.from({ length: 32 }, (_, i) => m[i] || null);
+  const reverb = new Tone.Reverb({ decay: 1.1, wet: 0.1 }).toDestination(); d.push(reverb);
+  const bass = new Tone.FMSynth({
+    harmonicity: 1, modulationIndex: 9, portamento: 0.01,
+    oscillator: { type: 'sine' }, modulation: { type: 'square' },
+    envelope: { attack: 0.004, decay: 0.3, sustain: 0.25, release: 0.1 },
+    modulationEnvelope: { attack: 0.002, decay: 0.08, sustain: 0.08, release: 0.05 },
+    volume: -6,
+  }).toDestination(); d.push(bass);
+  const pop = new Tone.FMSynth({
+    harmonicity: 2, modulationIndex: 18,
+    oscillator: { type: 'sine' }, modulation: { type: 'square' },
+    envelope: { attack: 0.002, decay: 0.14, sustain: 0, release: 0.08 },
+    modulationEnvelope: { attack: 0.001, decay: 0.04, sustain: 0, release: 0.03 },
+    volume: -10,
+  }).toDestination(); d.push(pop);
+  const sub = new Tone.MonoSynth({ oscillator: { type: 'sine' }, envelope: { attack: 0.004, decay: 0.2, sustain: 0.4, release: 0.1 }, volume: -13 }).toDestination(); d.push(sub);
+  const clav = new Tone.PolySynth(Tone.Synth, { oscillator: { type: 'square' }, envelope: { attack: 0.002, decay: 0.06, sustain: 0, release: 0.05 }, volume: -21 });
+  const cf = new Tone.Filter(2500, 'bandpass'); clav.chain(cf, reverb); d.push(clav, cf);
+  const horns = new Tone.PolySynth(Tone.Synth, { oscillator: { type: 'fatsawtooth', count: 3, spread: 22 }, envelope: { attack: 0.01, decay: 0.25, sustain: 0.2, release: 0.15 }, volume: -17 });
+  const hf = new Tone.Filter(1600, 'lowpass'); horns.chain(hf, reverb); d.push(horns, hf);
+  const kick = new Tone.MembraneSynth({ pitchDecay: 0.05, octaves: 9, volume: -7 }).toDestination(); d.push(kick);
+  const snare = new Tone.NoiseSynth({ noise: { type: 'white' }, envelope: { attack: 0.001, decay: 0.16, sustain: 0 }, volume: -15 });
+  const sf = new Tone.Filter(1100, 'highpass'); snare.chain(sf, Tone.getDestination()); d.push(snare, sf);
+  const hat = new Tone.NoiseSynth({ noise: { type: 'white' }, envelope: { attack: 0.001, decay: 0.03, sustain: 0 }, volume: -26 });
+  const hhf = new Tone.Filter(8500, 'highpass'); hat.chain(hhf, Tone.getDestination()); d.push(hat, hhf);
+  const openHat = new Tone.NoiseSynth({ noise: { type: 'white' }, envelope: { attack: 0.001, decay: 0.22, sustain: 0 }, volume: -28 });
+  const ohf = new Tone.Filter(7000, 'highpass'); openHat.chain(ohf, Tone.getDestination()); d.push(openHat, ohf);
+
+  const N = (n, dur, v, p) => ({ n, dur, v, p });
+  const BASS = arr32({
+    0: N('A1', '8n', 1), 3: N('A2', '16n', 0.9, 1), 5: N('A1', '16n', 0.3), 7: N('A1', '16n', 0.5),
+    8: N('G1', '16n', 0.7), 10: N('A1', '8n', 0.9), 14: N('G1', '16n', 0.4), 15: N('A1', '16n', 0.6),
+    16: N('A1', '8n', 1), 19: N('A2', '16n', 0.9, 1), 21: N('E2', '16n', 0.6), 23: N('D2', '16n', 0.7, 1),
+    24: N('C2', '16n', 0.8), 26: N('A1', '16n', 0.4), 28: N('E1', '8n', 0.9), 31: N('G1', '16n', 0.7),
+  });
+  const A9 = ['A3', 'C#4', 'E4', 'G4'];
+  const CLAV = arr32({ 2: 0.35, 3: 0.6, 6: 0.3, 8: 0.7, 11: 0.35, 13: 0.3, 14: 0.6, 18: 0.35, 19: 0.6, 22: 0.3, 24: 0.7, 27: 0.35, 30: 0.6 });
+  const HORNS = arr32({ 0: 0.9, 30: 0.45 });
+  const KICK = arr32({ 0: 1, 7: 0.8, 10: 0.9, 16: 1, 22: 0.8, 24: 0.9 });
+  const SNARE = arr32({ 4: 1, 9: 0.25, 12: 1, 15: 0.2, 20: 1, 25: 0.25, 28: 1 });
+  const HATS = Array.from({ length: 32 }, (_, i) => (i === 14 || i === 30) ? 'o' : (i % 4 === 0 ? 0.5 : 0.28));
+
+  d.push(new Tone.Sequence((t, q) => {
+    if (!q) return;
+    (q.p ? pop : bass).triggerAttackRelease(q.n, q.dur, t, q.v);
+    sub.triggerAttackRelease(sub12(q.n), q.dur, t, q.v * 0.9);
+  }, BASS, '16n').start(0));
+  d.push(new Tone.Sequence((t, v) => { if (v) clav.triggerAttackRelease(A9, '32n', t, v); }, CLAV, '16n').start(0));
+  d.push(new Tone.Sequence((t, v) => { if (v) horns.triggerAttackRelease(A9, '8n', t, v); }, HORNS, '16n').start(0));
+  d.push(new Tone.Sequence((t, v) => { if (v) kick.triggerAttackRelease('C1', '8n', t, v); }, KICK, '16n').start(0));
+  d.push(new Tone.Sequence((t, v) => { if (v) snare.triggerAttackRelease('16n', t, v); }, SNARE, '16n').start(0));
+  d.push(new Tone.Sequence((t, v) => { if (v === 'o') openHat.triggerAttackRelease('8n', t, 0.6); else if (v) hat.triggerAttackRelease('32n', t, v); }, HATS, '16n').start(0));
+  return d;
+}
+
 async function initAudio() {
   if (audio.ready) return;
   if (typeof Tone === 'undefined') return;
   try { await Tone.start(); } catch (e) { return; }
+
+  Tone.Transport.bpm.value = 98;
+  Tone.Transport.swing = 0.12;
+  Tone.Transport.swingSubdivision = '16n';
+
+  // default background: the game's Funky Rat vamp
+  audio.funkParts = buildFunkRat();
+
+  // cinematic layer (triggered on top of the funk)
   const dist   = new Tone.Distortion({ distortion: 0.65, wet: 0.85 });
   const reverb = new Tone.Reverb({ decay: 1.8, wet: 0.22 });
   dist.chain(reverb, Tone.Destination);
@@ -344,29 +417,22 @@ async function initAudio() {
     filter: { Q: 2.5, frequency: 2200, rolloff: -24 },
     filterEnvelope: { attack: 0.01, decay: 0.2, sustain: 0.5, release: 0.3, baseFrequency: 400, octaves: 3 },
   }).connect(dist);
-  audio.guitar.volume.value = -10;
+  audio.guitar.volume.value = -8;
 
-  audio.bass = new Tone.MonoSynth({
-    oscillator: { type: 'triangle' },
-    envelope: { attack: 0.02, decay: 0.4, sustain: 0.6, release: 1.2 },
-    filter: { Q: 1, frequency: 500 },
-  }).toDestination();
-  audio.bass.volume.value = -16;
-
-  audio.kick = new Tone.MembraneSynth({
+  audio.cineKick = new Tone.MembraneSynth({
     pitchDecay: 0.05, octaves: 6,
     envelope: { attack: 0.001, decay: 0.42, sustain: 0 },
   }).toDestination();
-  audio.kick.volume.value = -6;
+  audio.cineKick.volume.value = -4;
 
-  audio.whooshFilter = new Tone.Filter({ frequency: 300, type: 'bandpass', Q: 2.5 });
-  audio.whoosh = new Tone.NoiseSynth({
-    noise: { type: 'pink' },
-    envelope: { attack: 0.3, decay: 0.35, sustain: 0, release: 0.1 },
-  });
-  audio.whoosh.chain(audio.whooshFilter, Tone.Destination);
-  audio.whoosh.volume.value = -14;
+  // The C-B-C launch trill — bright square wave, cuts over the funk
+  audio.trill = new Tone.Synth({
+    oscillator: { type: 'square' },
+    envelope: { attack: 0.001, decay: 0.06, sustain: 0, release: 0.04 },
+  }).toDestination();
+  audio.trill.volume.value = -8;
 
+  Tone.Transport.start();
   audio.ready = true;
   audio.on = true;
 }
@@ -376,43 +442,41 @@ soundBtn.onclick = async () => {
   if (!audio.ready) await initAudio();
   if (!audio.ready) { soundBtn.textContent = '🔇 (audio unavailable)'; return; }
   audio.on = !audio.on;
+  Tone.Destination.volume.value = audio.on ? 0 : -Infinity;
   soundBtn.textContent = audio.on ? '🔊 SOUND ON' : '🔇 SOUND OFF';
 };
 
-const sfxFired = { swing: false, launch: false, impact: false, b2: false, b3: false };
+const sfxFired = { launch: false, impact: false, b2: false, b3: false };
 function resetSfx() { for (const k in sfxFired) sfxFired[k] = false; }
 
 function sfxTick() {
   if (!audio.on || !audio.ready || variant !== 1) return;
   const now = Tone.now();
 
-  if (!sfxFired.swing && beatT >= T_SWING_START) {
-    sfxFired.swing = true;
-    audio.whooshFilter.frequency.cancelScheduledValues(now);
-    audio.whooshFilter.frequency.setValueAtTime(300, now);
-    audio.whooshFilter.frequency.exponentialRampToValueAtTime(2600, now + 0.6);
-    audio.whoosh.triggerAttackRelease('0.6s', now);
-  }
+  // Launch: fast C-B-C trill (mordent) over the funk
   if (!sfxFired.launch && beatT >= T_LAUNCH) {
     sfxFired.launch = true;
-    audio.bass.triggerAttackRelease('E1', '2.2s', now);           // drone through the airborne slomo
+    audio.trill.triggerAttackRelease('C5', '32n', now);
+    audio.trill.triggerAttackRelease('B4', '32n', now + 0.075);
+    audio.trill.triggerAttackRelease('C5', '16n', now + 0.15);
   }
+  // Impact: BIG kick + distorted power chord stab
   if (!sfxFired.impact && impactTGame >= 0) {
     sfxFired.impact = true;
-    audio.kick.triggerAttackRelease('C1', '0.4s', now);
-    audio.guitar.triggerAttackRelease(['E3', 'B3', 'E4'], '0.6s', now);   // power chord stab on landing
-    audio.guitar.triggerAttackRelease('G4', '0.18s', now + 0.28);          // riff
-    audio.guitar.triggerAttackRelease('A4', '0.22s', now + 0.46);
+    audio.cineKick.triggerAttackRelease('C1', '0.4s', now);
+    audio.guitar.triggerAttackRelease(['A2', 'E3', 'A3'], '0.55s', now);   // A power chord (fits the A funk vamp)
+    audio.guitar.triggerAttackRelease('C4', '0.18s', now + 0.28);
+    audio.guitar.triggerAttackRelease('E4', '0.22s', now + 0.46);
   }
   if (!sfxFired.b2 && impactTGame >= LANDINGS[1]) {
     sfxFired.b2 = true;
-    audio.kick.triggerAttackRelease('G1', '0.18s', now);
-    audio.guitar.triggerAttackRelease('B4', '0.22s', now);
+    audio.cineKick.triggerAttackRelease('G1', '0.18s', now);
+    audio.guitar.triggerAttackRelease('G4', '0.22s', now);
   }
   if (!sfxFired.b3 && impactTGame >= LANDINGS[2]) {
     sfxFired.b3 = true;
-    audio.kick.triggerAttackRelease('C2', '0.22s', now);
-    audio.guitar.triggerAttackRelease(['E4', 'G4', 'B4'], '0.45s', now);    // resolve chord
+    audio.cineKick.triggerAttackRelease('C2', '0.22s', now);
+    audio.guitar.triggerAttackRelease(['A3', 'C4', 'E4'], '0.4s', now);     // A minor resolve
   }
 }
 
