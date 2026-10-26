@@ -1846,7 +1846,18 @@ function update(dt) {
   // bend/dip every world object. critters that drift in X use their wanderX accumulator; the
   // rest fall back to their initial baseX. Y gets heightY added for the anthill up-and-down.
   const et = elapsed;
-  for (const row of ties) { row.position.x = curveX(row.position.z, et); row.position.y = -0.015 + heightY(row.position.z, et); }
+  for (const row of ties) {
+    const z = row.position.z;
+    row.position.x = curveX(z, et);
+    row.position.y = -0.015 + heightY(z, et);
+    // orient the row along the local track tangent — this is what makes the rails stop
+    // sawtoothing at each joint. Numeric derivative is cheap for sin-of-polynomial curves.
+    const dz = 0.4;
+    const dxdz = (curveX(z + dz, et) - curveX(z - dz, et)) / (2 * dz);
+    const dydz = (heightY(z + dz, et) - heightY(z - dz, et)) / (2 * dz);
+    row.rotation.y = Math.atan(dxdz);
+    row.rotation.x = Math.atan(dydz);
+  }
   const bendList = [poles, billboards, trees, outbackProps, seaProps, snowProps,
                     mangroveProps, anthillProps, anthillArches, rootsCeiling, lilyPads];
   for (const list of bendList) for (const m of list) {
