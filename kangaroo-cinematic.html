@@ -365,6 +365,7 @@ function smooth(t)       { t = clamp(t, 0, 1); return t * t * (3 - 2 * t); }
 function easeOutExpo(t)  { t = clamp(t, 0, 1); return t === 1 ? 1 : 1 - Math.pow(2, -10 * t); }
 function easeOutCubic(t) { t = clamp(t, 0, 1); return 1 - Math.pow(1 - t, 3); }
 function easeInOutQuad(t){ t = clamp(t, 0, 1); return t < 0.5 ? 2*t*t : 1 - Math.pow(-2*t + 2, 2) / 2; }
+function easeInQuad(t)   { t = clamp(t, 0, 1); return t * t; }
 
 // hero's y during the airborne jump arc (ends at TRAIN_ROOF_Y so he lands on the roof, not the ground)
 function airborneY(bt) {
@@ -394,10 +395,10 @@ function kneeTuck(flyT) {
 function timeScalePROPOSED() {
   // approach: normal
   if (beatT < T_LAUNCH) return 1.0;
-  // airborne: ease 1.0 → 0.15 over the whole jump (deepest at the moment of landing)
+  // airborne: ease 1.0 → 0.15 over the jump (easeInQuad — ascent stays snappy, only descent + landing get deep)
   if (beatT < T_LAND) {
     const t = (beatT - T_LAUNCH) / (T_LAND - T_LAUNCH);
-    return lerp(1.0, 0.15, easeInOutQuad(t));
+    return lerp(1.0, 0.15, easeInQuad(t));
   }
   // post-landing bounces: slomo eases back up through the three bounces, then recovers
   const iT = impactTGame;
