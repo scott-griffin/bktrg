@@ -389,12 +389,12 @@ function microSlow(iT) {
 
 function timeScalePROPOSED(iT) {
   if (iT < 0) return 1.0;
-  // ease 1.0 → 0.33 over 0.22s (easeOutExpo)
-  if (iT < 0.22) return lerp(1.0, 0.33, easeOutExpo(iT / 0.22));
-  // ease 0.33 → 0.62 over 0.22s → 1.20s (easeOutCubic)
+  // ease 1.0 → 0.15 over 0.22s (easeOutExpo) — deeper dip than GPT-5's 0.33 at Scott's request
+  if (iT < 0.22) return lerp(1.0, 0.15, easeOutExpo(iT / 0.22));
+  // ease 0.15 → 0.32 over 0.22s → 1.20s (easeOutCubic) — deeper hold too
   let base;
-  if (iT < 1.20) base = lerp(0.33, 0.62, easeOutCubic((iT - 0.22) / (1.20 - 0.22)));
-  else base = 0.62;   // hold until dismount
+  if (iT < 1.20) base = lerp(0.15, 0.32, easeOutCubic((iT - 0.22) / (1.20 - 0.22)));
+  else base = 0.32;   // hold until dismount
   // exit: dismount triggers 0.4s ease back to 1.0
   if (dismountTReal >= 0) {
     if (dismountTReal >= 0.4) return 1.0;
@@ -417,7 +417,7 @@ function timeScaleNow() {
 // scroll velocity in world-units per game-second (train + ground scroll together)
 function scrollV() {
   if (impactTReal < 0) return 10;           // approach + airborne
-  if (dismountTReal < 0) return 3.1;        // roof ride: slow drift so the 4 bounces are readable
+  if (dismountTReal < 0) return 7;          // roof ride: faster world so the dismount still arrives shortly after the 4 bounces (compensates for the deeper slomo hold)
   return 11;                                 // dismount: train zooms past
 }
 
@@ -437,10 +437,11 @@ function cameraPROPOSED() {
   const baseLook = new THREE.Vector3(CENTER*0.09, 1.0, -12);
   if (iT < 0) return { pos: basePos, look: baseLook, roll: 0 };
 
-  // target positions after Phase 2 (held until dismount)
+  // target positions after Phase 2 (held until dismount) — side drift pushed further right per Scott
+  const PEAK_SIDE = 1.8, HELD_SIDE = 1.4;
   const held = {
-    pos:  new THREE.Vector3(CENTER*0.22 + 0.60, 4.7, 6.7),
-    look: new THREE.Vector3(CENTER*0.09 + 0.25, 1.6, -10),
+    pos:  new THREE.Vector3(CENTER*0.22 + HELD_SIDE, 4.7, 6.7),
+    look: new THREE.Vector3(CENTER*0.09 + 0.40, 1.6, -10),
   };
 
   let posX, posY, posZ, lookX, lookY, lookZ;
@@ -448,16 +449,16 @@ function cameraPROPOSED() {
   if (iT < 0.22) {
     // Phase 1 (easeOutCubic): base → mid state
     const t = easeOutCubic(iT / 0.22);
-    posX  = lerp(basePos.x,  CENTER*0.22 + 1.05, t);
+    posX  = lerp(basePos.x,  CENTER*0.22 + PEAK_SIDE, t);
     posY  = lerp(basePos.y,  4.4, t);
     posZ  = lerp(basePos.z,  6.7, t);
-    lookX = lerp(baseLook.x, CENTER*0.09 + 0.25, t);
+    lookX = lerp(baseLook.x, CENTER*0.09 + 0.40, t);
     lookY = lerp(baseLook.y, 1.6, t);
     lookZ = lerp(baseLook.z, -10, t);
   } else if (iT < 1.20) {
-    // Phase 2: side offset +1.05 → +0.60; y 4.4 → 4.7; z 6.7 → 6.4 (by 0.55s) → 6.7 (by 1.20s)
+    // Phase 2: side offset decays peak → held; y 4.4 → 4.7; z 6.7 → 6.4 (by 0.55s) → 6.7 (by 1.20s)
     const t = (iT - 0.22) / (1.20 - 0.22);
-    posX  = lerp(CENTER*0.22 + 1.05, held.pos.x, t);
+    posX  = lerp(CENTER*0.22 + PEAK_SIDE, held.pos.x, t);
     posY  = lerp(4.4, held.pos.y, t);
     const zPhase = iT - 0.22;
     if (zPhase < 0.33)      posZ = lerp(6.7, 6.4, zPhase / 0.33);
@@ -483,10 +484,10 @@ function cameraPROPOSED() {
     lookZ = lerp(lookZ, baseLook.z, t);
   }
 
-  // Lateral sway while riding: ±0.12m sine at 0.3 Hz (clamp overall side offset ≤ +1.2m)
+  // Lateral sway while riding: ±0.12m sine at 0.3 Hz (cap raised to +2.0m per Scott's bigger-swing ask)
   if (dismountTReal < 0) {
     const sway = Math.sin(iT * 0.3 * 2 * Math.PI) * 0.12;
-    const sideCap = CENTER*0.22 + 1.2;
+    const sideCap = CENTER*0.22 + 2.0;
     posX = Math.min(sideCap, posX + sway);
   }
 
