@@ -240,7 +240,7 @@
     <div class="hrow"><span class="hico">⭐</span><span>Star — double points for 8 seconds.</span></div>
 
     <p class="hsec">The World</p>
-    <div class="hrow"><span class="hico">🌍</span><span>Every 20 seconds is a new LEVEL in a new land: open country → the Amazon rainforest → the Australian Outback → the Deep Sea → the Snow World → the Mangrove Swamp → round again, forever.</span></div>
+    <div class="hrow"><span class="hico">🌍</span><span>Every 25 seconds is a new LEVEL in a new land: open country → the Amazon rainforest → the Australian Outback → the Deep Sea → the Snow World → the Mangrove Swamp → round again, forever.</span></div>
     <div class="hrow"><span class="hico">🐢</span><span>Each level starts slow and speeds up — and every level begins a little faster than the last one did. The music keeps pace with you.</span></div>
     <div class="hrow"><span class="hico">🤫</span><span>Secret: add ?level=5 to the web address to start in the Snow World (any level number works).</span></div>
 
@@ -1826,9 +1826,9 @@ function update(dt) {
   for (const lp of lilyPads) { lp.position.z += v * dt; if (lp.position.z > 10) lp.position.z -= 14 * 10 - 10; }
   for (const c of clouds) { c.position.x += dt * 0.4; if (c.position.x > 70) c.position.x = -70; }
 
-  // biomes: every 20 seconds the track crosses into the next land (country → Amazon → Outback → Deep Sea → …)
+  // biomes: every 25 seconds the track crosses into the next land (country → Amazon → Outback → Deep Sea → …)
   biomeT += dt;
-  if (biomeT > 20) {
+  if (biomeT > 25) {
     biomeT = 0;
     level++;
     biome = biomeForLevel(level);
