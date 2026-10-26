@@ -511,17 +511,17 @@ function sfxTick() {
     audio.whooshFilter.frequency.exponentialRampToValueAtTime(V.whooshFilterHi, now + V.whooshSweepT);
     audio.whoosh.triggerAttackRelease(V.whooshDur + 's', now);
   }
-  // Apex of jump (T_APEX): trill lead-in resolves INTO the sustained chord as the 3rd beat lands
+  // Apex of jump (T_APEX): trill lead-in notes only (they ring through the descent via the sampler's release)
   if (!sfxFired.trill && beatT >= T_APEX) {
     sfxFired.trill = true;
     const trillNotes = toNotes(V.trillNotes);
     trillNotes.forEach((n, i) => audio.guitar.triggerAttackRelease(n, '8n', now + i * V.trillGap));
-    audio.guitar.triggerAttackRelease(toNotes(V.chordNotes), V.chordDur + 's', now + V.chordDelay);
   }
-  // Impact: kick accent only — the apex chord is still ringing
+  // First visual landing (impactTGame >= 0): the big chord slams AT the feet-on-roof moment, kick on top
   if (!sfxFired.impact && impactTGame >= 0) {
     sfxFired.impact = true;
     audio.cineKick.triggerAttackRelease(V.kickNote, V.kickDur + 's', now);
+    audio.guitar.triggerAttackRelease(toNotes(V.chordNotes), V.chordDur + 's', now);
   }
   if (!sfxFired.b2 && impactTGame >= LANDINGS[1]) {
     sfxFired.b2 = true;
