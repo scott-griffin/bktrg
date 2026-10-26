@@ -84,7 +84,7 @@
 
   <div class="descs" id="descs">
     <div class="desc" data-v="0"><h3>CURRENT</h3><p>What the game does today — the world slows to about ⅓ speed and the camera lifts up to look down at the roof.</p></div>
-    <div class="desc on" data-v="1"><h3>PROPOSED</h3><p>Camera swings almost 90° to the right so you see the kangaroo and the train in profile. Deep slow-mo (0.15× dip, 0.32× hold) through four readable roof bounces, each with a dust puff and a tiny micro-slow. Then the camera swings back to the normal chase cam as the train slides past.</p></div>
+    <div class="desc on" data-v="1"><h3>PROPOSED</h3><p>Camera starts a slow, seamless swing to a near-side profile well before the kangaroo jumps — you see the arc from the side in slow motion, knees tucked at apex, feet extending for the landing. Impact on the roof is deepest slow-mo (0.15×). Then speed ramps back up through two more bounces, and the camera swings quickly back to the regular chase view before the train slides past.</p></div>
   </div>
 
   <p class="pick">A good fit, or still off?</p>
@@ -334,24 +334,30 @@ function spawnDust(x, y, z, n, speed) {
   }
 }
 
-// -------- beat timeline (approach + airborne is in game-seconds; roof-ride uses REAL seconds from impact) --------
-const T_LAUNCH = 1.0;   // game-sec
-const JUMP_DUR = 1.3;   // game-sec
-const T_LAND   = T_LAUNCH + JUMP_DUR;   // 2.3
-const JUMP_PEAK_H = 4.3;
-const BEAT_LEN = 7.0;   // game-sec cap, just a safety reset
+// -------- beat timeline (all in game-seconds; real-seconds only used for the brief impact shake) --------
+const T_SWING_START = 0.3;    // camera begins its slow swing to the side well before the jump launches
+const T_LAUNCH      = 1.0;
+const T_SWING_END   = 1.5;    // swing reaches the side angle midway through the airborne arc
+const JUMP_DUR      = 1.3;
+const T_LAND        = T_LAUNCH + JUMP_DUR;    // 2.3
+const JUMP_PEAK_H   = 4.3;
+const BEAT_LEN      = 9.0;    // safety cap
+
+// Roof bounces in GAME seconds since impact. Four landings = three bounces: first contact,
+// then three up-down arcs with decaying height.
+const LANDINGS = [0.00, 0.30, 0.55, 0.75];
+const PEAK_HS  = [0.35, 0.22, 0.14];
+const T_SWING_BACK_START = 0.50;   // in impactTGame — camera begins swinging back mid-way through bounces
+const T_SWING_BACK_END   = 0.95;   // swing-back completes just after the last bounce settles
 
 let beatT = 0;           // game-sec since beat start
 let variant = 1;         // 0 = CURRENT, 1 = PROPOSED
 let trainPosZ = 0;       // persistent world z
 let impactFired = false;
-let impactTReal = -1;    // real seconds since the hero touched the roof
+let impactTGame = -1;    // GAME seconds since the hero touched the roof (slomo stretches this)
+let impactTReal = -1;    // REAL seconds since impact (used only for the brief 180ms spring shake)
 let dismountTReal = -1;  // real seconds since the hero slid off the back
-
-// GPT-5 spec: landings and peak hop heights for the roof ride
-const LANDINGS = [0.00, 0.42, 0.84, 1.26];
-const PEAK_HS  = [0.28, 0.22, 0.16, 0.10];
-let dustFired = [false, false, false, false];
+let dustFired = [false, false, false];
 
 function clamp(x, lo, hi) { return Math.max(lo, Math.min(hi, x)); }
 function lerp(a, b, t)   { return a + (b - a) * clamp(t, 0, 1); }
@@ -368,56 +374,55 @@ function airborneY(bt) {
   return JUMP_PEAK_H + (TRAIN_ROOF_Y - JUMP_PEAK_H) * (dt * dt);
 }
 
-// hero's y offset above the roof while bouncing on top (impactTReal is REAL seconds since first contact)
+// hero's y offset above the roof while bouncing on top (iT in GAME seconds since first contact)
 function roofBounceY(iT) {
-  for (let i = 0; i < LANDINGS.length; i++) {
-    const start = LANDINGS[i];
-    const end = (i + 1 < LANDINGS.length) ? LANDINGS[i+1] : (start + 0.42);
-    if (iT >= start && iT < end) {
-      const t = (iT - start) / (end - start);
+  for (let i = 0; i < LANDINGS.length - 1; i++) {
+    if (iT >= LANDINGS[i] && iT < LANDINGS[i+1]) {
+      const t = (iT - LANDINGS[i]) / (LANDINGS[i+1] - LANDINGS[i]);
       return Math.sin(t * Math.PI) * PEAK_HS[i];
     }
   }
   return 0;
 }
 
-// GPT-5's per-landing 90ms micro-slow: multiply current timeScale by 0.85 within 90ms of each landing
-function microSlow(iT) {
-  for (const lt of LANDINGS) if (iT >= lt && iT < lt + 0.09) return 0.85;
+// knees-up / feet-down pose during the airborne arc — feetGroup rises during ascent, drops to land
+function kneeTuck(flyT) {
+  if (flyT < 0.5) return lerp(0, 0.55, flyT / 0.5);
+  return lerp(0.55, 0, (flyT - 0.5) / 0.5);
+}
+
+function timeScalePROPOSED() {
+  // approach: normal
+  if (beatT < T_LAUNCH) return 1.0;
+  // airborne: ease 1.0 → 0.15 over the whole jump (deepest at the moment of landing)
+  if (beatT < T_LAND) {
+    const t = (beatT - T_LAUNCH) / (T_LAND - T_LAUNCH);
+    return lerp(1.0, 0.15, easeInOutQuad(t));
+  }
+  // post-landing bounces: slomo eases back up through the three bounces, then recovers
+  const iT = impactTGame;
+  if (iT < 0.30)      return lerp(0.15, 0.30, iT / 0.30);           // bounce 1: deep slomo
+  if (iT < 0.55)      return lerp(0.30, 0.60, (iT - 0.30) / 0.25);  // bounce 2: speeding up
+  if (iT < 0.75)      return lerp(0.60, 0.85, (iT - 0.55) / 0.20);  // bounce 3: nearly normal
+  if (iT < 0.95)      return lerp(0.85, 1.00, (iT - 0.75) / 0.20);  // settle to normal
   return 1.0;
 }
 
-function timeScalePROPOSED(iT) {
-  if (iT < 0) return 1.0;
-  // ease 1.0 → 0.15 over 0.22s (easeOutExpo) — deeper dip than GPT-5's 0.33 at Scott's request
-  if (iT < 0.22) return lerp(1.0, 0.15, easeOutExpo(iT / 0.22));
-  // ease 0.15 → 0.32 over 0.22s → 1.20s (easeOutCubic) — deeper hold too
-  let base;
-  if (iT < 1.20) base = lerp(0.15, 0.32, easeOutCubic((iT - 0.22) / (1.20 - 0.22)));
-  else base = 0.32;   // hold until dismount
-  // exit: dismount triggers 0.4s ease back to 1.0
-  if (dismountTReal >= 0) {
-    if (dismountTReal >= 0.4) return 1.0;
-    return lerp(base, 1.0, easeInOutQuad(dismountTReal / 0.4));
-  }
-  return base * microSlow(iT);
-}
-
 function timeScaleCURRENT() {
-  if (impactTReal < 0) return 1.0;
+  if (impactTGame < 0) return 1.0;
   if (dismountTReal >= 0.4) return 1.0;
   if (dismountTReal >= 0) return lerp(0.35, 1.0, dismountTReal / 0.4);
   return 0.35;
 }
 
 function timeScaleNow() {
-  return variant === 0 ? timeScaleCURRENT() : timeScalePROPOSED(impactTReal);
+  return variant === 0 ? timeScaleCURRENT() : timeScalePROPOSED();
 }
 
 // scroll velocity in world-units per game-second (train + ground scroll together)
 function scrollV() {
-  if (impactTReal < 0) return 10;           // approach + airborne
-  if (dismountTReal < 0) return 7;          // roof ride: faster world so the dismount still arrives shortly after the 4 bounces (compensates for the deeper slomo hold)
+  if (impactTGame < 0) return 10;           // approach + airborne
+  if (dismountTReal < 0) return 6;          // roof ride
   return 11;                                 // dismount: train zooms past
 }
 
@@ -432,89 +437,52 @@ function cameraCURRENT() {
 }
 
 function cameraPROPOSED() {
-  const iT = impactTReal;
   const basePos  = new THREE.Vector3(CENTER*0.22, 3.4, 7.5);
   const baseLook = new THREE.Vector3(CENTER*0.09, 1.0, -12);
-  if (iT < 0) return { pos: basePos, look: baseLook, roll: 0 };
 
-  // Camera orbits the kangaroo. θ=0 is directly behind (chase cam), θ=π/2 is 90° to the right (side profile).
-  // Scott wants "almost 90°" so we swing to ~85° at peak and settle at ~80° during the ride.
-  const PEAK_DEG = 85, HELD_DEG = 78;
-  const ORBIT_R  = 10;    // radius from the hero/train center — far enough to fit the whole train in frame
-  const BASE_R   = Math.sqrt(basePos.x*basePos.x + basePos.z*basePos.z);  // for lerping from behind-cam
-
-  // orbit position: hero sits at (0, hero_y, 0); camera is at (sin θ * R, h, cos θ * R)
-  function orbitAt(thetaDeg, h, r) {
-    const t = thetaDeg * Math.PI / 180;
-    return new THREE.Vector3(Math.sin(t) * r, h, Math.cos(t) * r);
-  }
-
-  let pos, lookTarget;
+  // target side-profile orbit values
+  const SIDE_DEG = 85;
+  const SIDE_H   = 4.5;
+  const SIDE_R   = 10;
   const heroY = hero.group.position.y || TRAIN_ROOF_Y;
 
-  if (iT < 0.22) {
-    // Phase 1 (easeOutCubic): swing from behind (θ=0, h=3.4, r=BASE_R) to near-side (θ=PEAK, h=4.4, r=ORBIT_R)
-    const t = easeOutCubic(iT / 0.22);
-    const theta = lerp(0, PEAK_DEG, t);
-    const r     = lerp(BASE_R, ORBIT_R, t);
-    const h     = lerp(basePos.y, 4.4, t);
-    pos = orbitAt(theta, h, r);
-    lookTarget = new THREE.Vector3(
-      lerp(baseLook.x, 0, t),
-      lerp(baseLook.y, heroY - 0.5, t),
-      lerp(baseLook.z, 0, t),
-    );
-  } else if (iT < 1.20) {
-    // Phase 2 (easeOutCubic): settle from PEAK → HELD angle; lift slightly, keep radius
-    const t = easeOutCubic((iT - 0.22) / (1.20 - 0.22));
-    const theta = lerp(PEAK_DEG, HELD_DEG, t);
-    const h     = lerp(4.4, 4.7, t);
-    pos = orbitAt(theta, h, ORBIT_R);
-    lookTarget = new THREE.Vector3(0, heroY - 0.4, 0);
-  } else {
-    // Hold
-    pos = orbitAt(HELD_DEG, 4.7, ORBIT_R);
-    lookTarget = new THREE.Vector3(0, heroY - 0.4, 0);
+  // swingK ∈ [0, 1]: 0 = base chase cam, 1 = full side-profile orbit.
+  // Swing OUT slowly during pre-launch + ascent (ease in/out), hold through impact + first bounce,
+  // then swing BACK quickly starting mid-second-bounce.
+  let swingK = 0;
+  if (beatT >= T_SWING_START && beatT < T_SWING_END) {
+    swingK = smooth((beatT - T_SWING_START) / (T_SWING_END - T_SWING_START));
+  } else if (beatT >= T_SWING_END) {
+    swingK = 1;
+  }
+  if (impactTGame >= T_SWING_BACK_START) {
+    const backT = clamp((impactTGame - T_SWING_BACK_START) / (T_SWING_BACK_END - T_SWING_BACK_START), 0, 1);
+    swingK = Math.min(swingK, 1 - smooth(backT));
   }
 
-  // Exit: once hero slides off, swing back to base chase-cam over 0.4s
-  if (dismountTReal >= 0) {
-    const t = easeInOutQuad(clamp(dismountTReal / 0.4, 0, 1));
-    pos.x = lerp(pos.x, basePos.x, t);
-    pos.y = lerp(pos.y, basePos.y, t);
-    pos.z = lerp(pos.z, basePos.z, t);
-    lookTarget.x = lerp(lookTarget.x, baseLook.x, t);
-    lookTarget.y = lerp(lookTarget.y, baseLook.y, t);
-    lookTarget.z = lerp(lookTarget.z, baseLook.z, t);
-  }
+  // interpolate orbit params from base → side using swingK
+  const theta = lerp(0, SIDE_DEG * Math.PI / 180, swingK);
+  const r     = lerp(Math.hypot(basePos.x, basePos.z), SIDE_R, swingK);
+  const h     = lerp(basePos.y, SIDE_H, swingK);
+  const pos = new THREE.Vector3(Math.sin(theta) * r, h, Math.cos(theta) * r);
+  // for base chase cam we want pos.x = basePos.x (not 0); nudge back toward basePos.x at low swingK
+  pos.x = lerp(basePos.x, pos.x, swingK < 0.05 ? 0 : 1);
 
-  // Small sideways parallax while riding (±0.6° orbital sway at 0.3 Hz)
-  if (dismountTReal < 0 && iT >= 0.22) {
-    const swayDeg = Math.sin(iT * 0.3 * 2 * Math.PI) * 0.6;
-    const swayRad = swayDeg * Math.PI / 180;
-    const r = Math.hypot(pos.x, pos.z);
-    const curTheta = Math.atan2(pos.x, pos.z);
-    const nt = curTheta + swayRad;
-    pos.x = Math.sin(nt) * r;
-    pos.z = Math.cos(nt) * r;
-  }
+  // look target: ahead (base) → the hero/train center (side)
+  const look = new THREE.Vector3(
+    lerp(baseLook.x, 0, swingK),
+    lerp(baseLook.y, heroY - 0.3, swingK),
+    lerp(baseLook.z, 0, swingK),
+  );
 
-  // Spring shake on impact: posY −0.08, 12 Hz, 55% damping, settle by 0.18s
-  if (iT >= 0 && iT < 0.18) {
-    const damp = Math.exp(-iT * 5.5);
-    const osc = Math.sin(iT * 12 * 2 * Math.PI);
+  // Spring shake on impact (uses REAL time so it feels crisp regardless of slomo)
+  if (impactTReal >= 0 && impactTReal < 0.18) {
+    const damp = Math.exp(-impactTReal * 5.5);
+    const osc = Math.sin(impactTReal * 12 * 2 * Math.PI);
     pos.y += -0.08 * osc * damp;
   }
 
-  // Subtle roll — very small at this angle so the horizon doesn't tip sideways looking weird
-  let roll = 0;
-  if (iT < 1.20) {
-    if (iT < 0.10) roll = lerp(0, -0.8, iT / 0.10);
-    else           roll = lerp(-0.8, 0, (iT - 0.10) / (1.20 - 0.10));
-    roll *= Math.PI / 180;
-  }
-
-  return { pos, look: lookTarget, roll };
+  return { pos, look, roll: 0 };
 }
 
 for (const b of document.querySelectorAll('button[data-v]')) {
@@ -528,24 +496,27 @@ for (const b of document.querySelectorAll('button[data-v]')) {
 }
 
 function phaseName() {
-  if (impactTReal < 0) {
-    if (beatT < T_LAUNCH) return 'approach';
-    if (beatT < T_LAND)   return 'airborne';
-    return 'landing';
+  if (impactTGame < 0) {
+    if (beatT < T_SWING_START) return 'approach';
+    if (beatT < T_LAUNCH)      return 'camera swing';
+    return 'airborne';
   }
-  if (dismountTReal < 0) return 'roof-ride';
+  if (impactTGame < T_SWING_BACK_END) return 'bounces';
+  if (dismountTReal < 0) return 'ride-out';
   return 'return';
 }
 
 function resetBeat() {
   beatT = 0;
   impactFired = false;
+  impactTGame = -1;
   impactTReal = -1;
   dismountTReal = -1;
-  dustFired = [false, false, false, false];
+  dustFired = [false, false, false];
   trainPosZ = -scrollV() * T_LAND;    // scrollV() during approach = 10, so start at -23 so train reaches z=0 at T_LAND
   train.position.set(CENTER, 0, trainPosZ);
   hero.group.position.set(CENTER, 0, 0);
+  if (hero.feet[0]) hero.feet[0].position.y = hero.feet[0].userData.y0;
   for (const p of particles) scene.remove(p.m);
   particles.length = 0;
 }
@@ -559,6 +530,7 @@ function tick() {
   const gameDt = realDt * ts;
 
   beatT += gameDt;
+  if (impactTGame >= 0) impactTGame += gameDt;
   if (impactTReal >= 0) impactTReal += realDt;
   if (dismountTReal >= 0) dismountTReal += realDt;
 
@@ -576,7 +548,7 @@ function tick() {
   } else if (beatT < T_LAND) {
     hy = airborneY(beatT);
   } else if (dismountTReal < 0) {
-    hy = TRAIN_ROOF_Y + roofBounceY(impactTReal);
+    hy = TRAIN_ROOF_Y + roofBounceY(impactTGame);
   } else {
     // dismount: hero falls off the back
     const t = clamp(dismountTReal / 0.5, 0, 1);
@@ -584,18 +556,28 @@ function tick() {
   }
   hero.group.position.y = hy;
 
-  // feet + tail bounce
+  // knees-up / feet-down pose during the airborne arc (only on PROPOSED, so CURRENT stays recognizable)
+  const flyT = (beatT - T_LAUNCH) / JUMP_DUR;
+  if (variant === 1 && flyT >= 0 && flyT <= 1 && hero.feet[0]) {
+    hero.feet[0].position.y = hero.feet[0].userData.y0 + kneeTuck(flyT);
+  } else if (hero.feet[0] && beatT < T_LAUNCH) {
+    // let the normal feet-hop code further below take over during the approach
+  }
+
+  // feet-hop + tail wag (only during ground phases; airborne uses kneeTuck above)
   const phase = (beatT * 3.3) % 1;
-  const feetHop = (beatT >= T_LAUNCH && beatT < T_LAND) ? 0 : Math.abs(Math.sin(phase * Math.PI));
-  if (hero.feet[0]) hero.feet[0].position.y = hero.feet[0].userData.y0 + feetHop * 0.12;
+  const airborneOrRoof = (beatT >= T_LAUNCH && beatT < T_LAND) || (impactTGame >= 0 && dismountTReal < 0);
+  if (hero.feet[0] && !airborneOrRoof) {
+    const feetHop = Math.abs(Math.sin(phase * Math.PI));
+    hero.feet[0].position.y = hero.feet[0].userData.y0 + feetHop * 0.12;
+  }
   hero.tail.rotation.y = Math.sin(phase * Math.PI * 2) * 0.5;
 
   // airborne nose-tilt
-  const flyT = (beatT - T_LAUNCH) / JUMP_DUR;
   if (flyT >= 0 && flyT <= 1) hero.group.rotation.x = -0.3 * Math.sin(flyT * Math.PI);
   else hero.group.rotation.x = 0;
 
-  // hero squash on first contact (22ms squash, 120ms restore) — GPT-5 spec
+  // hero squash on first contact (22ms squash, 120ms restore) — REAL time so it's crisp through slomo
   if (impactTReal >= 0 && impactTReal < 0.022) {
     const sq = impactTReal / 0.022;
     hero.group.scale.set(lerp(1, 1.06, sq), lerp(1, 0.86, sq), lerp(1, 1.06, sq));
@@ -615,15 +597,16 @@ function tick() {
   for (const t of ties)  { t.position.z += sv;  if (t.position.z  > 10) t.position.z  -= TIE_ROWS * TIE_SPACING; }
   for (const tr of trees){ tr.position.z += sv; if (tr.position.z > 15) tr.position.z -= 14 * 14; }
 
-  // impact + dust puffs
+  // impact + dust puffs — one puff per bounce landing (3 of them: initial contact + 2 rebounds)
   if (!impactFired && beatT >= T_LAND) {
     impactFired = true;
+    impactTGame = 0;
     impactTReal = 0;
-    // first landing dust is handled by the LANDINGS loop below
   }
-  if (impactTReal >= 0 && dismountTReal < 0) {
-    for (let i = 0; i < LANDINGS.length; i++) {
-      if (!dustFired[i] && impactTReal >= LANDINGS[i]) {
+  if (impactTGame >= 0 && dismountTReal < 0) {
+    const puffAt = [LANDINGS[0], LANDINGS[1], LANDINGS[2]];
+    for (let i = 0; i < puffAt.length; i++) {
+      if (!dustFired[i] && impactTGame >= puffAt[i]) {
         dustFired[i] = true;
         spawnDust(hero.group.position.x, TRAIN_ROOF_Y, trainPosZ, 2, 0.5);
       }
@@ -631,7 +614,7 @@ function tick() {
   }
 
   // dismount trigger: train's front has moved past the hero (zF > 0.9)
-  if (impactTReal >= 0 && dismountTReal < 0 && (trainPosZ - TRAIN_LEN/2) > 0.9) {
+  if (impactTGame >= 0 && dismountTReal < 0 && (trainPosZ - TRAIN_LEN/2) > 0.9) {
     dismountTReal = 0;
   }
 
