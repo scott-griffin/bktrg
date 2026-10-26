@@ -14,7 +14,7 @@
       background: linear-gradient(135deg, #ffcc00, #aaa, #ffcc00);
       -webkit-background-clip: text; -webkit-text-fill-color: transparent;
     }
-    .sub { color: #999; letter-spacing: 1.5px; margin: 10px auto 24px; max-width: 640px; font-size: 14px; line-height: 1.55; }
+    .sub { color: #999; letter-spacing: 1.5px; margin: 10px auto 24px; max-width: 680px; font-size: 14px; line-height: 1.55; }
     .stage {
       position: relative;
       max-width: 900px; margin: 0 auto;
@@ -23,31 +23,6 @@
       box-shadow: 0 10px 40px rgba(0,0,0,0.6);
     }
     canvas { display: block; width: 100%; height: 100%; }
-    .letterbox {
-      position: absolute; left: 0; right: 0; height: 0;
-      background: #000;
-      transition: height 0.35s cubic-bezier(.4,0,.2,1);
-      pointer-events: none;
-      z-index: 2;
-    }
-    .letterbox.top { top: 0; }
-    .letterbox.bot { bottom: 0; }
-    .stage.bars .letterbox { height: 12%; }
-    .flash {
-      position: absolute; inset: 0; background: #fff;
-      opacity: 0; pointer-events: none;
-      transition: opacity 0.08s;
-      mix-blend-mode: screen;
-      z-index: 3;
-    }
-    .vignette {
-      position: absolute; inset: 0; pointer-events: none;
-      background: radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,0.55) 100%);
-      opacity: 0;
-      transition: opacity 0.3s;
-      z-index: 1;
-    }
-    .stage.vig .vignette { opacity: 1; }
     .label {
       position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%);
       color: #ffcc00; letter-spacing: 3px; font-size: 14px; text-transform: uppercase;
@@ -65,7 +40,7 @@
     }
     button {
       background: #1a1a26; color: #ccc; border: 1px solid #2a2a3a;
-      padding: 11px 16px; border-radius: 24px; cursor: pointer;
+      padding: 11px 18px; border-radius: 24px; cursor: pointer;
       letter-spacing: 2px; font-family: inherit; font-size: 13px; text-transform: uppercase;
       transition: all 0.2s;
     }
@@ -73,7 +48,7 @@
     button.on { background: #ffcc00; color: #0a0a12; border-color: #ffcc00; }
     .descs {
       max-width: 900px; margin: 24px auto 0;
-      display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px;
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px;
     }
     .desc {
       background: #12121c; border: 1px solid #2a2a38; border-radius: 10px;
@@ -94,33 +69,25 @@
 </head>
 <body>
   <h1>Kangaroo's Big Jump</h1>
-  <p class="sub">Right now when the Golden Hopper lands on top of a train, time slows a little and the camera tilts up. Here are three bigger, more cinematic takes on the same beat. Watch the preview, then pick the one you like best — A, B, or C.</p>
+  <p class="sub">A smaller, in-world take on the beat when the Golden Hopper lands on top of a train. Camera drifts slightly to the right so you can see several bounces on the roof, then settles back to normal. Compare with the current behavior.</p>
 
   <div class="stage" id="stage">
     <canvas id="c"></canvas>
     <div class="phase" id="phase">approach</div>
-    <div class="letterbox top"></div>
-    <div class="letterbox bot"></div>
-    <div class="vignette"></div>
-    <div class="flash" id="flash"></div>
-    <div class="label" id="label">A — HOLLYWOOD HOP</div>
+    <div class="label" id="label">PROPOSED</div>
   </div>
 
   <div class="buttons">
     <button data-v="0">CURRENT</button>
-    <button data-v="1" class="on">A — HOLLYWOOD HOP</button>
-    <button data-v="2">B — LOW-ANGLE HERO</button>
-    <button data-v="3">C — BULLET-TIME</button>
+    <button data-v="1" class="on">PROPOSED</button>
   </div>
 
   <div class="descs" id="descs">
-    <div class="desc" data-v="0"><h3>CURRENT</h3><p>What the game does today — the world slows to about &frac13; speed and the camera lifts up to look down at the roof. Nice, but modest.</p></div>
-    <div class="desc on" data-v="1"><h3>A — HOLLYWOOD HOP</h3><p>The camera swings 90° to a side angle for the big jump, letterbox bars slide in like a movie, and there's a white flash and a dust ring on impact. Then it settles behind the roo.</p></div>
-    <div class="desc" data-v="2"><h3>B — LOW-ANGLE HERO</h3><p>Camera drops to the ground and tilts up — kangaroo looks TEN FEET TALL, flying up over the train against the sky. Then it stays low while the roo rides the roof like a king on a chariot.</p></div>
-    <div class="desc" data-v="3"><h3>C — BULLET-TIME</h3><p>At the top of the jump, time almost freezes and the camera swings 180° around the kangaroo — you see him from the front, the side, the back — like The Matrix. Then whoosh, back to normal.</p></div>
+    <div class="desc" data-v="0"><h3>CURRENT</h3><p>What the game does today — the world slows to about ⅓ speed and the camera lifts up to look down at the roof.</p></div>
+    <div class="desc on" data-v="1"><h3>PROPOSED</h3><p>Camera does a small sideways drift to the right, lifts a bit, and dips in briefly — enough to show four readable bounces as the kangaroo rides the roof. Modest slow-mo (easing from 0.33× back to 0.62×), tiny impact shake, a touch of camera roll, dust puffs on each bounce. Then it slides back to the normal chase camera as the train passes.</p></div>
   </div>
 
-  <p class="pick">Tell Dad: A, B, or C?</p>
+  <p class="pick">A good fit, or still off?</p>
   <a class="back" href="./">&larr; back to the game</a>
   <div class="toast" id="toast"></div>
 
@@ -130,7 +97,6 @@ import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.m
 const stage  = document.getElementById('stage');
 const canvas = document.getElementById('c');
 const label  = document.getElementById('label');
-const flash  = document.getElementById('flash');
 const phaseEl = document.getElementById('phase');
 const toast = document.getElementById('toast');
 addEventListener('error', e => { toast.textContent = '⚠ ' + e.message; toast.style.display = 'block'; });
@@ -257,6 +223,7 @@ function buildTrain() {
 }
 const train = buildTrain();
 scene.add(train);
+const TRAIN_LEN = 9;
 const TRAIN_ROOF_Y = 3.75;
 
 function buildKangaroo() {
@@ -353,177 +320,206 @@ scene.add(hero.group);
 const particles = [];
 function spawnDust(x, y, z, n, speed) {
   for (let i = 0; i < n; i++) {
-    const a = (i / n) * Math.PI * 2 + Math.random() * 0.3;
+    const a = (i / Math.max(1, n)) * Math.PI * 2 + Math.random() * 0.6;
     const m = new THREE.Mesh(
-      new THREE.SphereGeometry(0.22, 8, 6),
-      new THREE.MeshStandardMaterial({ color: 0xd9c8a8, roughness: 1, transparent: true, opacity: 0.9 })
+      new THREE.SphereGeometry(0.18, 8, 6),
+      new THREE.MeshStandardMaterial({ color: 0xd9c8a8, roughness: 1, transparent: true, opacity: 0.85 })
     );
     m.position.set(x, y, z);
     scene.add(m);
     particles.push({
-      m, vx: Math.cos(a) * speed, vy: 0.6 + Math.random() * 1.2, vz: Math.sin(a) * speed,
-      life: 0.9 + Math.random() * 0.4, max: 1.1
+      m, vx: Math.cos(a) * speed, vy: 0.3 + Math.random() * 0.6, vz: Math.sin(a) * speed,
+      life: 0.5 + Math.random() * 0.2, max: 0.7
     });
   }
 }
 
-const BEAT_LEN = 6.0;
-const T_LAUNCH   = 1.0;
-const T_APEX     = 1.8;
-const T_LAND     = 2.3;
-const T_RIDE_END = 4.6;
-const T_RESET    = 5.6;
-
-const JUMP_DUR = T_LAND - T_LAUNCH;
+// -------- beat timeline (approach + airborne is in game-seconds; roof-ride uses REAL seconds from impact) --------
+const T_LAUNCH = 1.0;   // game-sec
+const JUMP_DUR = 1.3;   // game-sec
+const T_LAND   = T_LAUNCH + JUMP_DUR;   // 2.3
 const JUMP_PEAK_H = 4.3;
-const BASE_WORLD_V = 14;
+const BEAT_LEN = 7.0;   // game-sec cap, just a safety reset
 
-let beatT = 0;
-let variant = 1;
+let beatT = 0;           // game-sec since beat start
+let variant = 1;         // 0 = CURRENT, 1 = PROPOSED
+let trainPosZ = 0;       // persistent world z
 let impactFired = false;
-let trainPosZ = 0;   // persistent world z; reset each beat so train reaches z=0 at T_LAND
+let impactTReal = -1;    // real seconds since the hero touched the roof
+let dismountTReal = -1;  // real seconds since the hero slid off the back
+
+// GPT-5 spec: landings and peak hop heights for the roof ride
+const LANDINGS = [0.00, 0.42, 0.84, 1.26];
+const PEAK_HS  = [0.28, 0.22, 0.16, 0.10];
+let dustFired = [false, false, false, false];
 
 function clamp(x, lo, hi) { return Math.max(lo, Math.min(hi, x)); }
 function lerp(a, b, t)   { return a + (b - a) * clamp(t, 0, 1); }
 function smooth(t)       { t = clamp(t, 0, 1); return t * t * (3 - 2 * t); }
+function easeOutExpo(t)  { t = clamp(t, 0, 1); return t === 1 ? 1 : 1 - Math.pow(2, -10 * t); }
+function easeOutCubic(t) { t = clamp(t, 0, 1); return 1 - Math.pow(1 - t, 3); }
+function easeInOutQuad(t){ t = clamp(t, 0, 1); return t < 0.5 ? 2*t*t : 1 - Math.pow(-2*t + 2, 2) / 2; }
 
-function heroPose(bt) {
-  let x = CENTER, y = 0, onTrainBounce = 0;
-  if (bt < T_LAUNCH) {
-    const phase = (bt * 2.6) % 1;
-    y = Math.abs(Math.sin(phase * Math.PI)) * 0.25;
-  } else if (bt < T_LAND) {
-    // ascending to JUMP_PEAK_H at midpoint, then descending to TRAIN_ROOF_Y at landing
-    const t = (bt - T_LAUNCH) / JUMP_DUR;
-    if (t < 0.5) {
-      y = JUMP_PEAK_H * Math.sin(t * Math.PI);
-    } else {
-      const dt = (t - 0.5) * 2;
-      y = JUMP_PEAK_H + (TRAIN_ROOF_Y - JUMP_PEAK_H) * (dt * dt);
+// hero's y during the airborne jump arc (ends at TRAIN_ROOF_Y so he lands on the roof, not the ground)
+function airborneY(bt) {
+  const t = (bt - T_LAUNCH) / JUMP_DUR;   // 0..1
+  if (t < 0.5) return JUMP_PEAK_H * Math.sin(t * Math.PI);
+  const dt = (t - 0.5) * 2;
+  return JUMP_PEAK_H + (TRAIN_ROOF_Y - JUMP_PEAK_H) * (dt * dt);
+}
+
+// hero's y offset above the roof while bouncing on top (impactTReal is REAL seconds since first contact)
+function roofBounceY(iT) {
+  for (let i = 0; i < LANDINGS.length; i++) {
+    const start = LANDINGS[i];
+    const end = (i + 1 < LANDINGS.length) ? LANDINGS[i+1] : (start + 0.42);
+    if (iT >= start && iT < end) {
+      const t = (iT - start) / (end - start);
+      return Math.sin(t * Math.PI) * PEAK_HS[i];
     }
-  } else if (bt < T_RIDE_END) {
-    const rt = (bt - T_LAND);
-    const phase = (rt * 3.3) % 1;
-    const hop = Math.abs(Math.sin(phase * Math.PI));
-    onTrainBounce = hop;
-    y = TRAIN_ROOF_Y + hop * 0.5;
-  } else {
-    const t = (bt - T_RIDE_END) / (T_RESET - T_RIDE_END);
-    y = TRAIN_ROOF_Y * (1 - t);
   }
-  return { x, y, onTrainBounce };
+  return 0;
 }
 
-// scroll velocity in world-units per game-second — ground and train both move at this rate,
-// so during the ride phase the train sits visibly stationary under the hero while barely drifting.
-function scrollV(bt) {
-  if (bt < T_LAND)     return 10;    // approach + airborne: steady 10 u/s
-  if (bt < T_RIDE_END) return 0.8;   // ride: nearly frozen (train barely drifts past hero)
-  return 11;                          // dismount: train speeds back up and slides past
+// GPT-5's per-landing 90ms micro-slow: multiply current timeScale by 0.85 within 90ms of each landing
+function microSlow(iT) {
+  for (const lt of LANDINGS) if (iT >= lt && iT < lt + 0.09) return 0.85;
+  return 1.0;
 }
 
-function cameraFor(v, bt) {
-  const base = {
-    pos:  new THREE.Vector3(CENTER * 0.22, 3.4, 7.5),
-    look: new THREE.Vector3(CENTER * 0.09, 1, -12),
-    fov: 60,
-    letterbox: false, vignette: false,
-  };
-
-  const H = heroPose(bt);
-  const hx = H.x, hy = H.y + 0.6;
-
-  if (v === 0) {
-    const onTrain = bt >= T_LAND && bt < T_RIDE_END ? 1 : 0;
-    base.pos.y  = 3.4 + onTrain * 4.1;
-    base.look.y = 1 + onTrain * 2.5;
-    return base;
+function timeScalePROPOSED(iT) {
+  if (iT < 0) return 1.0;
+  // ease 1.0 → 0.33 over 0.22s (easeOutExpo)
+  if (iT < 0.22) return lerp(1.0, 0.33, easeOutExpo(iT / 0.22));
+  // ease 0.33 → 0.62 over 0.22s → 1.20s (easeOutCubic)
+  let base;
+  if (iT < 1.20) base = lerp(0.33, 0.62, easeOutCubic((iT - 0.22) / (1.20 - 0.22)));
+  else base = 0.62;   // hold until dismount
+  // exit: dismount triggers 0.4s ease back to 1.0
+  if (dismountTReal >= 0) {
+    if (dismountTReal >= 0.4) return 1.0;
+    return lerp(base, 1.0, easeInOutQuad(dismountTReal / 0.4));
   }
+  return base * microSlow(iT);
+}
 
-  if (v === 1) {
-    const kIn  = smooth((bt - (T_LAUNCH - 0.1)) / 0.5);
-    const kOut = smooth((bt - (T_LAND + 0.6)) / 0.6);
-    const sideK = kIn * (1 - kOut);
-    const theta = sideK * (Math.PI / 2);
-    const radius = 10;
-    base.pos.set(
-      Math.sin(theta) * radius,
-      lerp(3.4, 3.2, sideK),
-      Math.cos(theta) * radius
-    );
-    base.look.set(hx, hy, 0);
-    base.fov = lerp(60, 52, sideK);
-    base.letterbox = sideK > 0.3;
-    base.vignette  = sideK > 0.3;
-    return base;
-  }
+function timeScaleCURRENT() {
+  if (impactTReal < 0) return 1.0;
+  if (dismountTReal >= 0.4) return 1.0;
+  if (dismountTReal >= 0) return lerp(0.35, 1.0, dismountTReal / 0.4);
+  return 0.35;
+}
 
-  if (v === 2) {
-    // B — LOW-ANGLE HERO: 3/4 ground-level shot, offset to the right so the train doesn't block it
-    const kIn  = smooth((bt - (T_LAUNCH - 0.1)) / 0.4);
-    const kOut = smooth((bt - (T_RIDE_END - 0.2)) / 0.5);
-    const k = kIn * (1 - kOut);
-    base.pos.set(
-      lerp(CENTER * 0.22, 4.5, k),
-      lerp(3.4, 0.6, k),
-      lerp(7.5, 4.0, k)
-    );
-    base.look.set(hx, hy, 0);
-    base.fov = lerp(60, 42, k);
-    base.vignette = k > 0.3;
-    return base;
-  }
+function timeScaleNow() {
+  return variant === 0 ? timeScaleCURRENT() : timeScalePROPOSED(impactTReal);
+}
 
-  if (v === 3) {
-    const kIn = smooth((bt - (T_LAUNCH - 0.1)) / 0.3);
-    const kOut = smooth((bt - (T_LAND + 0.1)) / 0.4);
-    const k = kIn * (1 - kOut);
-    const orbitK = clamp((bt - T_LAUNCH) / (T_LAND - T_LAUNCH), 0, 1);
-    const theta = orbitK * Math.PI;
-    const radius = 7;
-    base.pos.set(
-      lerp(CENTER * 0.22, Math.sin(theta) * radius, k),
-      lerp(3.4,   hy + 0.5, k),
-      lerp(7.5,   Math.cos(theta) * radius, k)
-    );
-    base.look.set(hx, hy, 0);
-    base.fov = lerp(60, 58, k);
-    base.letterbox = k > 0.5;
-    base.vignette  = k > 0.3;
-    return base;
-  }
+// scroll velocity in world-units per game-second (train + ground scroll together)
+function scrollV() {
+  if (impactTReal < 0) return 10;           // approach + airborne
+  if (dismountTReal < 0) return 3.1;        // roof ride: slow drift so the 4 bounces are readable
+  return 11;                                 // dismount: train zooms past
+}
 
+function cameraCURRENT() {
+  const base = { pos: new THREE.Vector3(CENTER*0.22, 3.4, 7.5), look: new THREE.Vector3(CENTER*0.09, 1.0, -12), roll: 0 };
+  if (impactTReal < 0) return base;
+  // ride: lift + look up (match game's camLiftK = 1)
+  const settleIn = dismountTReal < 0 ? 1 : (1 - clamp(dismountTReal / 0.4, 0, 1));
+  base.pos.y  = 3.4 + 4.1 * settleIn;
+  base.look.y = 1.0 + 2.5 * settleIn;
   return base;
 }
 
-function timeScale(v, bt) {
-  if (v === 0) {
-    return (bt >= T_LAND && bt < T_RIDE_END) ? 0.35 : 1.0;
+function cameraPROPOSED() {
+  const iT = impactTReal;
+  const basePos  = new THREE.Vector3(CENTER*0.22, 3.4, 7.5);
+  const baseLook = new THREE.Vector3(CENTER*0.09, 1.0, -12);
+  if (iT < 0) return { pos: basePos, look: baseLook, roll: 0 };
+
+  // target positions after Phase 2 (held until dismount)
+  const held = {
+    pos:  new THREE.Vector3(CENTER*0.22 + 0.60, 4.7, 6.7),
+    look: new THREE.Vector3(CENTER*0.09 + 0.25, 1.6, -10),
+  };
+
+  let posX, posY, posZ, lookX, lookY, lookZ;
+
+  if (iT < 0.22) {
+    // Phase 1 (easeOutCubic): base → mid state
+    const t = easeOutCubic(iT / 0.22);
+    posX  = lerp(basePos.x,  CENTER*0.22 + 1.05, t);
+    posY  = lerp(basePos.y,  4.4, t);
+    posZ  = lerp(basePos.z,  6.7, t);
+    lookX = lerp(baseLook.x, CENTER*0.09 + 0.25, t);
+    lookY = lerp(baseLook.y, 1.6, t);
+    lookZ = lerp(baseLook.z, -10, t);
+  } else if (iT < 1.20) {
+    // Phase 2: side offset +1.05 → +0.60; y 4.4 → 4.7; z 6.7 → 6.4 (by 0.55s) → 6.7 (by 1.20s)
+    const t = (iT - 0.22) / (1.20 - 0.22);
+    posX  = lerp(CENTER*0.22 + 1.05, held.pos.x, t);
+    posY  = lerp(4.4, held.pos.y, t);
+    const zPhase = iT - 0.22;
+    if (zPhase < 0.33)      posZ = lerp(6.7, 6.4, zPhase / 0.33);
+    else if (zPhase < 0.98) posZ = lerp(6.4, 6.7, (zPhase - 0.33) / (0.98 - 0.33));
+    else                    posZ = 6.7;
+    lookX = held.look.x;
+    lookY = held.look.y;
+    lookZ = held.look.z;
+  } else {
+    // Hold Phase 2 end state until dismount
+    posX = held.pos.x; posY = held.pos.y; posZ = held.pos.z;
+    lookX = held.look.x; lookY = held.look.y; lookZ = held.look.z;
   }
-  if (v === 1) {
-    // A Hollywood: deep slomo through apex + brief freeze on impact, then quicker ride
-    if (bt < T_LAUNCH - 0.1)   return 1.0;
-    if (bt < T_LAND + 0.15)    return 0.25;
-    if (bt < T_RIDE_END - 0.4) return 0.55;
-    return 1.0;
+
+  // Exit: once hero slides off, ease back to base over 0.4s
+  if (dismountTReal >= 0) {
+    const t = easeInOutQuad(clamp(dismountTReal / 0.4, 0, 1));
+    posX  = lerp(posX,  basePos.x,  t);
+    posY  = lerp(posY,  basePos.y,  t);
+    posZ  = lerp(posZ,  basePos.z,  t);
+    lookX = lerp(lookX, baseLook.x, t);
+    lookY = lerp(lookY, baseLook.y, t);
+    lookZ = lerp(lookZ, baseLook.z, t);
   }
-  if (v === 2) {
-    // B Low-Angle: moderate slomo through apex, extended majestic ride
-    if (bt < T_LAUNCH - 0.1) return 1.0;
-    if (bt < T_LAND + 0.1)   return 0.28;
-    if (bt < T_RIDE_END)     return 0.40;
-    return 1.0;
+
+  // Lateral sway while riding: ±0.12m sine at 0.3 Hz (clamp overall side offset ≤ +1.2m)
+  if (dismountTReal < 0) {
+    const sway = Math.sin(iT * 0.3 * 2 * Math.PI) * 0.12;
+    const sideCap = CENTER*0.22 + 1.2;
+    posX = Math.min(sideCap, posX + sway);
   }
-  if (v === 3) {
-    // C Bullet-time: short near-freeze window right at apex (for the orbit), fast recovery
-    if (bt < T_LAUNCH - 0.1) return 1.0;
-    if (bt < T_APEX - 0.3)   return 0.35;   // ramp into the freeze
-    if (bt < T_APEX + 0.3)   return 0.08;   // near-freeze through orbit
-    if (bt < T_LAND + 0.15)  return 0.30;   // recovery
-    if (bt < T_RIDE_END - 0.4) return 0.60;
-    return 1.0;
+
+  // Spring shake on impact: posY -0.08, yaw +1.2° (as lookX nudge), 12Hz, 55% damping, settle 0.18s
+  if (iT >= 0 && iT < 0.18) {
+    const damp = Math.exp(-iT * 5.5);
+    const osc = Math.sin(iT * 12 * 2 * Math.PI);
+    posY += -0.08 * osc * damp;
+    // yaw of 1.2° at look.z = -10 → lookX shifts by 10 * tan(1.2°) ≈ 0.21m per full amplitude
+    lookX += 0.21 * osc * damp;
   }
-  return 1.0;
+
+  // Per-landing camLook.z nudge -10 → -9.3 → -10 over 160ms (telegraph forward motion while slowed)
+  for (const lt of LANDINGS) {
+    const dt = iT - lt;
+    if (dt < 0 || dt > 0.16) continue;
+    if (dt < 0.08) lookZ = lerp(-10, -9.3, easeOutCubic(dt / 0.08));
+    else           lookZ = lerp(-9.3, -10, easeOutCubic((dt - 0.08) / 0.08));
+  }
+
+  // Subtle roll: -2° at 0.10s, decay to 0° by 1.20s
+  let roll = 0;
+  if (iT < 1.20) {
+    if (iT < 0.10) roll = lerp(0, -2.0, iT / 0.10);
+    else            roll = lerp(-2.0, 0, (iT - 0.10) / (1.20 - 0.10));
+    roll *= Math.PI / 180;
+  }
+
+  return {
+    pos: new THREE.Vector3(posX, posY, posZ),
+    look: new THREE.Vector3(lookX, lookY, lookZ),
+    roll,
+  };
 }
 
 for (const b of document.querySelectorAll('button[data-v]')) {
@@ -536,99 +532,135 @@ for (const b of document.querySelectorAll('button[data-v]')) {
   };
 }
 
-function phaseName(bt) {
-  if (bt < T_LAUNCH) return 'approach';
-  if (bt < T_APEX)   return 'launch';
-  if (bt < T_LAND)   return 'apex';
-  if (bt < T_LAND + 0.3) return 'impact';
-  if (bt < T_RIDE_END)   return 'riding';
-  return 'dismount';
+function phaseName() {
+  if (impactTReal < 0) {
+    if (beatT < T_LAUNCH) return 'approach';
+    if (beatT < T_LAND)   return 'airborne';
+    return 'landing';
+  }
+  if (dismountTReal < 0) return 'roof-ride';
+  return 'return';
 }
 
-const clock = new THREE.Clock();
 function resetBeat() {
   beatT = 0;
   impactFired = false;
-  // place train so it reaches z=0 exactly at T_LAND (10 u/s during approach * T_LAND game-sec)
-  trainPosZ = -scrollV(0) * T_LAND;
+  impactTReal = -1;
+  dismountTReal = -1;
+  dustFired = [false, false, false, false];
+  trainPosZ = -scrollV() * T_LAND;    // scrollV() during approach = 10, so start at -23 so train reaches z=0 at T_LAND
   train.position.set(CENTER, 0, trainPosZ);
+  hero.group.position.set(CENTER, 0, 0);
   for (const p of particles) scene.remove(p.m);
   particles.length = 0;
 }
 resetBeat();
 
+const clock = new THREE.Clock();
 function tick() {
   requestAnimationFrame(tick);
   const realDt = Math.min(0.05, clock.getDelta());
-  const gameDt = realDt * timeScale(variant, beatT);
+  const ts = timeScaleNow();
+  const gameDt = realDt * ts;
 
   beatT += gameDt;
-  if (beatT >= BEAT_LEN) resetBeat();
+  if (impactTReal >= 0) impactTReal += realDt;
+  if (dismountTReal >= 0) dismountTReal += realDt;
 
-  const H = heroPose(beatT);
-  hero.group.position.x = H.x;
-  hero.group.position.y = H.y;
+  // reset at end-of-beat (either dismount ran its course, or safety cap)
+  if ((dismountTReal >= 1.2) || beatT >= BEAT_LEN) {
+    resetBeat();
+    return;
+  }
 
-  const phase = (beatT * 3.3 * (BASE_WORLD_V / 13)) % 1;
+  // hero y
+  let hy = 0;
+  if (beatT < T_LAUNCH) {
+    const phase = (beatT * 2.6) % 1;
+    hy = Math.abs(Math.sin(phase * Math.PI)) * 0.25;
+  } else if (beatT < T_LAND) {
+    hy = airborneY(beatT);
+  } else if (dismountTReal < 0) {
+    hy = TRAIN_ROOF_Y + roofBounceY(impactTReal);
+  } else {
+    // dismount: hero falls off the back
+    const t = clamp(dismountTReal / 0.5, 0, 1);
+    hy = TRAIN_ROOF_Y * (1 - t);
+  }
+  hero.group.position.y = hy;
+
+  // feet + tail bounce
+  const phase = (beatT * 3.3) % 1;
   const feetHop = (beatT >= T_LAUNCH && beatT < T_LAND) ? 0 : Math.abs(Math.sin(phase * Math.PI));
   if (hero.feet[0]) hero.feet[0].position.y = hero.feet[0].userData.y0 + feetHop * 0.12;
   hero.tail.rotation.y = Math.sin(phase * Math.PI * 2) * 0.5;
 
-  if (beatT >= T_LAUNCH && beatT < T_LAND) hero.group.scale.set(0.95, 1.12, 1);
-  else if (beatT >= T_LAND && beatT < T_RIDE_END) hero.group.scale.set(1, 0.92 + 0.16 * H.onTrainBounce, 1);
-  else hero.group.scale.set(1, 1, 1);
-
+  // airborne nose-tilt
   const flyT = (beatT - T_LAUNCH) / JUMP_DUR;
-  if (flyT >= 0 && flyT <= 1) {
-    hero.group.rotation.x = -0.3 * Math.sin(flyT * Math.PI);
+  if (flyT >= 0 && flyT <= 1) hero.group.rotation.x = -0.3 * Math.sin(flyT * Math.PI);
+  else hero.group.rotation.x = 0;
+
+  // hero squash on first contact (22ms squash, 120ms restore) — GPT-5 spec
+  if (impactTReal >= 0 && impactTReal < 0.022) {
+    const sq = impactTReal / 0.022;
+    hero.group.scale.set(lerp(1, 1.06, sq), lerp(1, 0.86, sq), lerp(1, 1.06, sq));
+  } else if (impactTReal >= 0.022 && impactTReal < 0.142) {
+    const t = (impactTReal - 0.022) / 0.12;
+    hero.group.scale.set(lerp(1.06, 1, t), lerp(0.86, 1, t), lerp(1.06, 1, t));
+  } else if (beatT >= T_LAUNCH && beatT < T_LAND) {
+    hero.group.scale.set(0.95, 1.12, 1);
   } else {
-    hero.group.rotation.x = 0;
+    hero.group.scale.set(1, 1, 1);
   }
 
-  // world + train scroll at the same velocity so the train sits visually under the hero during the ride
-  const svel = scrollV(beatT) * gameDt;
-  trainPosZ += svel;
+  // world + train scroll
+  const sv = scrollV() * gameDt;
+  trainPosZ += sv;
   train.position.set(CENTER, 0, trainPosZ);
-  for (const t of ties) {
-    t.position.z += svel;
-    if (t.position.z > 10) t.position.z -= TIE_ROWS * TIE_SPACING;
-  }
-  for (const tr of trees) {
-    tr.position.z += svel;
-    if (tr.position.z > 15) tr.position.z -= 14 * 14;
-  }
+  for (const t of ties)  { t.position.z += sv;  if (t.position.z  > 10) t.position.z  -= TIE_ROWS * TIE_SPACING; }
+  for (const tr of trees){ tr.position.z += sv; if (tr.position.z > 15) tr.position.z -= 14 * 14; }
 
+  // impact + dust puffs
   if (!impactFired && beatT >= T_LAND) {
     impactFired = true;
-    spawnDust(H.x, TRAIN_ROOF_Y, trainPosZ, 20, 3.6);
-    if (variant !== 0) {
-      flash.style.transition = 'opacity 0.04s';
-      flash.style.opacity = '0.85';
-      setTimeout(() => { flash.style.transition = 'opacity 0.28s'; flash.style.opacity = '0'; }, 55);
+    impactTReal = 0;
+    // first landing dust is handled by the LANDINGS loop below
+  }
+  if (impactTReal >= 0 && dismountTReal < 0) {
+    for (let i = 0; i < LANDINGS.length; i++) {
+      if (!dustFired[i] && impactTReal >= LANDINGS[i]) {
+        dustFired[i] = true;
+        spawnDust(hero.group.position.x, TRAIN_ROOF_Y, trainPosZ, 2, 0.5);
+      }
     }
   }
 
+  // dismount trigger: train's front has moved past the hero (zF > 0.9)
+  if (impactTReal >= 0 && dismountTReal < 0 && (trainPosZ - TRAIN_LEN/2) > 0.9) {
+    dismountTReal = 0;
+  }
+
+  // particles
   for (let i = particles.length - 1; i >= 0; i--) {
     const p = particles[i];
     p.life -= realDt;
     if (p.life <= 0) { scene.remove(p.m); particles.splice(i, 1); continue; }
     p.vy -= 6 * realDt;
     p.m.position.x += p.vx * realDt;
-    p.m.position.y = Math.max(TRAIN_ROOF_Y - 0.3, p.m.position.y + p.vy * realDt);
-    p.m.position.z += p.vz * realDt;
-    p.m.material.opacity = clamp(p.life / p.max, 0, 1) * 0.9;
-    p.m.scale.setScalar(Math.max(0.1, p.life * 1.6));
+    p.m.position.y = Math.max(TRAIN_ROOF_Y - 0.5, p.m.position.y + p.vy * realDt);
+    p.m.position.z += (p.vz + sv * 0.6) * realDt;
+    p.m.material.opacity = clamp(p.life / p.max, 0, 1) * 0.85;
+    p.m.scale.setScalar(Math.max(0.1, p.life * 1.4));
   }
 
-  const C = cameraFor(variant, beatT);
+  // camera
+  const C = variant === 0 ? cameraCURRENT() : cameraPROPOSED();
   camera.position.copy(C.pos);
+  // apply roll by tilting the "up" vector before lookAt
+  camera.up.set(Math.sin(C.roll || 0), Math.cos(C.roll || 0), 0);
   camera.lookAt(C.look);
-  if (Math.abs(camera.fov - C.fov) > 0.1) { camera.fov = C.fov; camera.updateProjectionMatrix(); }
 
-  stage.classList.toggle('bars', !!C.letterbox);
-  stage.classList.toggle('vig',  !!C.vignette);
-
-  phaseEl.textContent = phaseName(beatT) + ' · ' + timeScale(variant, beatT).toFixed(2) + 'x';
+  phaseEl.textContent = phaseName() + ' · ' + ts.toFixed(2) + 'x';
 
   renderer.render(scene, camera);
 }
