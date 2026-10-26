@@ -84,7 +84,7 @@
 
   <div class="descs" id="descs">
     <div class="desc" data-v="0"><h3>CURRENT</h3><p>What the game does today — the world slows to about ⅓ speed and the camera lifts up to look down at the roof.</p></div>
-    <div class="desc on" data-v="1"><h3>PROPOSED</h3><p>Camera does a small sideways drift to the right, lifts a bit, and dips in briefly — enough to show four readable bounces as the kangaroo rides the roof. Modest slow-mo (easing from 0.33× back to 0.62×), tiny impact shake, a touch of camera roll, dust puffs on each bounce. Then it slides back to the normal chase camera as the train passes.</p></div>
+    <div class="desc on" data-v="1"><h3>PROPOSED</h3><p>Camera swings almost 90° to the right so you see the kangaroo and the train in profile. Deep slow-mo (0.15× dip, 0.32× hold) through four readable roof bounces, each with a dust puff and a tiny micro-slow. Then the camera swings back to the normal chase cam as the train slides past.</p></div>
   </div>
 
   <p class="pick">A good fit, or still off?</p>
@@ -437,90 +437,84 @@ function cameraPROPOSED() {
   const baseLook = new THREE.Vector3(CENTER*0.09, 1.0, -12);
   if (iT < 0) return { pos: basePos, look: baseLook, roll: 0 };
 
-  // target positions after Phase 2 (held until dismount) — side drift pushed further right per Scott
-  const PEAK_SIDE = 1.8, HELD_SIDE = 1.4;
-  const held = {
-    pos:  new THREE.Vector3(CENTER*0.22 + HELD_SIDE, 4.7, 6.7),
-    look: new THREE.Vector3(CENTER*0.09 + 0.40, 1.6, -10),
-  };
+  // Camera orbits the kangaroo. θ=0 is directly behind (chase cam), θ=π/2 is 90° to the right (side profile).
+  // Scott wants "almost 90°" so we swing to ~85° at peak and settle at ~80° during the ride.
+  const PEAK_DEG = 85, HELD_DEG = 78;
+  const ORBIT_R  = 10;    // radius from the hero/train center — far enough to fit the whole train in frame
+  const BASE_R   = Math.sqrt(basePos.x*basePos.x + basePos.z*basePos.z);  // for lerping from behind-cam
 
-  let posX, posY, posZ, lookX, lookY, lookZ;
+  // orbit position: hero sits at (0, hero_y, 0); camera is at (sin θ * R, h, cos θ * R)
+  function orbitAt(thetaDeg, h, r) {
+    const t = thetaDeg * Math.PI / 180;
+    return new THREE.Vector3(Math.sin(t) * r, h, Math.cos(t) * r);
+  }
+
+  let pos, lookTarget;
+  const heroY = hero.group.position.y || TRAIN_ROOF_Y;
 
   if (iT < 0.22) {
-    // Phase 1 (easeOutCubic): base → mid state
+    // Phase 1 (easeOutCubic): swing from behind (θ=0, h=3.4, r=BASE_R) to near-side (θ=PEAK, h=4.4, r=ORBIT_R)
     const t = easeOutCubic(iT / 0.22);
-    posX  = lerp(basePos.x,  CENTER*0.22 + PEAK_SIDE, t);
-    posY  = lerp(basePos.y,  4.4, t);
-    posZ  = lerp(basePos.z,  6.7, t);
-    lookX = lerp(baseLook.x, CENTER*0.09 + 0.40, t);
-    lookY = lerp(baseLook.y, 1.6, t);
-    lookZ = lerp(baseLook.z, -10, t);
+    const theta = lerp(0, PEAK_DEG, t);
+    const r     = lerp(BASE_R, ORBIT_R, t);
+    const h     = lerp(basePos.y, 4.4, t);
+    pos = orbitAt(theta, h, r);
+    lookTarget = new THREE.Vector3(
+      lerp(baseLook.x, 0, t),
+      lerp(baseLook.y, heroY - 0.5, t),
+      lerp(baseLook.z, 0, t),
+    );
   } else if (iT < 1.20) {
-    // Phase 2: side offset decays peak → held; y 4.4 → 4.7; z 6.7 → 6.4 (by 0.55s) → 6.7 (by 1.20s)
-    const t = (iT - 0.22) / (1.20 - 0.22);
-    posX  = lerp(CENTER*0.22 + PEAK_SIDE, held.pos.x, t);
-    posY  = lerp(4.4, held.pos.y, t);
-    const zPhase = iT - 0.22;
-    if (zPhase < 0.33)      posZ = lerp(6.7, 6.4, zPhase / 0.33);
-    else if (zPhase < 0.98) posZ = lerp(6.4, 6.7, (zPhase - 0.33) / (0.98 - 0.33));
-    else                    posZ = 6.7;
-    lookX = held.look.x;
-    lookY = held.look.y;
-    lookZ = held.look.z;
+    // Phase 2 (easeOutCubic): settle from PEAK → HELD angle; lift slightly, keep radius
+    const t = easeOutCubic((iT - 0.22) / (1.20 - 0.22));
+    const theta = lerp(PEAK_DEG, HELD_DEG, t);
+    const h     = lerp(4.4, 4.7, t);
+    pos = orbitAt(theta, h, ORBIT_R);
+    lookTarget = new THREE.Vector3(0, heroY - 0.4, 0);
   } else {
-    // Hold Phase 2 end state until dismount
-    posX = held.pos.x; posY = held.pos.y; posZ = held.pos.z;
-    lookX = held.look.x; lookY = held.look.y; lookZ = held.look.z;
+    // Hold
+    pos = orbitAt(HELD_DEG, 4.7, ORBIT_R);
+    lookTarget = new THREE.Vector3(0, heroY - 0.4, 0);
   }
 
-  // Exit: once hero slides off, ease back to base over 0.4s
+  // Exit: once hero slides off, swing back to base chase-cam over 0.4s
   if (dismountTReal >= 0) {
     const t = easeInOutQuad(clamp(dismountTReal / 0.4, 0, 1));
-    posX  = lerp(posX,  basePos.x,  t);
-    posY  = lerp(posY,  basePos.y,  t);
-    posZ  = lerp(posZ,  basePos.z,  t);
-    lookX = lerp(lookX, baseLook.x, t);
-    lookY = lerp(lookY, baseLook.y, t);
-    lookZ = lerp(lookZ, baseLook.z, t);
+    pos.x = lerp(pos.x, basePos.x, t);
+    pos.y = lerp(pos.y, basePos.y, t);
+    pos.z = lerp(pos.z, basePos.z, t);
+    lookTarget.x = lerp(lookTarget.x, baseLook.x, t);
+    lookTarget.y = lerp(lookTarget.y, baseLook.y, t);
+    lookTarget.z = lerp(lookTarget.z, baseLook.z, t);
   }
 
-  // Lateral sway while riding: ±0.12m sine at 0.3 Hz (cap raised to +2.0m per Scott's bigger-swing ask)
-  if (dismountTReal < 0) {
-    const sway = Math.sin(iT * 0.3 * 2 * Math.PI) * 0.12;
-    const sideCap = CENTER*0.22 + 2.0;
-    posX = Math.min(sideCap, posX + sway);
+  // Small sideways parallax while riding (±0.6° orbital sway at 0.3 Hz)
+  if (dismountTReal < 0 && iT >= 0.22) {
+    const swayDeg = Math.sin(iT * 0.3 * 2 * Math.PI) * 0.6;
+    const swayRad = swayDeg * Math.PI / 180;
+    const r = Math.hypot(pos.x, pos.z);
+    const curTheta = Math.atan2(pos.x, pos.z);
+    const nt = curTheta + swayRad;
+    pos.x = Math.sin(nt) * r;
+    pos.z = Math.cos(nt) * r;
   }
 
-  // Spring shake on impact: posY -0.08, yaw +1.2° (as lookX nudge), 12Hz, 55% damping, settle 0.18s
+  // Spring shake on impact: posY −0.08, 12 Hz, 55% damping, settle by 0.18s
   if (iT >= 0 && iT < 0.18) {
     const damp = Math.exp(-iT * 5.5);
     const osc = Math.sin(iT * 12 * 2 * Math.PI);
-    posY += -0.08 * osc * damp;
-    // yaw of 1.2° at look.z = -10 → lookX shifts by 10 * tan(1.2°) ≈ 0.21m per full amplitude
-    lookX += 0.21 * osc * damp;
+    pos.y += -0.08 * osc * damp;
   }
 
-  // Per-landing camLook.z nudge -10 → -9.3 → -10 over 160ms (telegraph forward motion while slowed)
-  for (const lt of LANDINGS) {
-    const dt = iT - lt;
-    if (dt < 0 || dt > 0.16) continue;
-    if (dt < 0.08) lookZ = lerp(-10, -9.3, easeOutCubic(dt / 0.08));
-    else           lookZ = lerp(-9.3, -10, easeOutCubic((dt - 0.08) / 0.08));
-  }
-
-  // Subtle roll: -2° at 0.10s, decay to 0° by 1.20s
+  // Subtle roll — very small at this angle so the horizon doesn't tip sideways looking weird
   let roll = 0;
   if (iT < 1.20) {
-    if (iT < 0.10) roll = lerp(0, -2.0, iT / 0.10);
-    else            roll = lerp(-2.0, 0, (iT - 0.10) / (1.20 - 0.10));
+    if (iT < 0.10) roll = lerp(0, -0.8, iT / 0.10);
+    else           roll = lerp(-0.8, 0, (iT - 0.10) / (1.20 - 0.10));
     roll *= Math.PI / 180;
   }
 
-  return {
-    pos: new THREE.Vector3(posX, posY, posZ),
-    look: new THREE.Vector3(lookX, lookY, lookZ),
-    roll,
-  };
+  return { pos, look: lookTarget, roll };
 }
 
 for (const b of document.querySelectorAll('button[data-v]')) {
