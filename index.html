@@ -1680,7 +1680,7 @@ function powHud() {
 }
 
 // ---------- game state ----------
-let playing = false, paused = false, elapsed = 0, score = 0, cheese = 0;
+let playing = false, paused = false, elapsed = 0, score = 0, cheese = 0, speedSum = 0;   // speedSum = ∫ speedMult dt over the run, so the submitted avg reflects slider changes mid-run
 let lane = 1, displayLane = 1;
 let jumpT = -1, duckT = -1;
 const JUMP_DUR = 0.6, DUCK_DUR = 0.6;
@@ -1692,7 +1692,7 @@ let speedMult = parseFloat(localStorage.getItem('subwayRatsSpeed') || '0.8');
 function speed() { return (13 + Math.min(6, (level - 1) * 1.5) + Math.min(22, biomeT * 1.1)) * speedMult; }
 
 function reset() {
-  elapsed = 0; score = 0; cheese = 0;
+  elapsed = 0; score = 0; cheese = 0; speedSum = 0;
   lane = 1; displayLane = 1; jumpT = -1; duckT = -1;
   for (const o of obstacles) scene.remove(o.mesh);
   for (const t of treats) scene.remove(t.mesh);
@@ -1776,6 +1776,7 @@ function biomeBanner(text, subtext) {
 // ---------- update ----------
 function update(dt) {
   elapsed += dt;
+  speedSum += speedMult * dt;
   const v = (watchGhost ? watchV() : speed()) * (onTrain ? 0.35 : 1);   // slomo while riding the roof: lets you actually watch the hop-across
   const mult = starT > 0 ? 2 : 1;
   score += dt * 60 * (v / 13) * mult;
@@ -2558,7 +2559,7 @@ async function autoSave(s) {
     const res = await fetch(API, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: ratName, score: s, token: ratToken, sid: ratSid, cheese, secs: Math.floor(elapsed), pows: powsThisRun, char: charKey, flag: ratFlag, speedPct: Math.round(speedMult * 100),
+      body: JSON.stringify({ name: ratName, score: s, token: ratToken, sid: ratSid, cheese, secs: Math.floor(elapsed), pows: powsThisRun, char: charKey, flag: ratFlag, speedPct: Math.round((elapsed > 0 ? speedSum / elapsed : speedMult) * 100),
         replay: recBuf.length >= 8 && recBuf.length <= 160000 ? { v: 1, char: charKey, samples: recBuf } : undefined }),
     });
     if (res.status === 403) { el.textContent = `${ratName} is another rat's name — hang on…`; nameTrouble(ratName, s); renderTop(); return; }
