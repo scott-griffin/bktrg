@@ -2558,7 +2558,7 @@ async function autoSave(s) {
     const res = await fetch(API, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: ratName, score: s, token: ratToken, sid: ratSid, cheese, secs: Math.floor(elapsed), pows: powsThisRun, char: charKey, flag: ratFlag,
+      body: JSON.stringify({ name: ratName, score: s, token: ratToken, sid: ratSid, cheese, secs: Math.floor(elapsed), pows: powsThisRun, char: charKey, flag: ratFlag, speedPct: Math.round(speedMult * 100),
         replay: recBuf.length >= 8 && recBuf.length <= 160000 ? { v: 1, char: charKey, samples: recBuf } : undefined }),
     });
     if (res.status === 403) { el.textContent = `${ratName} is another rat's name — hang on…`; nameTrouble(ratName, s); renderTop(); return; }

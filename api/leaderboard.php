@@ -126,6 +126,7 @@ function publicRows($scores) {
     return array_map(fn($r) => [
         'name' => $r['name'], 'score' => $r['score'], 'date' => $r['date'],
         'cheese' => $r['cheese'] ?? null, 'secs' => $r['secs'] ?? null,
+        'speedPct' => $r['speedPct'] ?? null,   // null = run predates the field; the leaderboard shows a dash
         'char' => ($r['char'] ?? '') ?: 'rat',   // runs from before the game tracked characters have none recorded, and a rat is what they will have been
         'ghost' => is_file(ghostPath($r['name'])),
         'flag' => rowFlag($r),
@@ -286,6 +287,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $pows   = max(0, intval($input['pows'] ?? 0));
     $char   = substr(preg_replace('/[^a-z]/', '', strtolower($input['char'] ?? '')), 0, 12);   // which character ran it — kept loose so a new one needs no change here
     $flag   = cleanFlag($input['flag'] ?? '');   // carried on every run so a device that knows its country can flag a row that has none
+    $speedPct = max(0, min(999, intval($input['speedPct'] ?? 0)));   // the player's chosen game-speed % (settings slider: 40–140); 0 = not reported (older client)
 
     if (!$name || strlen($name) > 20 || $score < 0 || $score > 99999999) {
         http_response_code(400);
@@ -326,13 +328,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($score > $row['score']) {
                 $row['score'] = $score; $row['date'] = date('Y-m-d');
                 $row['cheese'] = $cheese; $row['secs'] = $secs; $row['pows'] = $pows; $row['char'] = $char;
+                if ($speedPct > 0) $row['speedPct'] = $speedPct;   // the slider that ran this best — unreported from pre-column clients leaves the row's prior value in place
                 $improved = true;
             }
             break;
         }
     }
     unset($row);
-    if (!$found) { $scores[] = ['name' => $name, 'score' => $score, 'date' => date('Y-m-d'), 'token' => $token, 'cheese' => $cheese, 'secs' => $secs, 'pows' => $pows, 'char' => $char, 'flag' => $flag]; $improved = true; }
+    if (!$found) { $scores[] = ['name' => $name, 'score' => $score, 'date' => date('Y-m-d'), 'token' => $token, 'cheese' => $cheese, 'secs' => $secs, 'pows' => $pows, 'char' => $char, 'flag' => $flag] + ($speedPct > 0 ? ['speedPct' => $speedPct] : []); $improved = true; }
     usort($scores, fn($a, $b) => $b['score'] - $a['score']);
     $scores = array_slice($scores, 0, 100); // keep top 100 in file
     ftruncate($fp, 0);
@@ -341,7 +344,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     flock($fp, LOCK_UN);
     fclose($fp);
 
-    logit(['action' => 'score', 'name' => $name, 'score' => $score, 'cheese' => $cheese, 'secs' => $secs, 'pows' => $pows, 'char' => $char, 'flag' => $flag]);
+    logit(['action' => 'score', 'name' => $name, 'score' => $score, 'cheese' => $cheese, 'secs' => $secs, 'pows' => $pows, 'char' => $char, 'flag' => $flag, 'speedPct' => $speedPct]);
 
     $rank = 0;
     foreach ($scores as $i => $r) { if (strcasecmp($r['name'], $name) === 0) { $rank = $i + 1; break; } }
