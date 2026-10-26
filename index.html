@@ -1680,7 +1680,7 @@ let onTrain = null;                 // Golden Hopper: landed on a train — pinn
 let camLiftK = 0;                   // 0..1, lerps to 1 while onTrain so the camera rises up and tilts down onto the roof
 // first-of-run roof-landing cinematic: side-profile camera orbit + slomo + guitar sting + bend-bounce-bend hero squash
 let cineUsed = false, cineActive = false, cineT = 0;
-const cineFired = { trill: false, chord: false, b2: false, b3: false };
+const cineFired = { trill: false, chord: false, b2: false, b3: false, clear: false };
 let recBuf = [], recT = 0;         // ghost recorder: [lane×10, y×10, flags, v×10] at 10Hz — a best score uploads it
 let watchGhost = null, watchT = 0; // watching someone's replay instead of playing
 let biome = 'field', biomeT = 0, level = 1;   // each biome is a level; speed resets (mostly) at each new one
@@ -1715,7 +1715,7 @@ function reset() {
   gliding = false; glideH = 0;
   onTrain = null; camLiftK = 0;
   cineUsed = false; cineActive = false; cineT = 0;
-  cineFired.trill = cineFired.chord = cineFired.b2 = cineFired.b3 = false;
+  cineFired.trill = cineFired.chord = cineFired.b2 = cineFired.b3 = cineFired.clear = false;
   digging = false; digT = 0; digTrains = 0; digY = 0;
   recBuf = []; recT = 0;
   // start-screen level buttons set startLevel; ?level=N in the URL is the fallback (and the long-standing family test door)
@@ -1798,7 +1798,20 @@ function update(dt) {
     if (!cineFired.chord && cineT >= 0.7) { cineFired.chord = true; cineFireChord(); }
     if (!cineFired.b2    && cineT >= 1.3) { cineFired.b2    = true; cineFireB2(); }
     if (!cineFired.b3    && cineT >= 1.8) { cineFired.b3    = true; cineFireB3(); }
-    if (cineT >= 2.5) cineActive = false;
+    // Right before the camera swings back, scrub obstacles the player couldn't see past the train.
+    // Keeps the current train and anything in other lanes/already-past; removes same-lane blockers in the near-ahead zone.
+    if (!cineFired.clear && cineT >= 1.75) {
+      cineFired.clear = true;
+      obstacles = obstacles.filter(o => {
+        if (o === onTrain) return true;
+        if (o.mesh.position.z >= -14 && o.mesh.position.z <= 2) {
+          scene.remove(o.mesh);
+          return false;
+        }
+        return true;
+      });
+    }
+    if (cineT >= 2.1) cineActive = false;
   }
   const vMult = cineActive ? cineTimeScale(cineT) : (onTrain ? 0.35 : 1);
   const v = (watchGhost ? watchV() : speed()) * vMult;   // cine's deeper slomo overrides onTrain's 0.35 for the one-shot moment
@@ -2164,7 +2177,7 @@ function update(dt) {
   if (cineActive) {
     // orbit from chase cam (0°) to a ~85° side-profile over 0.5s, hold through the bounces, swing back last 0.5s
     const kIn  = Math.min(1, cineT / 0.5);
-    const kOut = Math.max(0, (cineT - 2.0) / 0.5);
+    const kOut = Math.max(0, (cineT - 1.75) / 0.3);   // start swinging back earlier so camera is oriented by the time control returns
     const swingK = kIn * (1 - Math.min(1, kOut));
     const theta = swingK * (85 * Math.PI / 180);
     const r = 7.5 + swingK * 2.5;
@@ -2800,9 +2813,9 @@ function cineFireB3() {
 }
 // slomo curve for the cinematic beat (t in real seconds since jump press)
 function cineTimeScale(t) {
-  if (t < 0.5) return 1.0 + (0.4 - 1.0) * (t / 0.5);        // ease into slomo over 0.5s
-  if (t < 2.0) return 0.4;                                    // held during descent + bounces
-  if (t < 2.5) return 0.4 + (1.0 - 0.4) * ((t - 2.0) / 0.5); // ease back out
+  if (t < 0.5)  return 1.0 + (0.4 - 1.0) * (t / 0.5);          // ease into slomo over 0.5s
+  if (t < 1.75) return 0.4;                                      // held during descent + bounces
+  if (t < 2.1)  return 0.4 + (1.0 - 0.4) * ((t - 1.75) / 0.35); // ease back out as camera swings back
   return 1.0;
 }
 
@@ -3201,7 +3214,7 @@ function act(dir) {
         );
         if (landableTrain) {
           cineUsed = true; cineActive = true; cineT = 0;
-          cineFired.trill = cineFired.chord = cineFired.b2 = cineFired.b3 = false;
+          cineFired.trill = cineFired.chord = cineFired.b2 = cineFired.b3 = cineFired.clear = false;
           initCineAudio();
           cineFireWhoosh();
           return;   // skip the plain jump sfx — the whoosh takes over
