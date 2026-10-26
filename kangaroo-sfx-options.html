@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kangaroo Sound Options — pick your vibe</title>
+  <link rel="icon" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">🎸</text></svg>'>
+  <script src="https://cdn.jsdelivr.net/npm/tone@14.8.49/build/Tone.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { background: #0a0a12; color: #fff; font-family: 'Georgia', serif; min-height: 100%; }
+    body { padding: 28px 16px 60px; text-align: center; max-width: 1100px; margin: 0 auto; }
+    h1 {
+      font-size: clamp(26px, 5.5vw, 40px); letter-spacing: 3px; text-transform: uppercase;
+      background: linear-gradient(135deg, #ffcc00, #aaa, #ffcc00);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    }
+    .sub { color: #999; letter-spacing: 1.5px; margin: 12px auto 24px; max-width: 760px; font-size: 14px; line-height: 1.55; }
+    .status {
+      background: #1a1a26; border: 1px solid #2a2a3a; border-radius: 10px;
+      padding: 10px 16px; margin: 0 auto 24px; max-width: 500px;
+      color: #ffcc00; letter-spacing: 2px; font-size: 13px; text-transform: uppercase;
+      font-family: ui-monospace, monospace;
+    }
+
+    .toggles { display: flex; justify-content: center; gap: 10px; margin: 0 auto 28px; flex-wrap: wrap; }
+    button.toggle {
+      background: #221a0e; color: #ffcc00; border: 1px solid #665200;
+      padding: 10px 18px; border-radius: 20px; cursor: pointer;
+      font-family: inherit; font-size: 12px; letter-spacing: 2px; text-transform: uppercase;
+    }
+    button.toggle.off { background: #1a1a26; color: #666; border-color: #333; }
+
+    .options {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 18px; max-width: 1050px; margin: 0 auto;
+    }
+    .option {
+      background: #12121c; border: 2px solid #22222e; border-radius: 14px;
+      padding: 22px 18px 24px; display: flex; flex-direction: column; gap: 12px;
+      transition: all 0.2s;
+    }
+    .option.playing { border-color: #ffcc00; background: #1a1710; box-shadow: 0 0 30px rgba(255,204,0,0.15); }
+    .option h2 {
+      color: #ffcc00; font-size: 18px; letter-spacing: 2.5px; text-transform: uppercase;
+    }
+    .option .vibe {
+      color: #80c8ff; font-size: 11px; letter-spacing: 2px; text-transform: uppercase;
+      font-family: ui-monospace, monospace;
+    }
+    .option p {
+      color: #aaa; font-size: 13px; line-height: 1.55; min-height: 70px; text-align: left;
+    }
+    .option button.play {
+      background: #ff6b00; color: #0a0a12; border: none;
+      padding: 14px 20px; border-radius: 24px; cursor: pointer;
+      font-family: inherit; font-size: 15px; letter-spacing: 3px; text-transform: uppercase;
+      font-weight: bold;
+      transition: all 0.15s;
+    }
+    .option button.play:hover { background: #ffcc00; }
+    .option button.play.playing { background: #ffcc00; }
+
+    .footer-hint { color: #666; font-size: 11px; letter-spacing: 1px; margin: 32px 0 10px; }
+    a { color: #666; font-size: 12px; letter-spacing: 2px; text-decoration: none; display: inline-block; margin-top: 10px; }
+    a:hover { color: #ffcc00; }
+    .toast {
+      position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+      background: #8b1a0e; color: #fff; padding: 10px 18px; border-radius: 8px;
+      font-size: 13px; letter-spacing: 1px; display: none;
+    }
+  </style>
+</head>
+<body>
+  <h1>Kangaroo Sound Options</h1>
+  <p class="sub">Four distinct directions for the kangaroo's roof-landing moment — different guitars, different effects chains, different phrasing. Each tells the same story (whoosh → trill lead-in → big chord lands → two bounces resolve) but sounds like a different band. Tap one to hear it. Pick the vibe, I'll port the winner.</p>
+
+  <div class="status" id="status">🔊 TAP ANY OPTION TO START</div>
+
+  <div class="toggles">
+    <button class="toggle" id="funkBtn">FUNK BACKING: OFF</button>
+    <button class="toggle" id="muteBtn">SOUND: ON</button>
+  </div>
+
+  <div class="options" id="options">
+    <div class="option" data-opt="a">
+      <h2>A · THRASH</h2>
+      <div class="vibe">van halen · metallica</div>
+      <p>Fast-picked tremolo trill, mid-scooped high-gain chord with Chebyshev harmonics. Pitch-shifted jet-whine whoosh. Scary-cool kangaroo who's about to shred.</p>
+      <button class="play" data-opt="a">▶ PLAY A</button>
+    </div>
+    <div class="option" data-opt="b">
+      <h2>B · SURF</h2>
+      <div class="vibe">dick dale · beach boys · pulp fiction</div>
+      <p>Reverb-drenched clean twang, lazy two-note trill that bends into a jangly Am9 chord. Spring-reverb washed. Effortlessly cool kangaroo who hangs ten.</p>
+      <button class="play" data-opt="b">▶ PLAY B</button>
+    </div>
+    <div class="option" data-opt="c">
+      <h2>C · SOUTHERN</h2>
+      <div class="vibe">allman brothers · lynyrd skynyrd</div>
+      <p>Bluesy pentatonic lead-in with slapback delay, warm overdriven A-major chord with the 3rd. Classic rock warmth. A friendly road-trip kangaroo.</p>
+      <button class="play" data-opt="c">▶ PLAY C</button>
+    </div>
+    <div class="option" data-opt="d">
+      <h2>D · STADIUM</h2>
+      <div class="vibe">foo fighters · queens of the stone age</div>
+      <p>Palm-muted chug trill, enormous open D5 power chord through delay and cathedral reverb. Compressed stadium kick. Triumphant arena-rock kangaroo.</p>
+      <button class="play" data-opt="d">▶ PLAY D</button>
+    </div>
+  </div>
+
+  <p class="footer-hint">Keyboard: A / B / C / D to play · M = mute · F = funk backing</p>
+  <a href="./kangaroo-cinematic.html">← back to the visual preview</a>
+  <a href="./kangaroo-sfx-lab.html">· to the slider lab</a>
+  <div class="toast" id="toast"></div>
+
+<script>
+const toast = document.getElementById('toast');
+const statusEl = document.getElementById('status');
+addEventListener('error', e => { toast.textContent = '⚠ ' + e.message; toast.style.display = 'block'; });
+
+const audio = { ready: false, on: true, funkOn: false, funkParts: null, options: {} };
+const sub12 = n => (typeof Tone !== 'undefined') ? Tone.Frequency(n).transpose(-12) : n;
+
+// -------- the FUNKY RAT background (same as the game) --------
+function buildFunkRat() {
+  const d = [];
+  const arr32 = m => Array.from({ length: 32 }, (_, i) => m[i] || null);
+  const reverb = new Tone.Reverb({ decay: 1.1, wet: 0.1 }).toDestination(); d.push(reverb);
+  const bass = new Tone.FMSynth({ harmonicity: 1, modulationIndex: 9, portamento: 0.01, oscillator: { type: 'sine' }, modulation: { type: 'square' }, envelope: { attack: 0.004, decay: 0.3, sustain: 0.25, release: 0.1 }, modulationEnvelope: { attack: 0.002, decay: 0.08, sustain: 0.08, release: 0.05 }, volume: -6 }).toDestination(); d.push(bass);
+  const pop = new Tone.FMSynth({ harmonicity: 2, modulationIndex: 18, oscillator: { type: 'sine' }, modulation: { type: 'square' }, envelope: { attack: 0.002, decay: 0.14, sustain: 0, release: 0.08 }, modulationEnvelope: { attack: 0.001, decay: 0.04, sustain: 0, release: 0.03 }, volume: -10 }).toDestination(); d.push(pop);
+  const sub = new Tone.MonoSynth({ oscillator: { type: 'sine' }, envelope: { attack: 0.004, decay: 0.2, sustain: 0.4, release: 0.1 }, volume: -13 }).toDestination(); d.push(sub);
+  const clav = new Tone.PolySynth(Tone.Synth, { oscillator: { type: 'square' }, envelope: { attack: 0.002, decay: 0.06, sustain: 0, release: 0.05 }, volume: -21 });
+  const cf = new Tone.Filter(2500, 'bandpass'); clav.chain(cf, reverb); d.push(clav, cf);
+  const horns = new Tone.PolySynth(Tone.Synth, { oscillator: { type: 'fatsawtooth', count: 3, spread: 22 }, envelope: { attack: 0.01, decay: 0.25, sustain: 0.2, release: 0.15 }, volume: -17 });
+  const hf = new Tone.Filter(1600, 'lowpass'); horns.chain(hf, reverb); d.push(horns, hf);
+  const kick = new Tone.MembraneSynth({ pitchDecay: 0.05, octaves: 9, volume: -7 }).toDestination(); d.push(kick);
+  const snare = new Tone.NoiseSynth({ noise: { type: 'white' }, envelope: { attack: 0.001, decay: 0.16, sustain: 0 }, volume: -15 });
+  const sf = new Tone.Filter(1100, 'highpass'); snare.chain(sf, Tone.getDestination()); d.push(snare, sf);
+  const hat = new Tone.NoiseSynth({ noise: { type: 'white' }, envelope: { attack: 0.001, decay: 0.03, sustain: 0 }, volume: -26 });
+  const hhf = new Tone.Filter(8500, 'highpass'); hat.chain(hhf, Tone.getDestination()); d.push(hat, hhf);
+  const openHat = new Tone.NoiseSynth({ noise: { type: 'white' }, envelope: { attack: 0.001, decay: 0.22, sustain: 0 }, volume: -28 });
+  const ohf = new Tone.Filter(7000, 'highpass'); openHat.chain(ohf, Tone.getDestination()); d.push(openHat, ohf);
+  const N = (n, dur, v, p) => ({ n, dur, v, p });
+  const BASS = arr32({ 0: N('A1','8n',1), 3: N('A2','16n',0.9,1), 5: N('A1','16n',0.3), 7: N('A1','16n',0.5), 8: N('G1','16n',0.7), 10: N('A1','8n',0.9), 14: N('G1','16n',0.4), 15: N('A1','16n',0.6), 16: N('A1','8n',1), 19: N('A2','16n',0.9,1), 21: N('E2','16n',0.6), 23: N('D2','16n',0.7,1), 24: N('C2','16n',0.8), 26: N('A1','16n',0.4), 28: N('E1','8n',0.9), 31: N('G1','16n',0.7) });
+  const A9 = ['A3','C#4','E4','G4'];
+  const CLAV = arr32({ 2:0.35,3:0.6,6:0.3,8:0.7,11:0.35,13:0.3,14:0.6,18:0.35,19:0.6,22:0.3,24:0.7,27:0.35,30:0.6 });
+  const HORNS = arr32({ 0:0.9, 30:0.45 });
+  const KICK = arr32({ 0:1, 7:0.8, 10:0.9, 16:1, 22:0.8, 24:0.9 });
+  const SNARE = arr32({ 4:1, 9:0.25, 12:1, 15:0.2, 20:1, 25:0.25, 28:1 });
+  const HATS = Array.from({ length: 32 }, (_, i) => (i===14||i===30) ? 'o' : (i%4===0 ? 0.5 : 0.28));
+  d.push(new Tone.Sequence((t,q) => { if (!q) return; (q.p?pop:bass).triggerAttackRelease(q.n,q.dur,t,q.v); sub.triggerAttackRelease(sub12(q.n),q.dur,t,q.v*0.9); }, BASS, '16n').start(0));
+  d.push(new Tone.Sequence((t,v) => { if (v) clav.triggerAttackRelease(A9,'32n',t,v); }, CLAV, '16n').start(0));
+  d.push(new Tone.Sequence((t,v) => { if (v) horns.triggerAttackRelease(A9,'8n',t,v); }, HORNS, '16n').start(0));
+  d.push(new Tone.Sequence((t,v) => { if (v) kick.triggerAttackRelease('C1','8n',t,v); }, KICK, '16n').start(0));
+  d.push(new Tone.Sequence((t,v) => { if (v) snare.triggerAttackRelease('16n',t,v); }, SNARE, '16n').start(0));
+  d.push(new Tone.Sequence((t,v) => { if (v==='o') openHat.triggerAttackRelease('8n',t,0.6); else if (v) hat.triggerAttackRelease('32n',t,v); }, HATS, '16n').start(0));
+  return d;
+}
+
+// -------- shared guitar sampler (shared across options — just the sample source) --------
+function makeGuitarSampler() {
+  return new Tone.Sampler({
+    urls: { A2:'A2.mp3', C3:'C3.mp3', A3:'A3.mp3', C4:'C4.mp3', A4:'A4.mp3', C5:'C5.mp3', A5:'A5.mp3' },
+    baseUrl: 'https://nbrosowsky.github.io/tonejs-instruments/samples/guitar-electric/',
+    release: 1.5,
+  });
+}
+
+// -------- OPTION BUILDERS: each returns { play(now) } --------
+
+// A — THRASH: heavy Chebyshev + distortion + mid-scoop, fast tremolo trill, deep A power chord
+function buildThrash() {
+  const guitar = makeGuitarSampler();
+  const eq = new Tone.EQ3({ low: 2, mid: -10, high: 3, lowFrequency: 300, highFrequency: 2200 });
+  const cheby = new Tone.Chebyshev({ order: 25 });
+  const dist = new Tone.Distortion({ distortion: 0.9, wet: 1.0 });
+  const reverb = new Tone.Reverb({ decay: 1.8, wet: 0.3 });
+  guitar.chain(eq, cheby, dist, reverb, Tone.Destination);
+  guitar.volume.value = -2;
+
+  const kick = new Tone.MembraneSynth({ pitchDecay: 0.08, octaves: 8, envelope: { attack: 0.001, decay: 0.5, sustain: 0 } }).toDestination();
+  kick.volume.value = 0;
+
+  const whooshNoise = new Tone.NoiseSynth({ noise: { type: 'pink' }, envelope: { attack: 0.2, decay: 1.2, sustain: 0.2, release: 0.3 } });
+  const whooshFilter = new Tone.Filter({ frequency: 200, type: 'bandpass', Q: 2.5 });
+  const whooshDist = new Tone.Distortion({ distortion: 0.6, wet: 0.4 });
+  whooshNoise.chain(whooshFilter, whooshDist, reverb);
+  whooshNoise.volume.value = -2;
+
+  return {
+    play(t0) {
+      // WHOOSH: jet-engine rise
+      whooshFilter.frequency.cancelScheduledValues(0);
+      whooshFilter.frequency.setValueAtTime(140, t0);
+      whooshFilter.frequency.exponentialRampToValueAtTime(4000, t0 + 1.1);
+      whooshNoise.triggerAttackRelease('1.4s', t0);
+      // TRILL: fast 4-note tremolo lead-in (C5-B4-C5-B4) over 0.3s, chord slams at the 4th beat
+      const trillStart = t0 + 1.4;
+      ['C5','B4','C5','B4'].forEach((n, i) => guitar.triggerAttackRelease(n, '16n', trillStart + i * 0.08));
+      const chordStart = trillStart + 0.32;
+      guitar.triggerAttackRelease(['A1','A2','E3','A3','E4','A4'], '3.5s', chordStart);
+      kick.triggerAttackRelease('C1', '0.6s', chordStart);
+      // bounces
+      guitar.triggerAttackRelease(['A3','E4','A4'], '0.5s', chordStart + 0.6);
+      kick.triggerAttackRelease('G1', '0.3s', chordStart + 0.6);
+      guitar.triggerAttackRelease(['E4','A4','C5'], '1.2s', chordStart + 1.1);
+      kick.triggerAttackRelease('C2', '0.3s', chordStart + 1.1);
+    },
+  };
+}
+
+// B — SURF: pure clean guitar, big spring-ish reverb, lazy bendy trill, Am9 chord
+function buildSurf() {
+  const guitar = makeGuitarSampler();
+  const chorus = new Tone.Chorus({ frequency: 1.5, delayTime: 3.5, depth: 0.6, wet: 0.5 }).start();
+  const trem = new Tone.Tremolo({ frequency: 5, depth: 0.3, wet: 0.4 }).start();
+  const reverb = new Tone.Reverb({ decay: 3.2, wet: 0.55 });
+  guitar.chain(trem, chorus, reverb, Tone.Destination);
+  guitar.volume.value = -4;
+
+  const kick = new Tone.MembraneSynth({ pitchDecay: 0.03, octaves: 4, envelope: { attack: 0.001, decay: 0.25, sustain: 0 } }).toDestination();
+  kick.volume.value = -8;
+
+  const whooshNoise = new Tone.NoiseSynth({ noise: { type: 'white' }, envelope: { attack: 0.4, decay: 1.5, sustain: 0.1, release: 0.6 } });
+  const whooshFilter = new Tone.Filter({ frequency: 400, type: 'bandpass', Q: 1.0 });
+  whooshNoise.chain(whooshFilter, reverb);
+  whooshNoise.volume.value = -8;
+
+  return {
+    play(t0) {
+      // WHOOSH: ocean wave crash — slow filter sweep, wet reverb
+      whooshFilter.frequency.cancelScheduledValues(0);
+      whooshFilter.frequency.setValueAtTime(300, t0);
+      whooshFilter.frequency.exponentialRampToValueAtTime(2500, t0 + 1.6);
+      whooshNoise.triggerAttackRelease('1.8s', t0);
+      // TRILL: lazy two-note A4-G4-A4 with wide spacing (0.2s)
+      const trillStart = t0 + 1.6;
+      guitar.triggerAttackRelease('A4', '4n', trillStart);
+      guitar.triggerAttackRelease('G4', '4n', trillStart + 0.22);
+      // CHORD: Am9 (A2+E3+A3+C4+G4+B4) — jangly, open
+      const chordStart = trillStart + 0.5;
+      guitar.triggerAttackRelease(['A2','E3','A3','C4','G4','B4'], '4s', chordStart);
+      kick.triggerAttackRelease('C2', '0.4s', chordStart);
+      // bounces
+      guitar.triggerAttackRelease(['E4','G4','B4'], '0.9s', chordStart + 0.65);
+      kick.triggerAttackRelease('C2', '0.2s', chordStart + 0.65);
+      guitar.triggerAttackRelease(['A3','C4','E4','G4'], '1.6s', chordStart + 1.3);
+      kick.triggerAttackRelease('G2', '0.2s', chordStart + 1.3);
+    },
+  };
+}
+
+// C — SOUTHERN: warm light overdrive + slapback delay, pentatonic trill, A major chord
+function buildSouthern() {
+  const guitar = makeGuitarSampler();
+  const dist = new Tone.Distortion({ distortion: 0.35, wet: 0.65 });
+  const slapback = new Tone.FeedbackDelay({ delayTime: 0.11, feedback: 0.25, wet: 0.3 });
+  const reverb = new Tone.Reverb({ decay: 1.5, wet: 0.3 });
+  guitar.chain(dist, slapback, reverb, Tone.Destination);
+  guitar.volume.value = -3;
+
+  const kick = new Tone.MembraneSynth({ pitchDecay: 0.07, octaves: 7, envelope: { attack: 0.001, decay: 0.45, sustain: 0 } }).toDestination();
+  kick.volume.value = -3;
+
+  const whooshNoise = new Tone.NoiseSynth({ noise: { type: 'brown' }, envelope: { attack: 0.3, decay: 1.0, sustain: 0.15, release: 0.3 } });
+  const whooshFilter = new Tone.Filter({ frequency: 350, type: 'bandpass', Q: 1.8 });
+  whooshNoise.chain(whooshFilter, reverb);
+  whooshNoise.volume.value = -5;
+
+  return {
+    play(t0) {
+      whooshFilter.frequency.cancelScheduledValues(0);
+      whooshFilter.frequency.setValueAtTime(200, t0);
+      whooshFilter.frequency.exponentialRampToValueAtTime(2200, t0 + 1.2);
+      whooshNoise.triggerAttackRelease('1.5s', t0);
+      // TRILL: pentatonic lick G4-A4-C5
+      const trillStart = t0 + 1.4;
+      guitar.triggerAttackRelease('G4', '8n',  trillStart);
+      guitar.triggerAttackRelease('A4', '8n',  trillStart + 0.14);
+      guitar.triggerAttackRelease('C5', '8n',  trillStart + 0.28);
+      // CHORD: A major (A2+E3+A3+C#4+E4+A4) with the major 3rd for Southern feel
+      const chordStart = trillStart + 0.44;
+      guitar.triggerAttackRelease(['A2','E3','A3','C#4','E4','A4'], '3.2s', chordStart);
+      kick.triggerAttackRelease('A1', '0.5s', chordStart);
+      guitar.triggerAttackRelease('C#5', '0.5s', chordStart + 0.65);
+      kick.triggerAttackRelease('G1', '0.25s', chordStart + 0.65);
+      guitar.triggerAttackRelease(['A3','C#4','E4','A4'], '1.4s', chordStart + 1.2);
+      kick.triggerAttackRelease('A1', '0.3s', chordStart + 1.2);
+    },
+  };
+}
+
+// D — STADIUM: moderate dist + big delay + cathedral reverb, palm-mute chug trill, open D5
+function buildStadium() {
+  const guitar = makeGuitarSampler();
+  const dist = new Tone.Distortion({ distortion: 0.55, wet: 0.75 });
+  const delay = new Tone.FeedbackDelay({ delayTime: 0.28, feedback: 0.35, wet: 0.35 });
+  const reverb = new Tone.Reverb({ decay: 3.8, wet: 0.5 });
+  guitar.chain(dist, delay, reverb, Tone.Destination);
+  guitar.volume.value = -2;
+
+  const kick = new Tone.MembraneSynth({ pitchDecay: 0.06, octaves: 10, envelope: { attack: 0.001, decay: 0.55, sustain: 0 } }).toDestination();
+  kick.volume.value = 2;
+
+  const whooshNoise = new Tone.NoiseSynth({ noise: { type: 'pink' }, envelope: { attack: 0.3, decay: 1.4, sustain: 0.2, release: 0.4 } });
+  const whooshFilter = new Tone.Filter({ frequency: 200, type: 'bandpass', Q: 1.5 });
+  whooshNoise.chain(whooshFilter, delay, reverb);
+  whooshNoise.volume.value = -4;
+
+  return {
+    play(t0) {
+      whooshFilter.frequency.cancelScheduledValues(0);
+      whooshFilter.frequency.setValueAtTime(150, t0);
+      whooshFilter.frequency.exponentialRampToValueAtTime(3500, t0 + 1.3);
+      whooshNoise.triggerAttackRelease('1.7s', t0);
+      // TRILL: 4 rapid palm-mute chugs on D5 (same note repeated, fast and tight)
+      const trillStart = t0 + 1.5;
+      [0, 0.09, 0.18, 0.27].forEach(dt => guitar.triggerAttackRelease('D5', '16n', trillStart + dt));
+      // CHORD: huge open D5 power chord (D2+A2+D3+A3+D4+F#4+A4)
+      const chordStart = trillStart + 0.36;
+      guitar.triggerAttackRelease(['D2','A2','D3','A3','D4','F#4','A4'], '4s', chordStart);
+      kick.triggerAttackRelease('C1', '0.7s', chordStart);
+      guitar.triggerAttackRelease(['D4','F#4','A4'], '0.7s', chordStart + 0.7);
+      kick.triggerAttackRelease('C1', '0.3s', chordStart + 0.7);
+      guitar.triggerAttackRelease(['A3','D4','F#4','A4'], '1.6s', chordStart + 1.3);
+      kick.triggerAttackRelease('C1', '0.4s', chordStart + 1.3);
+    },
+  };
+}
+
+// -------- init --------
+async function initAudio() {
+  if (audio.ready) return;
+  if (typeof Tone === 'undefined') { statusEl.textContent = '⚠ TONE.JS FAILED TO LOAD'; return; }
+  try { await Tone.start(); } catch (e) { return; }
+  if (Tone.getContext().state !== 'running') return;
+
+  statusEl.textContent = '🔊 LOADING GUITAR SAMPLES…';
+
+  Tone.Transport.bpm.value = 98;
+  Tone.Transport.swing = 0.12;
+  Tone.Transport.swingSubdivision = '16n';
+
+  // Each option builds its own effects chain and shares note scheduling conventions
+  audio.options.a = buildThrash();
+  audio.options.b = buildSurf();
+  audio.options.c = buildSouthern();
+  audio.options.d = buildStadium();
+
+  try { await Tone.loaded(); } catch (e) {}
+
+  audio.ready = true;
+  statusEl.textContent = '🔊 READY — TAP ANY OPTION';
+}
+
+// -------- playing --------
+let currentOption = null;
+let playingTimer = null;
+
+function markPlaying(opt) {
+  for (const el of document.querySelectorAll('.option')) el.classList.toggle('playing', el.dataset.opt === opt);
+  for (const b of document.querySelectorAll('button.play')) b.classList.toggle('playing', b.dataset.opt === opt);
+  clearTimeout(playingTimer);
+  playingTimer = setTimeout(() => {
+    for (const el of document.querySelectorAll('.option')) el.classList.remove('playing');
+    for (const b of document.querySelectorAll('button.play')) b.classList.remove('playing');
+  }, 6500);
+}
+
+async function playOption(opt) {
+  if (!audio.ready) await initAudio();
+  if (!audio.ready) return;
+  const o = audio.options[opt];
+  if (!o) return;
+  markPlaying(opt);
+  currentOption = opt;
+  try { o.play(Tone.now() + 0.05); } catch (e) { toast.textContent = '⚠ ' + e.message; toast.style.display = 'block'; }
+}
+
+for (const b of document.querySelectorAll('button.play')) {
+  b.onclick = (e) => { e.stopPropagation(); playOption(b.dataset.opt); };
+}
+
+const funkBtn = document.getElementById('funkBtn');
+funkBtn.onclick = async (e) => {
+  e.stopPropagation();
+  if (!audio.ready) { await initAudio(); if (!audio.ready) return; }
+  audio.funkOn = !audio.funkOn;
+  if (audio.funkOn) {
+    if (!audio.funkParts) audio.funkParts = buildFunkRat();
+    Tone.Transport.start();
+    funkBtn.textContent = 'FUNK BACKING: ON';
+    funkBtn.classList.remove('off');
+  } else {
+    Tone.Transport.stop();
+    funkBtn.textContent = 'FUNK BACKING: OFF';
+    funkBtn.classList.add('off');
+  }
+};
+funkBtn.classList.add('off');
+
+const muteBtn = document.getElementById('muteBtn');
+muteBtn.onclick = async (e) => {
+  e.stopPropagation();
+  if (!audio.ready) { await initAudio(); if (!audio.ready) return; }
+  audio.on = !audio.on;
+  Tone.Destination.volume.value = audio.on ? 0 : -Infinity;
+  muteBtn.textContent = audio.on ? 'SOUND: ON' : 'SOUND: OFF';
+  muteBtn.classList.toggle('off', !audio.on);
+};
+
+addEventListener('keydown', (e) => {
+  if (e.target.tagName === 'INPUT') return;
+  const map = { 'a': 'a', 'b': 'b', 'c': 'c', 'd': 'd' };
+  const k = e.key.toLowerCase();
+  if (map[k]) { playOption(map[k]); return; }
+  if (k === 'm') { muteBtn.click(); return; }
+  if (k === 'f') { funkBtn.click(); return; }
+});
+
+addEventListener('click',      () => { if (!audio.ready) initAudio(); }, { capture: true });
+addEventListener('touchstart', () => { if (!audio.ready) initAudio(); }, { capture: true, passive: true });
+</script>
+</body>
+</html>
