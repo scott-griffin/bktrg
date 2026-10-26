@@ -73,7 +73,7 @@
     .time { color: #888; font-size: 15px; text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; width: 56px; }
     .time.replay { color: #ffcc00; }
     tr.has-replay:hover .time.replay { filter: drop-shadow(0 0 6px #ffcc00); }
-    .flag { width: 36px; font-size: 22px; text-align: center; }
+    .flag { width: 56px; font-size: 34px; text-align: center; line-height: 1; }
     /* on narrow phones, the name is more important than the time — drop the time column rather than truncate */
     @media (max-width: 499px) {
       .time, th.time-h, col.time-c { display: none; }
@@ -144,7 +144,7 @@
   <table id="board">
     <colgroup>
       <col style="width:34px">
-      <col style="width:36px">
+      <col style="width:56px">
       <col>
       <col class="time-c" style="width:56px">
       <col style="width:90px">
