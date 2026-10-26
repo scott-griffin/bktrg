@@ -968,7 +968,7 @@ function applyBiomeVisuals(a) {
   if (skyTex[biome]) { sky.visible = true; sky.material.map = skyTex[biome]; }
   else { sky.visible = false; }
   // field biome prototype: taller sky plane so painted clouds fill more of the upper frame
-  skyBaseScaleY = biome === 'field' ? 2 : 1;
+  skyBaseScaleY = (biome === 'field' || biome === 'sea') ? 2 : 1;
   updateSkyScale();
   for (const x of trees) x.visible = biome === 'jungle';
   for (const x of outbackProps) x.visible = biome === 'outback';
