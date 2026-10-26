@@ -3274,11 +3274,12 @@ document.querySelectorAll('.lvlBtn').forEach(b => b.addEventListener('click', ()
   sfx.lane();
 }));
 
-// level picker is a dev door for Scott only — show it when the saved or typed name is "scott" (case-insensitive)
+// level picker is a dev door for Scott and Thomas — show it when the saved or typed name matches (case-insensitive)
 function updateLevelPickerVisibility() {
   const typed = (startName && startName.value || '').trim().toLowerCase();
   const saved = (ratName || '').trim().toLowerCase();
-  const show = typed === 'scott' || saved === 'scott';
+  const allowed = n => n === 'scott' || n === 'thomas';
+  const show = allowed(typed) || allowed(saved);
   const wrap = document.getElementById('levelPickerWrap');
   if (wrap) wrap.style.display = show ? '' : 'none';
   if (!show) {
