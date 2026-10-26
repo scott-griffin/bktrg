@@ -2235,6 +2235,7 @@ const setNameInput = document.getElementById('setName');
 function applyNameFields() {
   document.getElementById('hudName').textContent = ratName;
   startName.value = ratName; setNameInput.value = ratName;
+  document.getElementById('startBtn').textContent = ratName ? `Run as ${ratName}!` : 'Run!';
   if (typeof refreshWhoAmI === 'function') refreshWhoAmI();
   if (typeof updateLevelPickerVisibility === 'function') updateLevelPickerVisibility();
 }
