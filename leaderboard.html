@@ -70,11 +70,15 @@
     tr:nth-child(3) .rank { color: #cd7f32; font-size: 16px; }
     .score { color: #ffcc00; font-weight: bold; text-align: right; white-space: nowrap; width: 90px; }
     .player { white-space: nowrap; }
+    .pace { color: #888; font-size: 15px; text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; width: 56px; }
     .time { color: #888; font-size: 15px; text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; width: 56px; }
     .time.replay { color: #ffcc00; }
     tr.has-replay:hover .time.replay { filter: drop-shadow(0 0 6px #ffcc00); }
     .flag { width: 56px; font-size: 34px; text-align: center; line-height: 1; }
-    /* on narrow phones, the name is more important than the time — drop the time column rather than truncate */
+    /* progressively shed columns as the screen narrows: pace first (least load-bearing), then time */
+    @media (max-width: 599px) {
+      .pace, th.pace-h, col.pace-c { display: none; }
+    }
     @media (max-width: 499px) {
       .time, th.time-h, col.time-c { display: none; }
       tr.has-replay .player { color: #ffcc00; }   /* without the gold time cell, the gold name is the replay affordance */
@@ -146,6 +150,7 @@
       <col style="width:34px">
       <col style="width:56px">
       <col>
+      <col class="pace-c" style="width:56px">
       <col class="time-c" style="width:56px">
       <col style="width:90px">
     </colgroup>
@@ -154,12 +159,13 @@
         <th></th>
         <th></th>
         <th>Player</th>
+        <th class="pace-h" style="text-align:right" title="Average points per second">Pace</th>
         <th class="time-h" style="text-align:right">Time</th>
         <th style="text-align:right">Score</th>
       </tr>
     </thead>
     <tbody id="rows">
-      <tr><td colspan="5" class="loading">Loading...</td></tr>
+      <tr><td colspan="6" class="loading">Loading...</td></tr>
     </tbody>
   </table>
 
@@ -172,7 +178,7 @@
       .then(scores => {
         const tbody = document.getElementById('rows');
         if (!scores.length) {
-          tbody.innerHTML = '<tr><td colspan="5" class="empty">No scores yet — be the first!</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="6" class="empty">No scores yet — be the first!</td></tr>';
           return;
         }
         const medals = ['🥇','🥈','🥉'];
@@ -181,11 +187,13 @@
         const fmtTime = s => (s == null || s < 0) ? '' : `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
         tbody.innerHTML = scores.map((s, i) => {
           const t = fmtTime(s.secs);
+          const pace = (s.secs && s.secs > 0) ? Math.round(s.score / s.secs) : '';
           const timeCell = s.ghost ? `<td class="time replay" title="Watch ${s.name}'s best run">${t || '▶'}</td>` : `<td class="time">${t}</td>`;
           return `<tr${s.ghost ? ` class="has-replay" data-watch="${encodeURIComponent(s.name)}"` : ''}>
             <td class="rank">${medals[i] || i+1}</td>
             <td class="flag">${flagEmoji(s.flag)}</td>
             <td class="player">${charIcons[s.char] || ""} ${s.name}</td>
+            <td class="pace">${pace}</td>
             ${timeCell}
             <td class="score">${s.score.toLocaleString()}</td>
           </tr>`;
@@ -198,7 +206,7 @@
       })
       .catch(() => {
         document.getElementById('rows').innerHTML =
-          '<tr><td colspan="5" class="empty">Could not load scores.</td></tr>';
+          '<tr><td colspan="6" class="empty">Could not load scores.</td></tr>';
       });
   </script>
 </body>
