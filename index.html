@@ -964,6 +964,11 @@ for (const [bk, p] of Object.entries({
   mangrove: { sky: 0x7a9668, fog: 0x8ca878, fogN: 30, fogF: 95,  hemi: 0xc8d8a8, gnd: 0x1a3020, grass: 0x2a4a2e, hill: 0x3a5a3c, sun: 1.0, glow: 0.5 },
 })) PAL[bk] = { ...p, skyC: new THREE.Color(p.sky), fogC: new THREE.Color(p.fog), hemiC: new THREE.Color(p.hemi), gndC: new THREE.Color(p.gnd), grassC: new THREE.Color(p.grass), hillC: new THREE.Color(p.hill) };
 const BIOMES = ['field', 'jungle', 'outback', 'sea', 'snow', 'anthill', 'mangrove'];
+// levels 1–7 walk every biome in order; levels 8+ skip Country so you never revisit it (level 8 was identical to level 1 before)
+function biomeForLevel(l) {
+  if (l <= BIOMES.length) return BIOMES[l - 1];
+  return BIOMES[((l - 2) % (BIOMES.length - 1)) + 1];
+}
 const BIOME_NAMES = { field: '🌾 OPEN COUNTRY 🌾', jungle: '🌴 THE AMAZON RAINFOREST 🌴', outback: '🦘 THE AUSTRALIAN OUTBACK 🦘', sea: '🌊 THE DEEP SEA 🌊', snow: '❄️ THE SNOW WORLD ❄️', anthill: '🐜 INSIDE THE ANTHILL 🐜', mangrove: '🐸 THE MANGROVE SWAMP 🐸' };
 function applyBiomeVisuals(a) {
   const p = PAL[biome];
@@ -1680,7 +1685,7 @@ function reset() {
   // start-screen level buttons set startLevel; ?level=N in the URL is the fallback (and the long-standing family test door)
   const urlLvl = parseInt(new URLSearchParams(location.search).get('level') || '', 10);
   level = Math.max(1, startLevel || (urlLvl >= 1 ? urlLvl : 1));
-  biome = BIOMES[(level - 1) % BIOMES.length];
+  biome = biomeForLevel(level);
   biomeT = 0;
   applyBiomeVisuals(1);
   hero.group.visible = true;
@@ -1794,7 +1799,7 @@ function update(dt) {
   if (biomeT > 20) {
     biomeT = 0;
     level++;
-    biome = BIOMES[(level - 1) % BIOMES.length];
+    biome = biomeForLevel(level);
     biomeBanner(`LEVEL ${level}`, BIOME_NAMES[biome]);
     sfx.power();
     // morph in-flight obstacles and rare treats to the new biome's equivalent at the
