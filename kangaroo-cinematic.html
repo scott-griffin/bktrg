@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Kangaroo's Big Jump — Cinematic Preview</title>
   <link rel="icon" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">🦘</text></svg>'>
+  <script src="https://cdn.jsdelivr.net/npm/tone@14.8.49/build/Tone.js"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body { background: #0a0a12; color: #fff; font-family: 'Georgia', serif; min-height: 100%; }
@@ -34,6 +35,13 @@
       color: rgba(255,255,255,0.55); letter-spacing: 2px; font-size: 11px; text-transform: uppercase;
       z-index: 5; font-family: ui-monospace, monospace;
     }
+    .sound-btn {
+      position: absolute; right: 12px; top: 10px;
+      background: rgba(0,0,0,0.55); color: #ffcc00; border: 1px solid rgba(255,204,0,0.4);
+      padding: 6px 12px; border-radius: 18px; cursor: pointer;
+      font-family: inherit; font-size: 12px; letter-spacing: 1.5px; z-index: 6;
+    }
+    .sound-btn:hover { background: rgba(255,204,0,0.15); }
     .buttons {
       display: flex; flex-wrap: wrap; justify-content: center; gap: 10px;
       max-width: 900px; margin: 22px auto 0;
@@ -74,6 +82,7 @@
   <div class="stage" id="stage">
     <canvas id="c"></canvas>
     <div class="phase" id="phase">approach</div>
+    <button class="sound-btn" id="soundBtn" title="PROPOSED only — the sounds that would layer over the game soundtrack">🔇 TAP FOR SOUND</button>
     <div class="label" id="label">PROPOSED</div>
   </div>
 
@@ -84,7 +93,7 @@
 
   <div class="descs" id="descs">
     <div class="desc" data-v="0"><h3>CURRENT</h3><p>What the game does today — the world slows to about ⅓ speed and the camera lifts up to look down at the roof.</p></div>
-    <div class="desc on" data-v="1"><h3>PROPOSED</h3><p>Camera starts a slow, seamless swing to a near-side profile well before the kangaroo jumps — you see the arc from the side in slow motion, knees tucked at apex, feet extending for the landing. Impact on the roof is deepest slow-mo (0.15×). Then speed ramps back up through two more bounces, and the camera swings quickly back to the regular chase view before the train slides past.</p></div>
+    <div class="desc on" data-v="1"><h3>PROPOSED</h3><p>Camera starts a slow, seamless swing to a near-side profile well before the kangaroo jumps — you see the arc from the side in slow motion, knees tucked at apex, feet extending for the landing. Impact on the roof is deepest slow-mo (0.15×). Then speed ramps back up through two more bounces, and the camera swings quickly back to the regular chase view before the train slides past. <strong>Tap "sound" above the stage</strong> to hear the proposed cinematic sting — a rising whoosh into the swing, a bass drone through the airborne arc, a kick + distorted guitar chord on landing, then a short riff over the bounces. These would layer over whatever soundtrack is already playing in the game.</p></div>
   </div>
 
   <p class="pick">A good fit, or still off?</p>
@@ -317,6 +326,96 @@ const hero = buildKangaroo();
 hero.group.position.set(CENTER, 0, 0);
 scene.add(hero.group);
 
+// ---------- audio (Tone.js) ----------
+// Synthesized cinematic sounds that would layer OVER the game's existing soundtrack.
+// iOS requires a user gesture to unlock audio, so the sound button initializes on first tap.
+const audio = { ready: false, on: false };
+async function initAudio() {
+  if (audio.ready) return;
+  if (typeof Tone === 'undefined') return;
+  try { await Tone.start(); } catch (e) { return; }
+  const dist   = new Tone.Distortion({ distortion: 0.65, wet: 0.85 });
+  const reverb = new Tone.Reverb({ decay: 1.8, wet: 0.22 });
+  dist.chain(reverb, Tone.Destination);
+
+  audio.guitar = new Tone.PolySynth(Tone.MonoSynth, {
+    oscillator: { type: 'sawtooth' },
+    envelope: { attack: 0.004, decay: 0.08, sustain: 0.45, release: 0.4 },
+    filter: { Q: 2.5, frequency: 2200, rolloff: -24 },
+    filterEnvelope: { attack: 0.01, decay: 0.2, sustain: 0.5, release: 0.3, baseFrequency: 400, octaves: 3 },
+  }).connect(dist);
+  audio.guitar.volume.value = -10;
+
+  audio.bass = new Tone.MonoSynth({
+    oscillator: { type: 'triangle' },
+    envelope: { attack: 0.02, decay: 0.4, sustain: 0.6, release: 1.2 },
+    filter: { Q: 1, frequency: 500 },
+  }).toDestination();
+  audio.bass.volume.value = -16;
+
+  audio.kick = new Tone.MembraneSynth({
+    pitchDecay: 0.05, octaves: 6,
+    envelope: { attack: 0.001, decay: 0.42, sustain: 0 },
+  }).toDestination();
+  audio.kick.volume.value = -6;
+
+  audio.whooshFilter = new Tone.Filter({ frequency: 300, type: 'bandpass', Q: 2.5 });
+  audio.whoosh = new Tone.NoiseSynth({
+    noise: { type: 'pink' },
+    envelope: { attack: 0.3, decay: 0.35, sustain: 0, release: 0.1 },
+  });
+  audio.whoosh.chain(audio.whooshFilter, Tone.Destination);
+  audio.whoosh.volume.value = -14;
+
+  audio.ready = true;
+  audio.on = true;
+}
+
+const soundBtn = document.getElementById('soundBtn');
+soundBtn.onclick = async () => {
+  if (!audio.ready) await initAudio();
+  if (!audio.ready) { soundBtn.textContent = '🔇 (audio unavailable)'; return; }
+  audio.on = !audio.on;
+  soundBtn.textContent = audio.on ? '🔊 SOUND ON' : '🔇 SOUND OFF';
+};
+
+const sfxFired = { swing: false, launch: false, impact: false, b2: false, b3: false };
+function resetSfx() { for (const k in sfxFired) sfxFired[k] = false; }
+
+function sfxTick() {
+  if (!audio.on || !audio.ready || variant !== 1) return;
+  const now = Tone.now();
+
+  if (!sfxFired.swing && beatT >= T_SWING_START) {
+    sfxFired.swing = true;
+    audio.whooshFilter.frequency.cancelScheduledValues(now);
+    audio.whooshFilter.frequency.setValueAtTime(300, now);
+    audio.whooshFilter.frequency.exponentialRampToValueAtTime(2600, now + 0.6);
+    audio.whoosh.triggerAttackRelease('0.6s', now);
+  }
+  if (!sfxFired.launch && beatT >= T_LAUNCH) {
+    sfxFired.launch = true;
+    audio.bass.triggerAttackRelease('E1', '2.2s', now);           // drone through the airborne slomo
+  }
+  if (!sfxFired.impact && impactTGame >= 0) {
+    sfxFired.impact = true;
+    audio.kick.triggerAttackRelease('C1', '0.4s', now);
+    audio.guitar.triggerAttackRelease(['E3', 'B3', 'E4'], '0.6s', now);   // power chord stab on landing
+    audio.guitar.triggerAttackRelease('G4', '0.18s', now + 0.28);          // riff
+    audio.guitar.triggerAttackRelease('A4', '0.22s', now + 0.46);
+  }
+  if (!sfxFired.b2 && impactTGame >= LANDINGS[1]) {
+    sfxFired.b2 = true;
+    audio.kick.triggerAttackRelease('G1', '0.18s', now);
+    audio.guitar.triggerAttackRelease('B4', '0.22s', now);
+  }
+  if (!sfxFired.b3 && impactTGame >= LANDINGS[2]) {
+    sfxFired.b3 = true;
+    audio.kick.triggerAttackRelease('C2', '0.22s', now);
+    audio.guitar.triggerAttackRelease(['E4', 'G4', 'B4'], '0.45s', now);    // resolve chord
+  }
+}
+
 const particles = [];
 function spawnDust(x, y, z, n, speed) {
   for (let i = 0; i < n; i++) {
@@ -514,6 +613,7 @@ function resetBeat() {
   impactTReal = -1;
   dismountTReal = -1;
   dustFired = [false, false, false];
+  resetSfx();
   trainPosZ = -scrollV() * T_LAND;    // scrollV() during approach = 10, so start at -23 so train reaches z=0 at T_LAND
   train.position.set(CENTER, 0, trainPosZ);
   hero.group.position.set(CENTER, 0, 0);
@@ -618,6 +718,8 @@ function tick() {
   if (impactTGame >= 0 && dismountTReal < 0 && (trainPosZ - TRAIN_LEN/2) > 0.9) {
     dismountTReal = 0;
   }
+
+  sfxTick();
 
   // particles
   for (let i = particles.length - 1; i >= 0; i--) {
