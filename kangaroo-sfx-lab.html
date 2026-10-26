@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kangaroo Sound Lab</title>
+  <link rel="icon" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">🎸</text></svg>'>
+  <script src="https://cdn.jsdelivr.net/npm/tone@14.8.49/build/Tone.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { background: #0a0a12; color: #fff; font-family: 'Georgia', serif; min-height: 100%; }
+    body { padding: 28px 16px 60px; text-align: center; max-width: 900px; margin: 0 auto; }
+    h1 {
+      font-size: clamp(26px, 5.5vw, 38px); letter-spacing: 3px; text-transform: uppercase;
+      background: linear-gradient(135deg, #ffcc00, #aaa, #ffcc00);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    }
+    .sub { color: #999; letter-spacing: 1.5px; margin: 10px 0 28px; font-size: 14px; line-height: 1.55; }
+    .status {
+      background: #1a1a26; border: 1px solid #2a2a3a; border-radius: 10px;
+      padding: 10px 16px; margin: 0 auto 24px; max-width: 500px;
+      color: #ffcc00; letter-spacing: 2px; font-size: 13px; text-transform: uppercase;
+      font-family: ui-monospace, monospace;
+    }
+    .section { margin: 20px auto; max-width: 760px; }
+    .section-title {
+      color: #888; letter-spacing: 3px; font-size: 11px; text-transform: uppercase;
+      margin-bottom: 10px; text-align: left; padding-left: 4px;
+    }
+    .buttons { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
+    button {
+      background: #1a1a26; color: #ccc; border: 1px solid #2a2a3a;
+      padding: 14px 20px; border-radius: 24px; cursor: pointer;
+      letter-spacing: 2px; font-family: inherit; font-size: 14px; text-transform: uppercase;
+      transition: all 0.15s;
+      min-width: 160px;
+    }
+    button:hover { color: #ffcc00; border-color: #665200; }
+    button:active, button.active { background: #ffcc00; color: #0a0a12; border-color: #ffcc00; transform: scale(0.97); }
+    button.hero { padding: 18px 30px; font-size: 16px; min-width: 240px; }
+    button.hero.active { background: #ff6b00; color: #fff; border-color: #ff6b00; }
+    .toggle { background: #221a0e; color: #ffcc00; border-color: #665200; }
+    .toggle.off { background: #1a1a26; color: #666; border-color: #333; }
+    pre {
+      background: #0f0f18; border: 1px solid #22222e; border-radius: 8px;
+      padding: 14px; margin: 16px auto; max-width: 760px;
+      text-align: left; font-family: ui-monospace, monospace; font-size: 11px;
+      color: #bbb; line-height: 1.5; overflow-x: auto;
+    }
+    pre .k { color: #ffcc00; }
+    pre .n { color: #80c8ff; }
+    pre .s { color: #a0e0a0; }
+    .hint {
+      color: #666; font-size: 12px; letter-spacing: 1px; margin: 20px 0;
+    }
+    a { color: #666; font-size: 13px; letter-spacing: 2px; text-decoration: none; display: inline-block; margin-top: 20px; }
+    a:hover { color: #ffcc00; }
+    .toast {
+      position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+      background: #8b1a0e; color: #fff; padding: 10px 18px; border-radius: 8px;
+      font-size: 13px; letter-spacing: 1px; display: none;
+    }
+  </style>
+</head>
+<body>
+  <h1>Kangaroo Sound Lab</h1>
+  <p class="sub">One-click triggers for each sound in the roof-landing beat. Tap any button to hear just that sound, or FULL SEQUENCE to hear them fire in order. Numbers 1–7 on the keyboard trigger the same buttons.</p>
+
+  <div class="status" id="status">🔊 TAP ANY BUTTON TO START</div>
+
+  <div class="section">
+    <div class="section-title">Whole beat</div>
+    <div class="buttons">
+      <button class="hero" data-sfx="full">▶ FULL SEQUENCE</button>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Individual sounds</div>
+    <div class="buttons">
+      <button data-sfx="whoosh">1 · WHOOSH</button>
+      <button data-sfx="trill">2 · TRILL LEAD-IN (C, B)</button>
+      <button data-sfx="chord">3 · CHORD (lands on 3rd beat)</button>
+      <button data-sfx="trillchord">4 · TRILL → CHORD</button>
+      <button data-sfx="kick">5 · LANDING KICK</button>
+      <button data-sfx="b2">6 · BOUNCE 2</button>
+      <button data-sfx="b3">7 · BOUNCE 3 RESOLVE</button>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Background music</div>
+    <div class="buttons">
+      <button class="toggle" id="funkBtn">FUNK: ON</button>
+      <button class="toggle" id="muteBtn">SOUND: ON</button>
+    </div>
+  </div>
+
+  <pre id="values"></pre>
+
+  <p class="hint">Keyboard: 1–7 = individual sounds · SPACE = full sequence · M = mute · F = funk toggle</p>
+  <a href="./kangaroo-cinematic.html">← back to the full preview (with graphics)</a>
+  <div class="toast" id="toast"></div>
+
+<script>
+const toast = document.getElementById('toast');
+const statusEl = document.getElementById('status');
+addEventListener('error', e => { toast.textContent = '⚠ ' + e.message; toast.style.display = 'block'; });
+
+// -------- SOUND VALUES (edit these to iterate; they're displayed on the page too) --------
+const V = {
+  // whoosh
+  whooshVol:       -3,
+  whooshDur:       '1.6s',
+  whooshFilterLo:  160,
+  whooshFilterHi:  3600,
+  whooshSweepT:    1.4,
+  whooshAttack:    0.25,
+  whooshDecay:     1.3,
+  whooshSustain:   0.15,
+  whooshRelease:   0.25,
+  whooshQ:         1.3,
+  // trill lead-in notes (the 3rd note is replaced by the chord — the chord IS the 3rd note)
+  trillLeadNotes:  ['C5', 'B4'],
+  trillGap:        0.15,     // seconds between notes
+  // chord (fires at the trill's 3rd-note timing — chord top is C5 so it reads as the trill resolving)
+  chordNotes:      ['A2', 'E3', 'A3', 'C4', 'E4', 'C5'],
+  chordDelay:      0.30,     // = 2 × trillGap, so chord lands exactly where the 3rd trill note would hit
+  chordDur:        '3.0s',
+  // guitar tone
+  distortion:      0.35,
+  distortionWet:   0.5,
+  reverbDecay:     2.0,
+  reverbWet:       0.22,
+  guitarVol:       -4,
+  // kick + bounces
+  kickVol:         -4,
+  kickNote1:       'C1',
+  kickDur1:        '0.5s',
+  b2KickNote:      'G1',
+  b2GuitarNote:    'G4',
+  b2GuitarDur:     '0.6s',
+  b3KickNote:      'C2',
+  b3Chord:         ['A3', 'C4', 'E4'],
+  b3ChordDur:      '1.4s',
+  // beat timing (REAL seconds between events in the FULL sequence)
+  tLaunch:         0.0,     // whoosh fires here
+  tApex:           1.2,     // trill fires here
+  tLand:           3.0,     // landing kick fires here
+  tB2:             4.2,
+  tB3:             5.2,
+  // funk vamp (background)
+  funkBpm:         98,
+  funkSwing:       0.12,
+};
+
+// render the current values as pretty JSON so you can see what will play
+function renderValues() {
+  const pretty = (o) => {
+    const lines = Object.entries(o).map(([k, v]) => {
+      let sv;
+      if (Array.isArray(v)) sv = '[' + v.map(x => typeof x === 'string' ? "'" + x + "'" : x).join(', ') + ']';
+      else if (typeof v === 'string') sv = "'" + v + "'";
+      else sv = String(v);
+      return `  <span class="k">${k}</span>: <span class="${typeof v === 'number' ? 'n' : 's'}">${sv}</span>,`;
+    });
+    return '{\n' + lines.join('\n') + '\n}';
+  };
+  document.getElementById('values').innerHTML = pretty(V);
+}
+renderValues();
+
+// -------- audio --------
+const audio = { ready: false, on: true, funkOn: true, funkParts: [] };
+const sub12 = n => (typeof Tone !== 'undefined') ? Tone.Frequency(n).transpose(-12) : n;
+
+function buildFunkRat() {
+  const d = [];
+  const arr32 = m => Array.from({ length: 32 }, (_, i) => m[i] || null);
+  const reverb = new Tone.Reverb({ decay: 1.1, wet: 0.1 }).toDestination(); d.push(reverb);
+  const bass = new Tone.FMSynth({
+    harmonicity: 1, modulationIndex: 9, portamento: 0.01,
+    oscillator: { type: 'sine' }, modulation: { type: 'square' },
+    envelope: { attack: 0.004, decay: 0.3, sustain: 0.25, release: 0.1 },
+    modulationEnvelope: { attack: 0.002, decay: 0.08, sustain: 0.08, release: 0.05 },
+    volume: -6,
+  }).toDestination(); d.push(bass);
+  const pop = new Tone.FMSynth({
+    harmonicity: 2, modulationIndex: 18,
+    oscillator: { type: 'sine' }, modulation: { type: 'square' },
+    envelope: { attack: 0.002, decay: 0.14, sustain: 0, release: 0.08 },
+    modulationEnvelope: { attack: 0.001, decay: 0.04, sustain: 0, release: 0.03 },
+    volume: -10,
+  }).toDestination(); d.push(pop);
+  const sub = new Tone.MonoSynth({ oscillator: { type: 'sine' }, envelope: { attack: 0.004, decay: 0.2, sustain: 0.4, release: 0.1 }, volume: -13 }).toDestination(); d.push(sub);
+  const clav = new Tone.PolySynth(Tone.Synth, { oscillator: { type: 'square' }, envelope: { attack: 0.002, decay: 0.06, sustain: 0, release: 0.05 }, volume: -21 });
+  const cf = new Tone.Filter(2500, 'bandpass'); clav.chain(cf, reverb); d.push(clav, cf);
+  const horns = new Tone.PolySynth(Tone.Synth, { oscillator: { type: 'fatsawtooth', count: 3, spread: 22 }, envelope: { attack: 0.01, decay: 0.25, sustain: 0.2, release: 0.15 }, volume: -17 });
+  const hf = new Tone.Filter(1600, 'lowpass'); horns.chain(hf, reverb); d.push(horns, hf);
+  const kick = new Tone.MembraneSynth({ pitchDecay: 0.05, octaves: 9, volume: -7 }).toDestination(); d.push(kick);
+  const snare = new Tone.NoiseSynth({ noise: { type: 'white' }, envelope: { attack: 0.001, decay: 0.16, sustain: 0 }, volume: -15 });
+  const sf = new Tone.Filter(1100, 'highpass'); snare.chain(sf, Tone.getDestination()); d.push(snare, sf);
+  const hat = new Tone.NoiseSynth({ noise: { type: 'white' }, envelope: { attack: 0.001, decay: 0.03, sustain: 0 }, volume: -26 });
+  const hhf = new Tone.Filter(8500, 'highpass'); hat.chain(hhf, Tone.getDestination()); d.push(hat, hhf);
+  const openHat = new Tone.NoiseSynth({ noise: { type: 'white' }, envelope: { attack: 0.001, decay: 0.22, sustain: 0 }, volume: -28 });
+  const ohf = new Tone.Filter(7000, 'highpass'); openHat.chain(ohf, Tone.getDestination()); d.push(openHat, ohf);
+
+  const N = (n, dur, v, p) => ({ n, dur, v, p });
+  const BASS = arr32({
+    0: N('A1', '8n', 1), 3: N('A2', '16n', 0.9, 1), 5: N('A1', '16n', 0.3), 7: N('A1', '16n', 0.5),
+    8: N('G1', '16n', 0.7), 10: N('A1', '8n', 0.9), 14: N('G1', '16n', 0.4), 15: N('A1', '16n', 0.6),
+    16: N('A1', '8n', 1), 19: N('A2', '16n', 0.9, 1), 21: N('E2', '16n', 0.6), 23: N('D2', '16n', 0.7, 1),
+    24: N('C2', '16n', 0.8), 26: N('A1', '16n', 0.4), 28: N('E1', '8n', 0.9), 31: N('G1', '16n', 0.7),
+  });
+  const A9 = ['A3', 'C#4', 'E4', 'G4'];
+  const CLAV = arr32({ 2: 0.35, 3: 0.6, 6: 0.3, 8: 0.7, 11: 0.35, 13: 0.3, 14: 0.6, 18: 0.35, 19: 0.6, 22: 0.3, 24: 0.7, 27: 0.35, 30: 0.6 });
+  const HORNS = arr32({ 0: 0.9, 30: 0.45 });
+  const KICK = arr32({ 0: 1, 7: 0.8, 10: 0.9, 16: 1, 22: 0.8, 24: 0.9 });
+  const SNARE = arr32({ 4: 1, 9: 0.25, 12: 1, 15: 0.2, 20: 1, 25: 0.25, 28: 1 });
+  const HATS = Array.from({ length: 32 }, (_, i) => (i === 14 || i === 30) ? 'o' : (i % 4 === 0 ? 0.5 : 0.28));
+
+  d.push(new Tone.Sequence((t, q) => {
+    if (!q) return;
+    (q.p ? pop : bass).triggerAttackRelease(q.n, q.dur, t, q.v);
+    sub.triggerAttackRelease(sub12(q.n), q.dur, t, q.v * 0.9);
+  }, BASS, '16n').start(0));
+  d.push(new Tone.Sequence((t, v) => { if (v) clav.triggerAttackRelease(A9, '32n', t, v); }, CLAV, '16n').start(0));
+  d.push(new Tone.Sequence((t, v) => { if (v) horns.triggerAttackRelease(A9, '8n', t, v); }, HORNS, '16n').start(0));
+  d.push(new Tone.Sequence((t, v) => { if (v) kick.triggerAttackRelease('C1', '8n', t, v); }, KICK, '16n').start(0));
+  d.push(new Tone.Sequence((t, v) => { if (v) snare.triggerAttackRelease('16n', t, v); }, SNARE, '16n').start(0));
+  d.push(new Tone.Sequence((t, v) => { if (v === 'o') openHat.triggerAttackRelease('8n', t, 0.6); else if (v) hat.triggerAttackRelease('32n', t, v); }, HATS, '16n').start(0));
+  return d;
+}
+
+async function initAudio() {
+  if (audio.ready) return;
+  if (typeof Tone === 'undefined') { statusEl.textContent = '⚠ TONE.JS FAILED TO LOAD'; return; }
+  try { await Tone.start(); } catch (e) { return; }
+  if (Tone.getContext().state !== 'running') return;
+
+  statusEl.textContent = '🔊 LOADING SAMPLES…';
+
+  Tone.Transport.bpm.value = V.funkBpm;
+  Tone.Transport.swing = V.funkSwing;
+  Tone.Transport.swingSubdivision = '16n';
+
+  audio.funkParts = buildFunkRat();
+
+  const dist   = new Tone.Distortion({ distortion: V.distortion, wet: V.distortionWet });
+  const reverb = new Tone.Reverb({ decay: V.reverbDecay, wet: V.reverbWet });
+  dist.chain(reverb, Tone.Destination);
+
+  audio.guitar = new Tone.Sampler({
+    urls: { A2: 'A2.mp3', C3: 'C3.mp3', A3: 'A3.mp3', C4: 'C4.mp3', A4: 'A4.mp3', C5: 'C5.mp3', A5: 'A5.mp3' },
+    baseUrl: 'https://nbrosowsky.github.io/tonejs-instruments/samples/guitar-electric/',
+    release: 1.5,
+  }).connect(dist);
+  audio.guitar.volume.value = V.guitarVol;
+
+  audio.cineKick = new Tone.MembraneSynth({
+    pitchDecay: 0.05, octaves: 6,
+    envelope: { attack: 0.001, decay: 0.42, sustain: 0 },
+  }).toDestination();
+  audio.cineKick.volume.value = V.kickVol;
+
+  audio.whooshFilter = new Tone.Filter({ frequency: V.whooshFilterLo, type: 'bandpass', Q: V.whooshQ });
+  audio.whoosh = new Tone.NoiseSynth({
+    noise: { type: 'pink' },
+    envelope: { attack: V.whooshAttack, decay: V.whooshDecay, sustain: V.whooshSustain, release: V.whooshRelease },
+  });
+  audio.whoosh.chain(audio.whooshFilter, Tone.Destination);
+  audio.whoosh.volume.value = V.whooshVol;
+
+  try { await Tone.loaded(); } catch (e) {}
+
+  Tone.Transport.start();
+  audio.ready = true;
+  statusEl.textContent = '🔊 READY — TAP ANY BUTTON';
+}
+
+// -------- individual triggers --------
+const sfx = {
+  whoosh() {
+    const now = Tone.now();
+    audio.whooshFilter.frequency.cancelScheduledValues(now);
+    audio.whooshFilter.frequency.setValueAtTime(V.whooshFilterLo, now);
+    audio.whooshFilter.frequency.exponentialRampToValueAtTime(V.whooshFilterHi, now + V.whooshSweepT);
+    audio.whoosh.triggerAttackRelease(V.whooshDur, now);
+  },
+  trill(atTime) {
+    // Only the 2 lead-in notes — the 3rd note is the chord (see sfx.trillchord).
+    const t0 = atTime ?? Tone.now();
+    const [a, b] = V.trillLeadNotes;
+    audio.guitar.triggerAttackRelease(a, '8n', t0);
+    audio.guitar.triggerAttackRelease(b, '8n', t0 + V.trillGap);
+  },
+  chord(atTime) {
+    const t0 = atTime ?? Tone.now();
+    audio.guitar.triggerAttackRelease(V.chordNotes, V.chordDur, t0);
+  },
+  trillchord() {
+    const t0 = Tone.now();
+    sfx.trill(t0);
+    sfx.chord(t0 + V.chordDelay);
+  },
+  kick() {
+    audio.cineKick.triggerAttackRelease(V.kickNote1, V.kickDur1, Tone.now());
+  },
+  b2() {
+    const now = Tone.now();
+    audio.cineKick.triggerAttackRelease(V.b2KickNote, '0.18s', now);
+    audio.guitar.triggerAttackRelease(V.b2GuitarNote, V.b2GuitarDur, now);
+  },
+  b3() {
+    const now = Tone.now();
+    audio.cineKick.triggerAttackRelease(V.b3KickNote, '0.22s', now);
+    audio.guitar.triggerAttackRelease(V.b3Chord, V.b3ChordDur, now);
+  },
+  full() {
+    const t0 = Tone.now();
+    audio.whooshFilter.frequency.cancelScheduledValues(t0 + V.tLaunch);
+    audio.whooshFilter.frequency.setValueAtTime(V.whooshFilterLo, t0 + V.tLaunch);
+    audio.whooshFilter.frequency.exponentialRampToValueAtTime(V.whooshFilterHi, t0 + V.tLaunch + V.whooshSweepT);
+    audio.whoosh.triggerAttackRelease(V.whooshDur, t0 + V.tLaunch);
+    sfx.trill(t0 + V.tApex);
+    sfx.chord(t0 + V.tApex + V.chordDelay);
+    audio.cineKick.triggerAttackRelease(V.kickNote1, V.kickDur1, t0 + V.tLand);
+    audio.cineKick.triggerAttackRelease(V.b2KickNote, '0.18s', t0 + V.tB2);
+    audio.guitar.triggerAttackRelease(V.b2GuitarNote, V.b2GuitarDur, t0 + V.tB2);
+    audio.cineKick.triggerAttackRelease(V.b3KickNote, '0.22s', t0 + V.tB3);
+    audio.guitar.triggerAttackRelease(V.b3Chord, V.b3ChordDur, t0 + V.tB3);
+  },
+};
+
+async function trigger(name, btn) {
+  if (!audio.ready) await initAudio();
+  if (!audio.ready) return;
+  if (btn) { btn.classList.add('active'); setTimeout(() => btn.classList.remove('active'), 200); }
+  try { sfx[name](); } catch (e) { toast.textContent = '⚠ ' + e.message; toast.style.display = 'block'; }
+}
+
+for (const b of document.querySelectorAll('button[data-sfx]')) {
+  b.onclick = (e) => { e.stopPropagation(); trigger(b.dataset.sfx, b); };
+}
+
+const funkBtn = document.getElementById('funkBtn');
+funkBtn.onclick = async (e) => {
+  e.stopPropagation();
+  if (!audio.ready) { await initAudio(); if (!audio.ready) return; }
+  audio.funkOn = !audio.funkOn;
+  if (audio.funkOn) { Tone.Transport.start(); funkBtn.textContent = 'FUNK: ON'; funkBtn.classList.remove('off'); }
+  else { Tone.Transport.stop(); funkBtn.textContent = 'FUNK: OFF'; funkBtn.classList.add('off'); }
+};
+
+const muteBtn = document.getElementById('muteBtn');
+muteBtn.onclick = async (e) => {
+  e.stopPropagation();
+  if (!audio.ready) { await initAudio(); if (!audio.ready) return; }
+  audio.on = !audio.on;
+  Tone.Destination.volume.value = audio.on ? 0 : -Infinity;
+  muteBtn.textContent = audio.on ? 'SOUND: ON' : 'SOUND: OFF';
+  muteBtn.classList.toggle('off', !audio.on);
+};
+
+// keyboard shortcuts
+addEventListener('keydown', (e) => {
+  const map = { '1': 'whoosh', '2': 'trill', '3': 'chord', '4': 'trillchord', '5': 'kick', '6': 'b2', '7': 'b3' };
+  if (map[e.key]) { trigger(map[e.key], document.querySelector(`button[data-sfx="${map[e.key]}"]`)); return; }
+  if (e.key === ' ') { e.preventDefault(); trigger('full', document.querySelector('button[data-sfx="full"]')); return; }
+  if (e.key.toLowerCase() === 'm') { muteBtn.click(); return; }
+  if (e.key.toLowerCase() === 'f') { funkBtn.click(); return; }
+});
+
+// try to unlock on any click (iOS)
+addEventListener('click',      () => { if (!audio.ready) initAudio(); }, { capture: true });
+addEventListener('touchstart', () => { if (!audio.ready) initAudio(); }, { capture: true, passive: true });
+</script>
+</body>
+</html>
