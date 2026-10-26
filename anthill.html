@@ -472,8 +472,16 @@ const mat = {
 };
 
 // ground
-const grass = new THREE.Mesh(new THREE.PlaneGeometry(400, 400), mat.grass);
+// subdivided so the surface can rise/fall with heightY — see the vertex loop in update(dt).
+// 80 strips along the length axis means a vertex every 5m, fine enough that the hills look smooth.
+const grassGeo = new THREE.PlaneGeometry(400, 400, 1, 80);
+const grass = new THREE.Mesh(grassGeo, mat.grass);
 grass.rotation.x = -Math.PI / 2; grass.position.set(0, -0.06, -120);
+// snapshot original vertex Y coords so we can map each one to its world Z each frame
+grass.userData.originalLocalY = new Float32Array(grassGeo.attributes.position.count);
+for (let i = 0; i < grassGeo.attributes.position.count; i++) {
+  grass.userData.originalLocalY[i] = grassGeo.attributes.position.getY(i);
+}
 grass.receiveShadow = true;
 scene.add(grass);
 
@@ -1897,6 +1905,19 @@ function update(dt) {
       pos[i + 1] = orig[i + 1] + heightY(wz, et);
     }
     r.mesh.geometry.attributes.position.needsUpdate = true;
+  }
+  // bend the ground: each vertex's local Z gets heightY at its world Z. After the mesh's
+  // rotation.x = -π/2, local Z maps to world Y, so writing to .z lifts/drops the vertex.
+  {
+    const pos = grass.geometry.attributes.position.array;
+    const origY = grass.userData.originalLocalY;
+    const baseZ = grass.position.z;
+    for (let i = 0; i < origY.length; i++) {
+      const worldZ = baseZ - origY[i];
+      pos[i * 3 + 2] = heightY(worldZ, et);
+    }
+    grass.geometry.attributes.position.needsUpdate = true;
+    grass.geometry.computeVertexNormals();  // keep lighting consistent as the ground dips
   }
   // snapshot baseY once (for the per-frame heightY offset)
   if (!window.__baseYInit) {
