@@ -86,9 +86,15 @@
     <div class="label" id="label">PROPOSED</div>
   </div>
 
+  <div class="buttons" style="margin-bottom:14px">
+    <button class="profile-btn on" data-prof="a">A · THRASH</button>
+    <button class="profile-btn" data-prof="b">B · SURF</button>
+    <button class="profile-btn" data-prof="c">C · SOUTHERN</button>
+    <button class="profile-btn" data-prof="d">D · STADIUM</button>
+  </div>
   <div class="buttons">
-    <button data-v="0">CURRENT</button>
-    <button data-v="1" class="on">PROPOSED</button>
+    <button data-v="0">CURRENT CAM</button>
+    <button data-v="1" class="on">PROPOSED CAM</button>
   </div>
 
   <div class="descs" id="descs">
@@ -327,32 +333,176 @@ hero.group.position.set(CENTER, 0, 0);
 scene.add(hero.group);
 
 // ---------- audio (Tone.js) ----------
-// Audio values read from the SAME localStorage key the Sound Lab writes to — tweaks made in
-// /kangaroo-sfx-lab.html automatically apply here on next page load.
-const DEFAULT_V = {
-  whooshVol: 6, whooshDur: 1.6, whooshFilterLo: 140, whooshFilterHi: 3100,
-  whooshSweepT: 1.6, whooshQ: 1.3,
-  whooshAttack: 0.25, whooshDecay: 1.3, whooshSustain: 0.15, whooshRelease: 0.25,
-  trillGap: 0.12,
-  chordDelay: 0.47, chordDur: 3.0,
-  chordNotes: 'A2,C4,E4,A5',
-  trillNotes: 'B4,A4',
-  distortion: 0.35, distortionWet: 0.5, reverbWet: 0.22,
-  chebyOrder: 1, eqMidCut: 0,
-  guitarVol: -4, kickVol: -4,
-  b2KickNote: 'G1', b2GuitarNote: 'G4,C4,D4,C5', b2GuitarDur: 0.6,
-  b3KickNote: 'C2', b3Chord: 'A3,D4,E4', b3ChordDur: 1.4,
-  kickNote: 'C1', kickDur: 0.5,
-  tLaunch: 0, tApex: 1.4, tLand: 2.0, tB2: 3.0, tB3: 4.0,
-  funkBpm: 98,
-};
-const LS_KEY = 'kangarooSfxLabV1';
-let V;
-try { V = { ...DEFAULT_V, ...JSON.parse(localStorage.getItem(LS_KEY) || '{}') }; }
-catch (e) { V = { ...DEFAULT_V }; }
-const toNotes = s => (s || '').split(',').map(n => n.trim()).filter(Boolean);
-
+// Four distinct sound profiles for the roof-landing beat; switch between them with the A/B/C/D
+// buttons above the stage. Each profile has its own FX chain, guitar character, and phrasing.
 const audio = { ready: false, on: false, funkParts: [] };
+const PROFILES = {};
+let activeProfile = 'a';
+
+function makeGuitarSampler() {
+  return new Tone.Sampler({
+    urls: { A2:'A2.mp3', C3:'C3.mp3', A3:'A3.mp3', C4:'C4.mp3', A4:'A4.mp3', C5:'C5.mp3', A5:'A5.mp3' },
+    baseUrl: 'https://nbrosowsky.github.io/tonejs-instruments/samples/guitar-electric/',
+    release: 1.5,
+  });
+}
+
+// A — THRASH: heavy Chebyshev + distortion + mid-scoop, tremolo-picked trill, deep A power chord
+function buildThrashProfile() {
+  const guitar = makeGuitarSampler();
+  const eq = new Tone.EQ3({ low: 2, mid: -10, high: 3, lowFrequency: 300, highFrequency: 2200 });
+  const cheby = new Tone.Chebyshev({ order: 25 });
+  const dist = new Tone.Distortion({ distortion: 0.9, wet: 1.0 });
+  const reverb = new Tone.Reverb({ decay: 1.8, wet: 0.3 });
+  guitar.chain(eq, cheby, dist, reverb, Tone.Destination);
+  guitar.volume.value = -2;
+  const kick = new Tone.MembraneSynth({ pitchDecay: 0.08, octaves: 8, envelope: { attack: 0.001, decay: 0.5, sustain: 0 } }).toDestination();
+  kick.volume.value = 0;
+  const whooshNoise = new Tone.NoiseSynth({ noise: { type: 'pink' }, envelope: { attack: 0.2, decay: 1.2, sustain: 0.2, release: 0.3 } });
+  const whooshFilter = new Tone.Filter({ frequency: 200, type: 'bandpass', Q: 2.5 });
+  const whooshDist = new Tone.Distortion({ distortion: 0.6, wet: 0.4 });
+  whooshNoise.chain(whooshFilter, whooshDist, reverb);
+  whooshNoise.volume.value = -2;
+  return {
+    chordDelay: 0.32,
+    whoosh(now) {
+      whooshFilter.frequency.cancelScheduledValues(0);
+      whooshFilter.frequency.setValueAtTime(140, now);
+      whooshFilter.frequency.exponentialRampToValueAtTime(4000, now + 1.1);
+      whooshNoise.triggerAttackRelease('1.4s', now);
+    },
+    trillChord(trillAt, chordAt) {
+      ['C5','B4','C5','B4'].forEach((n, i) => guitar.triggerAttackRelease(n, '16n', trillAt + i * 0.08));
+      guitar.triggerAttackRelease(['A1','A2','E3','A3','E4','A4'], '3.5s', chordAt);
+      kick.triggerAttackRelease('C1', '0.6s', chordAt);
+    },
+    b2(now) {
+      guitar.triggerAttackRelease(['A3','E4','A4'], '0.5s', now);
+      kick.triggerAttackRelease('G1', '0.3s', now);
+    },
+    b3(now) {
+      guitar.triggerAttackRelease(['E4','A4','C5'], '1.2s', now);
+      kick.triggerAttackRelease('C2', '0.3s', now);
+    },
+  };
+}
+
+// B — SURF: clean + chorus + tremolo + big reverb, lazy bendy trill, Am9 chord
+function buildSurfProfile() {
+  const guitar = makeGuitarSampler();
+  const chorus = new Tone.Chorus({ frequency: 1.5, delayTime: 3.5, depth: 0.6, wet: 0.5 }).start();
+  const trem = new Tone.Tremolo({ frequency: 5, depth: 0.3, wet: 0.4 }).start();
+  const reverb = new Tone.Reverb({ decay: 3.2, wet: 0.55 });
+  guitar.chain(trem, chorus, reverb, Tone.Destination);
+  guitar.volume.value = -4;
+  const kick = new Tone.MembraneSynth({ pitchDecay: 0.03, octaves: 4, envelope: { attack: 0.001, decay: 0.25, sustain: 0 } }).toDestination();
+  kick.volume.value = -8;
+  const whooshNoise = new Tone.NoiseSynth({ noise: { type: 'white' }, envelope: { attack: 0.4, decay: 1.5, sustain: 0.1, release: 0.6 } });
+  const whooshFilter = new Tone.Filter({ frequency: 400, type: 'bandpass', Q: 1.0 });
+  whooshNoise.chain(whooshFilter, reverb);
+  whooshNoise.volume.value = -8;
+  return {
+    chordDelay: 0.5,
+    whoosh(now) {
+      whooshFilter.frequency.cancelScheduledValues(0);
+      whooshFilter.frequency.setValueAtTime(300, now);
+      whooshFilter.frequency.exponentialRampToValueAtTime(2500, now + 1.6);
+      whooshNoise.triggerAttackRelease('1.8s', now);
+    },
+    trillChord(trillAt, chordAt) {
+      guitar.triggerAttackRelease('A4', '4n', trillAt);
+      guitar.triggerAttackRelease('G4', '4n', trillAt + 0.22);
+      guitar.triggerAttackRelease(['A2','E3','A3','C4','G4','B4'], '4s', chordAt);
+      kick.triggerAttackRelease('C2', '0.4s', chordAt);
+    },
+    b2(now) {
+      guitar.triggerAttackRelease(['E4','G4','B4'], '0.9s', now);
+      kick.triggerAttackRelease('C2', '0.2s', now);
+    },
+    b3(now) {
+      guitar.triggerAttackRelease(['A3','C4','E4','G4'], '1.6s', now);
+      kick.triggerAttackRelease('G2', '0.2s', now);
+    },
+  };
+}
+
+// C — SOUTHERN: light overdrive + slapback delay, pentatonic trill, A major chord
+function buildSouthernProfile() {
+  const guitar = makeGuitarSampler();
+  const dist = new Tone.Distortion({ distortion: 0.35, wet: 0.65 });
+  const slapback = new Tone.FeedbackDelay({ delayTime: 0.11, feedback: 0.25, wet: 0.3 });
+  const reverb = new Tone.Reverb({ decay: 1.5, wet: 0.3 });
+  guitar.chain(dist, slapback, reverb, Tone.Destination);
+  guitar.volume.value = -3;
+  const kick = new Tone.MembraneSynth({ pitchDecay: 0.07, octaves: 7, envelope: { attack: 0.001, decay: 0.45, sustain: 0 } }).toDestination();
+  kick.volume.value = -3;
+  const whooshNoise = new Tone.NoiseSynth({ noise: { type: 'brown' }, envelope: { attack: 0.3, decay: 1.0, sustain: 0.15, release: 0.3 } });
+  const whooshFilter = new Tone.Filter({ frequency: 350, type: 'bandpass', Q: 1.8 });
+  whooshNoise.chain(whooshFilter, reverb);
+  whooshNoise.volume.value = -5;
+  return {
+    chordDelay: 0.44,
+    whoosh(now) {
+      whooshFilter.frequency.cancelScheduledValues(0);
+      whooshFilter.frequency.setValueAtTime(200, now);
+      whooshFilter.frequency.exponentialRampToValueAtTime(2200, now + 1.2);
+      whooshNoise.triggerAttackRelease('1.5s', now);
+    },
+    trillChord(trillAt, chordAt) {
+      guitar.triggerAttackRelease('G4', '8n', trillAt);
+      guitar.triggerAttackRelease('A4', '8n', trillAt + 0.14);
+      guitar.triggerAttackRelease('C5', '8n', trillAt + 0.28);
+      guitar.triggerAttackRelease(['A2','E3','A3','C#4','E4','A4'], '3.2s', chordAt);
+      kick.triggerAttackRelease('A1', '0.5s', chordAt);
+    },
+    b2(now) {
+      guitar.triggerAttackRelease('C#5', '0.5s', now);
+      kick.triggerAttackRelease('G1', '0.25s', now);
+    },
+    b3(now) {
+      guitar.triggerAttackRelease(['A3','C#4','E4','A4'], '1.4s', now);
+      kick.triggerAttackRelease('A1', '0.3s', now);
+    },
+  };
+}
+
+// D — STADIUM: moderate dist + feedback delay + cathedral reverb, palm-mute chug trill, D5
+function buildStadiumProfile() {
+  const guitar = makeGuitarSampler();
+  const dist = new Tone.Distortion({ distortion: 0.55, wet: 0.75 });
+  const delay = new Tone.FeedbackDelay({ delayTime: 0.28, feedback: 0.35, wet: 0.35 });
+  const reverb = new Tone.Reverb({ decay: 3.8, wet: 0.5 });
+  guitar.chain(dist, delay, reverb, Tone.Destination);
+  guitar.volume.value = -2;
+  const kick = new Tone.MembraneSynth({ pitchDecay: 0.06, octaves: 10, envelope: { attack: 0.001, decay: 0.55, sustain: 0 } }).toDestination();
+  kick.volume.value = 2;
+  const whooshNoise = new Tone.NoiseSynth({ noise: { type: 'pink' }, envelope: { attack: 0.3, decay: 1.4, sustain: 0.2, release: 0.4 } });
+  const whooshFilter = new Tone.Filter({ frequency: 200, type: 'bandpass', Q: 1.5 });
+  whooshNoise.chain(whooshFilter, delay, reverb);
+  whooshNoise.volume.value = -4;
+  return {
+    chordDelay: 0.36,
+    whoosh(now) {
+      whooshFilter.frequency.cancelScheduledValues(0);
+      whooshFilter.frequency.setValueAtTime(150, now);
+      whooshFilter.frequency.exponentialRampToValueAtTime(3500, now + 1.3);
+      whooshNoise.triggerAttackRelease('1.7s', now);
+    },
+    trillChord(trillAt, chordAt) {
+      [0, 0.09, 0.18, 0.27].forEach(dt => guitar.triggerAttackRelease('D5', '16n', trillAt + dt));
+      guitar.triggerAttackRelease(['D2','A2','D3','A3','D4','F#4','A4'], '4s', chordAt);
+      kick.triggerAttackRelease('C1', '0.7s', chordAt);
+    },
+    b2(now) {
+      guitar.triggerAttackRelease(['D4','F#4','A4'], '0.7s', now);
+      kick.triggerAttackRelease('C1', '0.3s', now);
+    },
+    b3(now) {
+      guitar.triggerAttackRelease(['A3','D4','F#4','A4'], '1.6s', now);
+      kick.triggerAttackRelease('C1', '0.4s', now);
+    },
+  };
+}
 
 // pitch helper from the game
 const sub12 = n => (typeof Tone !== 'undefined') ? Tone.Frequency(n).transpose(-12) : n;
@@ -423,39 +573,18 @@ async function initAudio() {
   // iOS can return from Tone.start() with the context still suspended until a real user gesture — bail if so.
   if (Tone.getContext().state !== 'running') return;
 
-  Tone.Transport.bpm.value = V.funkBpm;
+  Tone.Transport.bpm.value = 98;
   Tone.Transport.swing = 0.12;
   Tone.Transport.swingSubdivision = '16n';
 
   audio.funkParts = buildFunkRat();
 
-  // Guitar FX chain: EQ3 (mid scoop) → Chebyshev (harmonic bite) → Distortion → Reverb → Destination
-  audio.eq     = new Tone.EQ3({ low: 0, mid: V.eqMidCut, high: 0, lowFrequency: 300, highFrequency: 2200 });
-  audio.cheby  = new Tone.Chebyshev({ order: Math.max(1, Math.round(V.chebyOrder)) });
-  audio.dist   = new Tone.Distortion({ distortion: V.distortion, wet: V.distortionWet });
-  audio.reverb = new Tone.Reverb({ decay: 2.0, wet: V.reverbWet });
-  audio.eq.chain(audio.cheby, audio.dist, audio.reverb, Tone.Destination);
-
-  audio.guitar = new Tone.Sampler({
-    urls: { A2: 'A2.mp3', C3: 'C3.mp3', A3: 'A3.mp3', C4: 'C4.mp3', A4: 'A4.mp3', C5: 'C5.mp3', A5: 'A5.mp3' },
-    baseUrl: 'https://nbrosowsky.github.io/tonejs-instruments/samples/guitar-electric/',
-    release: 1.5,
-  }).connect(audio.eq);
-  audio.guitar.volume.value = V.guitarVol;
-
-  audio.cineKick = new Tone.MembraneSynth({
-    pitchDecay: 0.05, octaves: 6,
-    envelope: { attack: 0.001, decay: 0.42, sustain: 0 },
-  }).toDestination();
-  audio.cineKick.volume.value = V.kickVol;
-
-  audio.whooshFilter = new Tone.Filter({ frequency: V.whooshFilterLo, type: 'bandpass', Q: V.whooshQ });
-  audio.whoosh = new Tone.NoiseSynth({
-    noise: { type: 'pink' },
-    envelope: { attack: V.whooshAttack, decay: V.whooshDecay, sustain: V.whooshSustain, release: V.whooshRelease },
-  });
-  audio.whoosh.chain(audio.whooshFilter, Tone.Destination);
-  audio.whoosh.volume.value = V.whooshVol;
+  // All four profiles are built up front so switching is instant.
+  // See /kangaroo-sfx-options.html for the standalone no-visuals A/B/C/D comparison.
+  PROFILES.a = buildThrashProfile();
+  PROFILES.b = buildSurfProfile();
+  PROFILES.c = buildSouthernProfile();
+  PROFILES.d = buildStadiumProfile();
 
   // wait for the guitar samples to download before marking ready — otherwise the first beat's trill + chord are silent
   try { await Tone.loaded(); } catch (e) { /* best-effort */ }
@@ -506,40 +635,39 @@ const MIN_TIMESCALE_AT_LANDING = 0.15;
 
 function sfxTick() {
   if (!audio.on || !audio.ready || variant !== 1) return;
+  const prof = PROFILES[activeProfile];
+  if (!prof) return;
   const now = Tone.now();
 
-  // Jump press (T_LAUNCH): WHOOSH — long, loud, wide-sweeping noise rise
   if (!sfxFired.whoosh && beatT >= T_LAUNCH) {
     sfxFired.whoosh = true;
-    audio.whooshFilter.frequency.cancelScheduledValues(0);
-    audio.whooshFilter.frequency.setValueAtTime(V.whooshFilterLo, now);
-    audio.whooshFilter.frequency.exponentialRampToValueAtTime(V.whooshFilterHi, now + V.whooshSweepT);
-    audio.whoosh.triggerAttackRelease(V.whooshDur + 's', now);
+    prof.whoosh(now);
   }
-  // Trill → chord fires as ONE phrase (same as the lab's TRILL → CHORD button). We fire the trill
-  // early enough that the chord lands exactly at the visual roof landing.
-  const leadInGameOffset = V.chordDelay * MIN_TIMESCALE_AT_LANDING;
+  // trill fires chordDelay (real sec) × min slomo (game-sec/real-sec) BEFORE visual landing,
+  // so the scheduled chord's attack lands exactly on T_LAND.
+  const leadInGameOffset = prof.chordDelay * MIN_TIMESCALE_AT_LANDING;
   if (!sfxFired.trillChord && beatT >= T_LAND - leadInGameOffset) {
     sfxFired.trillChord = true;
-    const trillNotes = toNotes(V.trillNotes);
-    trillNotes.forEach((n, i) => audio.guitar.triggerAttackRelease(n, '8n', now + i * V.trillGap));
-    audio.guitar.triggerAttackRelease(toNotes(V.chordNotes), V.chordDur + 's', now + V.chordDelay);
+    prof.trillChord(now, now + prof.chordDelay);
   }
-  // Kick accent at the same visual landing (chord is slamming from the scheduled trill→chord above)
-  if (!sfxFired.impact && impactTGame >= 0) {
-    sfxFired.impact = true;
-    audio.cineKick.triggerAttackRelease(V.kickNote, V.kickDur + 's', now);
-  }
+  // chord + kick are both fired by trillChord — no separate impact trigger needed
   if (!sfxFired.b2 && impactTGame >= LANDINGS[1]) {
     sfxFired.b2 = true;
-    audio.cineKick.triggerAttackRelease(V.b2KickNote, '0.18s', now);
-    audio.guitar.triggerAttackRelease(toNotes(V.b2GuitarNote), V.b2GuitarDur + 's', now);
+    prof.b2(now);
   }
   if (!sfxFired.b3 && impactTGame >= LANDINGS[2]) {
     sfxFired.b3 = true;
-    audio.cineKick.triggerAttackRelease(V.b3KickNote, '0.22s', now);
-    audio.guitar.triggerAttackRelease(toNotes(V.b3Chord), V.b3ChordDur + 's', now);
+    prof.b3(now);
   }
+}
+
+// profile switcher
+for (const b of document.querySelectorAll('button[data-prof]')) {
+  b.onclick = (e) => {
+    e.stopPropagation();
+    activeProfile = b.dataset.prof;
+    for (const bb of document.querySelectorAll('button[data-prof]')) bb.classList.toggle('on', bb.dataset.prof === activeProfile);
+  };
 }
 
 const particles = [];
