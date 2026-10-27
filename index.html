@@ -1725,6 +1725,9 @@ function reset() {
   biomeT = 0;
   applyBiomeVisuals(1);
   hero.group.visible = true;
+  // if a run ended mid-cinematic, camera.position.z was left wherever the side-profile orbit put it;
+  // the normal update path only writes x and y, so without this restore the hero sits outside the FOV next run
+  camera.position.z = 7.5;
   powHud();
 }
 
