@@ -2105,6 +2105,15 @@ function update(dt) {
       if (o.type === 'beam' && ducking) continue;
       if (o.type === 'beam' && hero.group.position.y > 1.9) continue;   // Golden Hopper's tall arc clears a low clearance
       if (o.type === 'train' && ducking) { underTrain = true; continue; }   // squeezed through underneath
+      // Golden Hopper leniency: a kangaroo on the rising half of its arc has committed to the hop —
+      // a close-ahead train becomes a mount, not a crash. Without this, the first ~0.23s of the arc has
+      // hero.y<2.8 and any near train kills instantly, which fights the "jump before a train, land on it" promise.
+      if (o.type === 'train' && charKey === 'kangaroo' && jumpT >= 0 && jumpT < KANG_JUMP_DUR * 0.5) {
+        onTrain = o;
+        sfx.jump();
+        spawnParts('dust', { x: hero.group.position.x, y: TRAIN_ROOF_Y, z: 0 }, 6, 2, 2);
+        continue;
+      }
       if (o.type === 'train' && hero.group.position.y >= TRAIN_ROOF_Y - 0.3) {   // Golden Hopper's arc crests at/above the roof ridge — land on top
         onTrain = o;
         sfx.jump();
