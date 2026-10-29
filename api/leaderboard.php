@@ -177,7 +177,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } elseif (tokenMatches($row['token'], $token)) {
             echo json_encode(['status' => 'yours']);
         } else {
-            logit(['action' => sameConnectionPlayed($name) ? 'claim-match' : 'claim-trust', 'name' => $name, 'tok_sub' => $token ? substr($token, -4) : '']);
+            // On adoption, record the row's state BEFORE anything the new device writes:
+            //   score    — the row's best; what an undo would restore to
+            //   row_tok  — last 4 of the token handed out (lets admin tell which code the trusting device inherited, after any later rotation)
+            //   tok_sub  — last 4 of the token the device presented (the device's old/throwaway code before adoption)
+            logit([
+                'action' => sameConnectionPlayed($name) ? 'claim-match' : 'claim-trust',
+                'name' => $name,
+                'score' => $row['score'],
+                'row_tok' => substr($row['token'], -4),
+                'tok_sub' => $token ? substr($token, -4) : '',
+            ]);
             echo json_encode(['status' => 'match', 'code' => $row['token'], 'score' => $row['score'], 'date' => $row['date'], 'flag' => rowFlag($row), 'suggest' => freeNames($name, $scores)]);
         }
         exit;
@@ -344,7 +354,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     flock($fp, LOCK_UN);
     fclose($fp);
 
-    logit(['action' => 'score', 'name' => $name, 'score' => $score, 'cheese' => $cheese, 'secs' => $secs, 'pows' => $pows, 'char' => $char, 'flag' => $flag, 'speedPct' => $speedPct]);
+    // tok_sub pins each write to the token tail in effect at the time — after an admin rotates a row's token to revoke a trust-adoption, this is how pre-rotation writes stay identifiable.
+    logit(['action' => 'score', 'name' => $name, 'score' => $score, 'cheese' => $cheese, 'secs' => $secs, 'pows' => $pows, 'char' => $char, 'flag' => $flag, 'speedPct' => $speedPct, 'tok_sub' => $token ? substr($token, -4) : '']);
 
     $rank = 0;
     foreach ($scores as $i => $r) { if (strcasecmp($r['name'], $name) === 0) { $rank = $i + 1; break; } }
