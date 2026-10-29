@@ -155,7 +155,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $GLOBALS['logSid'] = substr(preg_replace('/[^A-Z0-9]/', '', strtoupper(trim($input['sid'] ?? ''))), 0, 8);
 
     // ---- claim: who owns this name, and is it this player? ----
-    // A device that loses its rat code (new phone, cleared browser) is otherwise locked out of its own name for good.
+    // Rat codes don't travel between phones — a cleared browser or new device would otherwise be
+    // locked out of its own name forever, and nobody writes their code down. The family runs on
+    // social trust: anyone who confirms "yes that's me" gets the code. The audit log tags whether
+    // the IP matched (claim-match) or not (claim-trust) so a dispute still has a paper trail.
     if (isset($input['claim'])) {
         $nameRaw = trim($input['claim']['name'] ?? '');
         if (!$nameRaw || strlen($nameRaw) > 20) {
@@ -173,12 +176,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             echo json_encode(['status' => 'free']);
         } elseif (tokenMatches($row['token'], $token)) {
             echo json_encode(['status' => 'yours']);
-        } elseif (sameConnectionPlayed($name)) {      // played from this same connection before — we think this is you
-            logit(['action' => 'claim-match', 'name' => $name]);
-            echo json_encode(['status' => 'match', 'code' => $row['token'], 'score' => $row['score'], 'date' => $row['date'], 'flag' => rowFlag($row), 'suggest' => freeNames($name, $scores)]);
         } else {
-            logit(['action' => 'claim-denied', 'name' => $name]);
-            echo json_encode(['status' => 'taken', 'score' => $row['score'], 'flag' => rowFlag($row), 'suggest' => freeNames($name, $scores)]);
+            logit(['action' => sameConnectionPlayed($name) ? 'claim-match' : 'claim-trust', 'name' => $name, 'tok_sub' => $token ? substr($token, -4) : '']);
+            echo json_encode(['status' => 'match', 'code' => $row['token'], 'score' => $row['score'], 'date' => $row['date'], 'flag' => rowFlag($row), 'suggest' => freeNames($name, $scores)]);
         }
         exit;
     }
