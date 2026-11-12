@@ -209,7 +209,7 @@
     <p style="color:#888; font-size:13px; letter-spacing:1px; margin-top:6px;">You're a rat on the tracks. Run forever. Don't get squished.</p>
 
     <p class="hsec">Your Runner</p>
-    <div class="hrow"><span class="hico">🐀🐿️🦔🦘</span><span>Pick your character on the start screen: the Rat (classic), the Night Glider (can glide), Rainbow Spike (can dig), or the Golden Hopper (shiny).</span></div>
+    <div class="hrow"><span class="hico">🐀🐿️🦔🦘🦣</span><span>Pick your character on the start screen: the Rat (classic), the Night Glider (can glide), Rainbow Spike (can dig), the Golden Hopper (shiny), or the Woolly Mammoth (strong).</span></div>
 
     <p class="hsec">Moves</p>
     <div class="hrow"><span class="hico">⬅️➡️</span><span>Swipe (or arrow keys) to switch tracks.</span></div>
@@ -218,6 +218,7 @@
     <div class="hrow"><span class="hico">🐿️</span><span>Night Glider only: tap again in mid-air to GLIDE over anything jumpable. Tap once more (or duck) to drop. You sink slowly, so don't glide forever!</span></div>
     <div class="hrow"><span class="hico">🦔</span><span>Rainbow Spike only: swipe down to DIG underground — tunnel under TWO trains in a row before popping up. Swipe down again to surface early.</span></div>
     <div class="hrow"><span class="hico">🦘</span><span>Golden Hopper only: a BIG hop — clear LOW CLEARANCE signs/vines/arches in one bound, or land right on top of a train and ride it until it's gone.</span></div>
+    <div class="hrow"><span class="hico">🦣</span><span>Woolly Mammoth only: tap 4 times FAST and the trunk grabs the nearest train ahead and THROWS it off the track. It only works ONE time each run (watch for the 🐘 up top) — save it for an emergency!</span></div>
 
     <p class="hsec">Watch Out</p>
     <div class="hrow"><span class="hico">🚆</span><span>Trains — switch tracks, duck and squeeze under, or dig beneath them.</span></div>
@@ -263,6 +264,7 @@
       <button class="charBtn" data-char="squirrel">🐿️<span>Night Glider</span></button>
       <button class="charBtn" data-char="echidna">🦔<span>Rainbow Spike</span></button>
       <button class="charBtn" data-char="kangaroo">🦘<span>Golden Hopper</span></button>
+      <button class="charBtn" data-char="mammoth">🦣<span>Woolly Mammoth</span></button>
     </div>
     <div id="levelPickerWrap" style="margin:4px 0 6px; display:none;">
       <div style="color:#888; font-size:11px; letter-spacing:2px; margin-bottom:4px;">START ON LEVEL</div>
@@ -1301,8 +1303,106 @@ function buildKangaroo() {
   return { group: g, tail: tailG, feet: [feetGroup] };
 }
 
-const chars = { rat: buildRat(), squirrel: buildSquirrel(), echidna: buildEchidna(), kangaroo: buildKangaroo() };
-const charIcons = { rat: '🐀', squirrel: '🐿️', echidna: '🦔', kangaroo: '🦘' };
+// Thomas's fourth pick: the Woolly Mammoth — shaggy ice-age tank. Quadruple-tap and the trunk
+// grabs the nearest train ahead and THROWS it off the track, once per run (his design, age 6).
+const MAM_SCALE = 0.62;
+function buildMammoth() {
+  const g = new THREE.Group();
+  const inner = new THREE.Group();            // -Z is forward; outer g stays identity for the game's duck/hop scaling
+  inner.scale.setScalar(MAM_SCALE);
+  g.add(inner);
+  const fur  = new THREE.MeshStandardMaterial({ color: 0x7a5636, roughness: 0.9 });
+  const furD = new THREE.MeshStandardMaterial({ color: 0x5e4128, roughness: 0.95 });
+  const tuskM = new THREE.MeshStandardMaterial({ color: 0xf2ead8, roughness: 0.35, side: THREE.DoubleSide });
+  const darkMat = new THREE.MeshStandardMaterial({ color: 0x14161c, roughness: 0.4 });
+  const whiteMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.3 });
+
+  const body = new THREE.Mesh(new THREE.SphereGeometry(0.62, 26, 20), fur);
+  body.scale.set(1.05, 0.92, 1.3); body.position.set(0, 1.0, 0.15);
+  inner.add(body);
+
+  const headG = new THREE.Group();
+  headG.position.set(0, 1.32, -0.62);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.42, 24, 20), fur);
+  head.scale.set(0.95, 0.92, 0.9);
+  headG.add(head);
+  for (const [dx, dz, h] of [[-0.08, 0, 0.16], [0, -0.04, 0.2], [0.08, 0.02, 0.15]]) {
+    const tuft = new THREE.Mesh(new THREE.ConeGeometry(0.06, h, 8), furD);
+    tuft.position.set(dx, 0.4, dz); tuft.rotation.z = dx * 2;
+    headG.add(tuft);
+  }
+  for (const side of [-1, 1]) {
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.065, 14, 12), darkMat);
+    eye.position.set(side * 0.17, 0.1, -0.34);
+    const sh = new THREE.Mesh(new THREE.SphereGeometry(0.024, 8, 8), whiteMat);
+    sh.position.set(side * 0.15, 0.13, -0.39);
+    headG.add(eye, sh);
+    const earPivot = new THREE.Group();        // small round mammoth ears
+    earPivot.position.set(side * 0.26, 0.12, 0.02);
+    const ear = new THREE.Mesh(new THREE.SphereGeometry(0.34, 18, 14), fur);
+    ear.scale.set(0.62, 0.8, 0.12); ear.position.x = side * 0.16;
+    const earIn = new THREE.Mesh(new THREE.SphereGeometry(0.26, 16, 12), furD);
+    earIn.scale.set(0.45, 0.6, 0.1); earIn.position.set(side * 0.17, 0, -0.03);
+    earPivot.add(ear, earIn);
+    earPivot.rotation.y = side * 0.5;
+    headG.add(earPivot);
+    // the big curling tusks — scale applies before rotation, so the mirrored side needs the opposite spin
+    const tusk = new THREE.Mesh(new THREE.TorusGeometry(0.3, 0.05, 8, 18, 2.6), tuskM);
+    tusk.position.set(side * 0.15, -0.32, -0.34);
+    tusk.rotation.z = -side * Math.PI / 2;
+    tusk.scale.x = -side;
+    headG.add(tusk);
+  }
+  g.userData.headG = headG;
+  inner.add(headG);
+
+  // trunk — segments laid along a bezier every frame (idle sway; stretches to a grabbed train)
+  const trunkSegs = [];
+  for (let i = 0; i < 12; i++) {
+    const r = 0.115 - (i / 11) * 0.062;
+    const s = new THREE.Mesh(new THREE.SphereGeometry(r, 12, 10), fur);
+    s.position.set(0, 1.28 - (i / 11) * 0.9, -0.95 - (i / 11) * 0.35);
+    inner.add(s); trunkSegs.push(s);
+  }
+
+  const feet = [];
+  for (const [x, z] of [[-0.34, -0.38], [0.34, -0.38], [-0.36, 0.52], [0.36, 0.52]]) {
+    const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.18, 0.62, 14), fur);
+    leg.position.set(x, 0.31, z);
+    leg.userData.y0 = 0.31;
+    for (const cx of [-0.08, 0, 0.08]) {
+      const nail = new THREE.Mesh(new THREE.SphereGeometry(0.045, 8, 8), tuskM);
+      nail.position.set(cx, -0.26, -0.15);     // children of the leg so they bounce with the stomp
+      leg.add(nail);
+    }
+    inner.add(leg); feet.push(leg);
+  }
+  for (let i = 0; i < 12; i++) {               // shaggy fur skirt around the belly
+    const a = (i / 12) * Math.PI * 2;
+    const shag = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.34, 7), furD);
+    shag.position.set(Math.cos(a) * 0.6, 0.52, 0.15 + Math.sin(a) * 0.74);
+    shag.rotation.x = Math.PI;
+    inner.add(shag);
+  }
+
+  const tailG = new THREE.Group();             // stubby tail with a tuft; the game wags .rotation.y
+  tailG.position.set(0, 1.05, 0.9);
+  const tailRope = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.025, 0.5, 8), fur);
+  tailRope.rotation.x = -0.5; tailRope.position.set(0, -0.1, 0.1);
+  tailG.add(tailRope);
+  for (let i = 0; i < 3; i++) {
+    const tuft = new THREE.Mesh(new THREE.SphereGeometry(0.05 - i * 0.008, 8, 8), furD);
+    tuft.position.set(0, -0.23 - i * 0.07, 0.1 + i * 0.03);
+    tailG.add(tuft);
+  }
+  inner.add(tailG);
+
+  g.traverse(o => { if (o.isMesh) o.castShadow = true; });
+  return { group: g, tail: tailG, feet, trunk: trunkSegs };
+}
+
+const chars = { rat: buildRat(), squirrel: buildSquirrel(), echidna: buildEchidna(), kangaroo: buildKangaroo(), mammoth: buildMammoth() };
+const charIcons = { rat: '🐀', squirrel: '🐿️', echidna: '🦔', kangaroo: '🦘', mammoth: '🦣' };
 for (const c of Object.values(chars)) { c.group.position.set(0, 0, 0); scene.add(c.group); }
 let charKey = localStorage.getItem('trainRatChar') || 'rat';
 if (!chars[charKey]) charKey = 'rat';
@@ -1681,9 +1781,12 @@ let watchGhost = null, watchT = 0; // watching someone's replay instead of playi
 let biome = 'field', biomeT = 0, level = 1;   // each biome is a level; speed resets (mostly) at each new one
 let startLevel = null;   // start-screen level buttons set this; declared early because applyNameFields reads it during module init
 let digging = false, digT = 0, digTrains = 0, digY = 0;   // Rainbow Spike: swipe down to dig — tunnels under up to two trains in a row
+let throwUsed = false, throwFx = null, mamTaps = [];      // Woolly Mammoth: quadruple-tap grabs the nearest train ahead and hurls it — once per run
+const _throwHold = new THREE.Vector3(), _trunkV = new THREE.Vector3();
 function powHud() {
   document.getElementById('powIcons').textContent =
-    (magnetT > 0 ? '🧲' : '') + (helmet ? '⛑️' : '') + (rocketT > 0 ? '🚀' : '') + (starT > 0 ? '⭐' : '');
+    (magnetT > 0 ? '🧲' : '') + (helmet ? '⛑️' : '') + (rocketT > 0 ? '🚀' : '') + (starT > 0 ? '⭐' : '') +
+    (charKey === 'mammoth' && !throwUsed ? '🐘' : '');   // the one train-throw is still in the trunk
 }
 
 // ---------- game state ----------
@@ -1712,6 +1815,8 @@ function reset() {
   cineUsed = false; cineActive = false; cineT = 0;
   cineFired.trill = cineFired.chord = cineFired.b2 = cineFired.b3 = cineFired.clear = false;
   digging = false; digT = 0; digTrains = 0; digY = 0;
+  if (throwFx) scene.remove(throwFx.mesh);
+  throwUsed = false; throwFx = null; mamTaps = [];
   recBuf = []; recT = 0;
   // start-screen level buttons set startLevel; ?level=N in the URL is the fallback (and the long-standing family test door)
   const urlLvl = parseInt(new URLSearchParams(location.search).get('level') || '', 10);
@@ -2067,6 +2172,26 @@ function update(dt) {
     const spread = Math.min(1, 0.35 + (gliding ? 1 : jumpH * 0.9) + (rocketT > 0 ? 1 : 0));
     hero.flaps.forEach((f, fi) => { f.scale.x = (fi === 0 ? -1 : 1) * spread; });
   }
+  if (hero.trunk) {   // the mammoth's trunk: sways on the run, stretches out to a grabbed train
+    const rx = 0, ry = 1.28, rz = -0.95;     // trunk root, in the mammoth's own (inner) coordinates
+    if (throwFx && throwFx.vel === null) {   // reaching: tip tracks the train being reeled in
+      _trunkV.copy(throwFx.mesh.position).sub(hero.group.position).divideScalar(MAM_SCALE);
+      _trunkV.y -= 1.0;                      // aim at the train body, not its roof line
+      if (_trunkV.length() > 7) _trunkV.setLength(7);   // cartoon stretch, within reason
+    } else {
+      _trunkV.set(Math.sin(elapsed * 2.6) * 0.14, 0.38 + Math.sin(elapsed * 3.7) * 0.05, -1.3);
+    }
+    const bez = (a, b, c, d2, k) => { const u = 1 - k; return a*u*u*u + 3*b*u*u*k + 3*c*u*k*k + d2*k*k*k; };
+    const p1x = rx + (_trunkV.x - rx) / 3,     p1y = ry + (_trunkV.y - ry) / 3,     p1z = rz + (_trunkV.z - rz) / 3 - 0.22;
+    const p2x = rx + (_trunkV.x - rx) * 2 / 3, p2y = ry + (_trunkV.y - ry) * 2 / 3, p2z = rz + (_trunkV.z - rz) * 2 / 3 - 0.16;
+    const lerpK = Math.min(1, dt * 12);      // rubbery follow — also eases the snap back after the throw
+    hero.trunk.forEach((s, i) => {
+      const k = i / (hero.trunk.length - 1);
+      s.position.x += (bez(rx, p1x, p2x, _trunkV.x, k) - s.position.x) * lerpK;
+      s.position.y += (bez(ry, p1y, p2y, _trunkV.y, k) - s.position.y) * lerpK;
+      s.position.z += (bez(rz, p1z, p2z, _trunkV.z, k) - s.position.z) * lerpK;
+    });
+  }
 
   if (watchGhost) ghostPose(dt);   // a replay overrides the pose with the recorded track
   else {                           // a live run records its own
@@ -2129,6 +2254,29 @@ function update(dt) {
     // a tunneled train counts once it has fully passed; the dig ends at the first gap after two trains (or after 1.2s with none overhead)
     for (const o of obstacles) if (o.dug && o.mesh.position.z - o.len / 2 > 0.9) { o.dug = false; digTrains++; }
     if (digging && !trainOverhead && (digT > 1.2 || digTrains >= 2)) digging = false;
+  }
+
+  // the mammoth's stolen train: yanked to the trunk, held overhead for a beat, then hurled off the track
+  if (throwFx) {
+    throwFx.t += dt;
+    const m = throwFx.mesh, T = throwFx.t;
+    if (T < 0.45) {                          // reel it in overhead
+      const k = 1 - Math.pow(1 - T / 0.45, 3);
+      _throwHold.set(hero.group.position.x, 5.6, -2.2);
+      m.position.lerpVectors(throwFx.from, _throwHold, k);
+      m.rotation.z = Math.sin(T * 18) * 0.1;
+    } else {
+      if (!throwFx.vel) {                    // the release frame
+        throwFx.vel = new THREE.Vector3(throwFx.side * 15, 11, -9);
+        sfx.heave(); shake = 0.3;
+        spawnParts('spark', m.position, 12, 4, 4);
+      }
+      throwFx.vel.y -= 24 * dt;
+      m.position.addScaledVector(throwFx.vel, dt);
+      m.position.z += v * dt;                // the world still streams past
+      m.rotation.x += 6 * dt; m.rotation.z += 3.5 * dt;
+      if (T > 2.2 || m.position.y < -4) { scene.remove(m); throwFx = null; }
+    }
   }
 
   // cheese: position-based pickup; the magnet drags every wedge in reach toward the rat
@@ -2708,6 +2856,8 @@ const sfx = {
   glide:  () => sfxOn && tone(620, 420, 0.35, 'triangle', 0.09),
   dig:    () => { if (!sfxOn) return; const t = audio().currentTime; tone(180, 70, 0.3, 'sawtooth', 0.16, t); tone(120, 60, 0.35, 'square', 0.1, t + 0.05); },
   clang:  () => sfxOn && tone(900, 180, 0.3, 'square', 0.2),
+  trumpet: () => { if (!sfxOn) return; const t = audio().currentTime; tone(392, 523, 0.14, 'sawtooth', 0.12, t); tone(523, 698, 0.3, 'sawtooth', 0.14, t + 0.12); },
+  heave:  () => { if (!sfxOn) return; const t = audio().currentTime; tone(820, 160, 0.4, 'triangle', 0.14, t); tone(300, 90, 0.3, 'square', 0.08, t + 0.05); },
 };
 // Tone.js soundtracks: five styles the player picks in settings. Tempo climbs with the game.
 function drumKit(d, kv, sv, hv, snFreq) {
@@ -3166,10 +3316,39 @@ renderTop();   // on load, so a player whose flag was set for them sees it in se
 }
 
 // ---------- input ----------
+// Thomas's design (age 6): the Woolly Mammoth's one-per-run power — quadruple-tap and the trunk
+// grabs the nearest train ahead (your lane first) and throws it clean off the track.
+function mammothThrow() {
+  if (throwUsed || throwFx) return;
+  const pick = test => {
+    let best = null;
+    for (const o of obstacles) {
+      if (o.type !== 'train' || !test(o)) continue;
+      const z = o.mesh.position.z;
+      if (z > 1 || z < -48) continue;                       // behind us, or too far to see
+      if (!best || z > best.mesh.position.z) best = o;      // nearest = closest to the rat at z=0
+    }
+    return best;
+  };
+  const target = pick(o => o.lane === lane) || pick(() => true);
+  if (!target) return;                       // nothing to grab — don't burn the one throw
+  obstacles = obstacles.filter(o => o !== target);          // no longer a hazard from this moment
+  if (onTrain === target) onTrain = null;
+  throwUsed = true;
+  throwFx = { mesh: target.mesh, t: 0, from: target.mesh.position.clone(), side: target.lane === 2 ? 1 : -1, vel: null };
+  powHud();
+  sfx.trumpet(); shake = 0.2;
+}
 function act(dir) {
   if (watchGhost) { exitWatch(); return; }   // any move ends the replay
   if (!playing || paused) return;
   if (cineActive) return;                     // input blocked during the first-roof-landing cinematic
+  if (dir === 'up' && charKey === 'mammoth' && !throwUsed) {
+    const now = performance.now();           // the first tap still jumps; the chain of 4 fires the throw
+    mamTaps = mamTaps.filter(t0 => now - t0 < 1200);
+    mamTaps.push(now);
+    if (mamTaps.length >= 4) { mamTaps = []; mammothThrow(); }
+  }
   if (dir === 'left' && lane > 0) { lane--; sfx.lane(); }
   if (dir === 'right' && lane < 2) { lane++; sfx.lane(); }
   if (dir === 'up') {
