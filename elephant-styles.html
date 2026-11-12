@@ -98,7 +98,7 @@ function buildElephant(c) {
   for (const side of [-1, 1]) {
     const tusk = new THREE.Mesh(new THREE.TorusGeometry(tuskR, c.bigTusks ? 0.05 : 0.038, 8, 18, tuskArc), tuskM);
     tusk.position.set(side * 0.15, -0.02 - tuskR, 0.34);
-    tusk.rotation.z = Math.PI / 2;           // arc starts at the top of the circle (the attach point)
+    tusk.rotation.z = -side * Math.PI / 2;   // scale applies before rotation, so the mirrored side needs the opposite spin
     tusk.scale.x = -side;                    // mirror so both tusks sweep outward
     headG.add(tusk);
   }
