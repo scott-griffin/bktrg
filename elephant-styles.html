@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Elephant Styles — Train Rat</title>
+  <link rel="icon" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">🐘</text></svg>'>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #0a0a12; color: #fff; font-family: 'Georgia', serif; text-align: center; padding: 30px 14px 60px; }
+    h1 {
+      font-size: clamp(26px, 6vw, 42px); letter-spacing: 4px; text-transform: uppercase;
+      background: linear-gradient(135deg, #ffcc00, #aaa, #ffcc00);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    }
+    .sub { color: #888; letter-spacing: 2px; margin: 8px 0 6px; }
+    .rule { color: #ffcc00; font-size: 14px; letter-spacing: 1px; margin: 0 auto 26px; max-width: 560px; line-height: 1.6; }
+    .grid { display: flex; flex-wrap: wrap; gap: 18px; justify-content: center; max-width: 1200px; margin: 0 auto; }
+    .tile { background: #12121c; border: 1px solid #2a2a38; border-radius: 10px; padding: 16px 16px 20px; width: 288px; }
+    .tile h2 { color: #ffcc00; font-size: 19px; letter-spacing: 2px; margin: 10px 0 6px; }
+    .tile p { color: #999; font-size: 13px; line-height: 1.5; }
+    canvas { background: linear-gradient(#20304a, #0d0d16); border-radius: 6px; max-width: 100%; touch-action: manipulation; -webkit-user-select: none; user-select: none; cursor: pointer; }
+    .taps { margin-top: 8px; font-size: 15px; letter-spacing: 3px; color: #ffcc00; min-height: 22px; }
+    .ask { margin-top: 36px; color: #ffcc00; font-size: 18px; letter-spacing: 2px; }
+    a { color: #666; font-size: 13px; letter-spacing: 2px; text-decoration: none; display: inline-block; margin-top: 20px; }
+    a:hover { color: #ffcc00; }
+  </style>
+</head>
+<body>
+  <h1>Elephant</h1>
+  <p class="sub">For Thomas — pick your elephant. Tap one 4 times FAST to see its power.</p>
+  <p class="rule">In the game: tap 4 times and the elephant grabs the train with its trunk and THROWS it off the track — but it only works ONE time each run, so save it for an emergency!</p>
+  <div class="grid">
+    <div class="tile"><canvas id="c0" width="256" height="270"></canvas><div class="taps" id="t0"></div><h2>A — Classic Gray</h2><p>The big friendly one — giant flappy ears, white tusks, and a trunk strong enough to lift a whole train.</p></div>
+    <div class="tile"><canvas id="c1" width="256" height="270"></canvas><div class="taps" id="t1"></div><h2>B — Woolly Mammoth</h2><p>Straight from the ice age — shaggy brown fur and enormous curling tusks. Trains don't stand a chance.</p></div>
+    <div class="tile"><canvas id="c2" width="256" height="270"></canvas><div class="taps" id="t2"></div><h2>C — Circus Star</h2><p>A show-off in a rainbow circus blanket and a feather crown. Throws trains for the grand finale.</p></div>
+    <div class="tile"><canvas id="c3" width="256" height="270"></canvas><div class="taps" id="t3"></div><h2>D — Golden Tusker</h2><p>Shiny metallic gold with rainbow ears and a rainbow tail tuft. The fanciest trunk on the track.</p></div>
+  </div>
+  <p class="ask">Tell Dad: A, B, C or D?</p>
+  <a href="./">← back to the game</a>
+
+<script type="module">
+import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
+
+const RAINBOW = [0xe74c3c, 0xe67e22, 0xf1c40f, 0x2ecc71, 0x3498db, 0x9b59b6];
+const V3 = (x, y, z) => new THREE.Vector3(x, y, z);
+const easeInOut = k => k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
+const easeOut = k => 1 - Math.pow(1 - k, 3);
+const easeIn = k => k * k * k;
+
+// elephant faces +Z (toward the camera); the toy train sits on rails in front of it
+function buildElephant(c) {
+  const g = new THREE.Group();
+  const skin  = new THREE.MeshStandardMaterial({ color: c.skin, roughness: c.metal ? 0.4 : 0.9, metalness: c.metal || 0 });
+  const skinD = new THREE.MeshStandardMaterial({ color: c.skinDark || c.skin, roughness: 0.95, metalness: c.metal ? c.metal * 0.6 : 0 });
+  const tuskM = new THREE.MeshStandardMaterial({ color: c.tusk || 0xf2ead8, roughness: 0.35, side: THREE.DoubleSide });
+  const dark  = new THREE.MeshStandardMaterial({ color: 0x14161c, roughness: 0.4 });
+  const white = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.3 });
+  const earInM = side => c.rainbowEars
+    ? new THREE.MeshStandardMaterial({ color: RAINBOW[side > 0 ? 0 : 3], roughness: 0.7 })
+    : new THREE.MeshStandardMaterial({ color: c.earIn || 0xc9a0ab, roughness: 0.9 });
+
+  const body = new THREE.Mesh(new THREE.SphereGeometry(0.62, 26, 20), skin);
+  body.scale.set(1.05, 0.92, 1.3); body.position.set(0, 1.0, -0.15);
+  g.add(body);
+
+  // head
+  const headG = new THREE.Group();
+  headG.position.set(0, 1.32, 0.62);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.42, 24, 20), skin);
+  head.scale.set(0.95, 0.92, 0.9);
+  headG.add(head);
+  for (const side of [-1, 1]) {
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.065, 14, 12), dark);
+    eye.position.set(side * 0.17, 0.1, 0.34);
+    const sh = new THREE.Mesh(new THREE.SphereGeometry(0.024, 8, 8), white);
+    sh.position.set(side * 0.15, 0.13, 0.39);
+    headG.add(eye, sh);
+  }
+  // ears on pivots so they can flap
+  const ears = [];
+  for (const side of [-1, 1]) {
+    const pivot = new THREE.Group();
+    pivot.position.set(side * 0.26, 0.12, 0.02);
+    const sc = c.earScale || 1;
+    const ear = new THREE.Mesh(new THREE.SphereGeometry(0.34, 18, 14), skin);
+    ear.scale.set(1.0 * sc, 1.3 * sc, 0.12); ear.position.x = side * 0.26 * sc;
+    const earIn = new THREE.Mesh(new THREE.SphereGeometry(0.26, 16, 12), earInM(side));
+    earIn.scale.set(0.72 * sc, 0.98 * sc, 0.1); earIn.position.set(side * 0.27 * sc, 0, 0.03);
+    pivot.add(ear, earIn);
+    pivot.userData.side = side;
+    pivot.rotation.y = -side * 0.5;
+    headG.add(pivot); ears.push(pivot);
+  }
+  // tusks — torus arcs in the screen plane: attach by the mouth, curve down and out
+  const tuskArc = c.bigTusks ? 2.6 : 1.9;
+  const tuskR = c.bigTusks ? 0.3 : 0.22;
+  for (const side of [-1, 1]) {
+    const tusk = new THREE.Mesh(new THREE.TorusGeometry(tuskR, c.bigTusks ? 0.05 : 0.038, 8, 18, tuskArc), tuskM);
+    tusk.position.set(side * 0.15, -0.02 - tuskR, 0.34);
+    tusk.rotation.z = Math.PI / 2;           // arc starts at the top of the circle (the attach point)
+    tusk.scale.x = -side;                    // mirror so both tusks sweep outward
+    headG.add(tusk);
+  }
+  if (c.topknot) {                            // mammoth hair tuft
+    for (const [dx, dz, h] of [[-0.08, 0, 0.16], [0, 0.04, 0.2], [0.08, -0.02, 0.15]]) {
+      const tuft = new THREE.Mesh(new THREE.ConeGeometry(0.06, h, 8), skinD);
+      tuft.position.set(dx, 0.4, dz); tuft.rotation.z = dx * 2;
+      headG.add(tuft);
+    }
+  }
+  if (c.plume) {                              // circus feather crown
+    RAINBOW.slice(0, 3).forEach((col, i) => {
+      const f = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.3, 8),
+        new THREE.MeshStandardMaterial({ color: col, roughness: 0.7 }));
+      f.position.set((i - 1) * 0.11, 0.48, 0); f.rotation.z = (1 - i) * 0.3;
+      headG.add(f);
+    });
+    const band = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 0.07, 18),
+      new THREE.MeshStandardMaterial({ color: 0xf0c23a, roughness: 0.4, metalness: 0.5 }));
+    band.position.y = 0.33;
+    headG.add(band);
+  }
+  g.add(headG);
+
+  // trunk — segments repositioned along a bezier every frame
+  const trunkSegs = [];
+  for (let i = 0; i < 12; i++) {
+    const r = 0.115 - (i / 11) * 0.062;
+    const s = new THREE.Mesh(new THREE.SphereGeometry(r, 12, 10), skin);
+    g.add(s); trunkSegs.push(s);
+  }
+
+  // legs + toenails
+  for (const [x, z] of [[-0.34, 0.38], [0.34, 0.38], [-0.36, -0.52], [0.36, -0.52]]) {
+    const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.18, 0.62, 14), skin);
+    leg.position.set(x, 0.31, z);
+    g.add(leg);
+    for (const cx of [-0.08, 0, 0.08]) {
+      const nail = new THREE.Mesh(new THREE.SphereGeometry(0.045, 8, 8), tuskM);
+      nail.position.set(x + cx, 0.05, z + 0.15);
+      g.add(nail);
+    }
+  }
+
+  if (c.shaggy) {                             // mammoth fur skirt
+    for (let i = 0; i < 12; i++) {
+      const a = (i / 12) * Math.PI * 2;
+      const fur = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.34, 7), skinD);
+      fur.position.set(Math.cos(a) * 0.6, 0.52, -0.15 + Math.sin(a) * 0.74);
+      fur.rotation.x = Math.PI;               // point down
+      g.add(fur);
+    }
+  }
+
+  if (c.blanket) {                            // rainbow circus blanket draped over the back
+    RAINBOW.forEach((col, i) => {
+      const strip = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.68, 0.68, 0.14, 20, 1, true, Math.PI - 1.0, 2.0),
+        new THREE.MeshStandardMaterial({ color: col, roughness: 0.75, side: THREE.DoubleSide }));
+      strip.rotation.x = Math.PI / 2;         // axis along z, open arc draped over the back
+      strip.position.set(0, 1.02, 0.12 - i * 0.14);
+      g.add(strip);
+    });
+  }
+
+  // tail
+  const tail = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.025, 0.5, 8), skin);
+  tail.position.set(0, 1.05, -0.9); tail.rotation.x = -0.5;
+  g.add(tail);
+  const tuftMatList = c.rainbowTuft
+    ? RAINBOW.map(col => new THREE.MeshStandardMaterial({ color: col, roughness: 0.7 }))
+    : [skinD];
+  for (let i = 0; i < 3; i++) {
+    const tuft = new THREE.Mesh(new THREE.SphereGeometry(0.05 - i * 0.008, 8, 8), tuftMatList[i % tuftMatList.length]);
+    tuft.position.set(0, 0.82 - i * 0.07, -1.0 - i * 0.03);
+    g.add(tuft);
+  }
+
+  g.traverse(o => { if (o.isMesh) o.castShadow = true; });
+  return { group: g, headG, ears, trunkSegs };
+}
+
+function buildToyTrain() {
+  const t = new THREE.Group();
+  const red  = new THREE.MeshStandardMaterial({ color: 0xcf3b2e, roughness: 0.5 });
+  const dark = new THREE.MeshStandardMaterial({ color: 0x23262e, roughness: 0.5 });
+  const gold = new THREE.MeshStandardMaterial({ color: 0xf0c23a, roughness: 0.4, metalness: 0.4 });
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.78, 0.3, 0.4), red);
+  body.position.y = 0.28;
+  const cab = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.26, 0.42), red);
+  cab.position.set(0.22, 0.54, 0);
+  const roof = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.05, 0.48), dark);
+  roof.position.set(0.22, 0.69, 0);
+  const stack = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.08, 0.22, 10), gold);
+  stack.position.set(-0.25, 0.52, 0);
+  t.add(body, cab, roof, stack);
+  const wheels = [];
+  for (const wx of [-0.26, 0, 0.26]) for (const wz of [-0.21, 0.21]) {
+    const w = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.05, 12), dark);
+    w.rotation.x = Math.PI / 2;               // axle along z
+    w.position.set(wx, 0.09, wz);
+    t.add(w); wheels.push(w);
+  }
+  return { group: t, wheels };
+}
+
+const CFGS = [
+  { skin: 0x8d8f9c, skinDark: 0x6f717e, earIn: 0xc9a0ab },
+  { skin: 0x7a5636, skinDark: 0x5e4128, earIn: 0x5e4128, earScale: 0.62, bigTusks: true, shaggy: true, topknot: true },
+  { skin: 0x9a9aa8, skinDark: 0x7b7b88, earIn: 0xc9a0ab, blanket: true, plume: true },
+  { skin: 0xf0c23a, skinDark: 0xc69d24, metal: 0.65, tusk: 0xffffff, rainbowEars: true, rainbowTuft: true },
+];
+
+const TRAIN_HOME = V3(0, 0, 1.5);             // where the toy train rests on its rails
+const TRUNK_ROOT = V3(0, 1.28, 0.95);
+
+// trunk poses: tip position + two bend offsets applied to the bezier midpoints
+const POSES = {
+  idle:     { tip: V3(0, 0.38, 1.3),   o1: V3(0, 0.02, 0.2),  o2: V3(0, -0.02, 0.16) },
+  grab:     { tip: V3(0, 0.62, 1.5),   o1: V3(0, 0.1, 0.28),  o2: V3(0, 0.05, 0.2) },
+  overhead: { tip: V3(0, 2.55, -0.4),  o1: V3(0, 0.5, 0.35),  o2: V3(0, 0.4, -0.05) },
+  release:  { tip: V3(0, 1.8, 1.55),   o1: V3(0, 0.3, 0.2),   o2: V3(0, 0.1, 0.25) },
+  trumpet:  { tip: V3(0, 2.3, 0.9),    o1: V3(0, 0.1, 0.45),  o2: V3(0, 0.35, 0.3) },
+};
+const PHASES = [                              // the throw storyboard
+  { pose: 'grab',     dur: 0.5,  ease: easeOut },
+  { pose: 'overhead', dur: 0.85, ease: easeInOut },
+  { pose: 'release',  dur: 0.22, ease: easeIn },
+  { pose: 'trumpet',  dur: 0.7,  ease: easeOut },
+  { pose: 'idle',     dur: 0.6,  ease: easeInOut },
+];
+
+function bez(p0, p1, p2, p3, k) {
+  const u = 1 - k;
+  return V3(0, 0, 0)
+    .addScaledVector(p0, u * u * u)
+    .addScaledVector(p1, 3 * u * u * k)
+    .addScaledVector(p2, 3 * u * k * k)
+    .addScaledVector(p3, k * k * k);
+}
+
+CFGS.forEach((cfg, idx) => {
+  const canvas = document.getElementById('c' + idx);
+  const tapsEl = document.getElementById('t' + idx);
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  renderer.setSize(256, 270);
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(42, 256 / 270, 0.1, 50);
+  scene.add(new THREE.HemisphereLight(0xcfe8ff, 0x303848, 1.1));
+  const key = new THREE.DirectionalLight(0xfff2cc, 1.5);
+  key.position.set(3, 5, 4);
+  scene.add(key);
+  const disc = new THREE.Mesh(new THREE.CircleGeometry(2.3, 36),
+    new THREE.MeshBasicMaterial({ color: 0x0a0e18, transparent: true, opacity: 0.5 }));
+  disc.rotation.x = -Math.PI / 2;
+  scene.add(disc);
+
+  // little rails running across in front of the elephant
+  const railMat = new THREE.MeshStandardMaterial({ color: 0x3a3f4a, roughness: 0.6 });
+  const tieMat = new THREE.MeshStandardMaterial({ color: 0x2c2620, roughness: 0.9 });
+  for (const dz of [-0.21, 0.21]) {
+    const rail = new THREE.Mesh(new THREE.BoxGeometry(4.4, 0.04, 0.05), railMat);
+    rail.position.set(0, 0.04, TRAIN_HOME.z + dz);
+    scene.add(rail);
+  }
+  for (let i = -3; i <= 3; i++) {
+    const tie = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.03, 0.56), tieMat);
+    tie.position.set(i * 0.62, 0.015, TRAIN_HOME.z);
+    scene.add(tie);
+  }
+
+  const ele = buildElephant(cfg);
+  scene.add(ele.group);
+  const train = buildToyTrain();
+  train.group.position.copy(TRAIN_HOME);
+  scene.add(train.group);
+
+  const st = {
+    phase: -1,                                // -1 = ready/idle, otherwise index into PHASES
+    phaseT0: 0,
+    from: null,                               // trunk pose captured at phase start
+    taps: 0, lastTap: 0, earKick: 0,
+    train: 'sitting',                         // sitting | held | flying | gone | arriving
+    trainT0: 0, trainV: V3(0, 0, 0), trainSpin: V3(0, 0, 0),
+    cur: { tip: POSES.idle.tip.clone(), o1: POSES.idle.o1.clone(), o2: POSES.idle.o2.clone() },
+  };
+
+  function release(now) {
+    st.train = 'flying';
+    st.trainT0 = now;
+    st.trainV.set(2.4, 5.2, 4.0);
+    st.trainSpin.set(7, 3, 5);
+    setBadge();
+  }
+
+  const DOTS = n => '●'.repeat(n) + '○'.repeat(4 - n);
+  const setBadge = () => {
+    if (st.phase >= 0 && st.phase < 3) tapsEl.textContent = '🐘 HEAVE…';
+    else if (st.phase >= 3) tapsEl.textContent = '💥 WHAT A THROW!';
+    else if (st.train !== 'sitting') tapsEl.textContent = 'here comes another train…';
+    else tapsEl.textContent = DOTS(st.taps) + '  tap ×4!';
+  };
+  setBadge();
+
+  canvas.addEventListener('pointerdown', e => {
+    e.preventDefault();
+    st.earKick = 1;
+    if (st.phase >= 0 || st.train !== 'sitting') return;
+    const now = performance.now();
+    st.taps = (now - st.lastTap < 1100) ? st.taps + 1 : 1;
+    st.lastTap = now;
+    if (st.taps >= 4) {
+      st.taps = 0;
+      st.phase = 0; st.phaseT0 = now;
+      st.from = { tip: st.cur.tip.clone(), o1: st.cur.o1.clone(), o2: st.cur.o2.clone() };
+    }
+    setBadge();
+  });
+
+  let prev = 0;
+  (function loop(ts) {
+    requestAnimationFrame(loop);
+    const t = ts / 1000;
+    const dt = Math.min(0.05, t - prev); prev = t;
+    const now = performance.now();
+
+    // camera drifts around so you can see every side
+    const ang = Math.sin(t * 0.35 + idx) * 0.5;
+    camera.position.set(Math.sin(ang) * 5.3, 1.9, Math.cos(ang) * 5.3);
+    camera.lookAt(0, 1.0, 0.35);
+
+    // phase engine → current trunk pose
+    if (st.phase >= 0) {
+      const ph = PHASES[st.phase];
+      const k = Math.min(1, (now - st.phaseT0) / 1000 / ph.dur);
+      const target = POSES[ph.pose];
+      const e = ph.ease(k);
+      st.cur.tip.lerpVectors(st.from.tip, target.tip, e);
+      st.cur.o1.lerpVectors(st.from.o1, target.o1, e);
+      st.cur.o2.lerpVectors(st.from.o2, target.o2, e);
+      if (k >= 1) {
+        if (st.phase === 0) { st.train = 'held'; }
+        if (st.phase === 2 && st.train === 'held') release(now); // safety: if the whip skipped a frame
+        st.phase++;
+        if (st.phase >= PHASES.length) st.phase = -1;
+        else { st.phaseT0 = now; st.from = { tip: st.cur.tip.clone(), o1: st.cur.o1.clone(), o2: st.cur.o2.clone() }; }
+        setBadge();
+      } else if (st.phase === 2 && k > 0.55 && st.train === 'held') {
+        release(now);                                        // let go mid-whip
+      }
+    } else {
+      // idle sway layered on the idle pose
+      const sway = Math.sin(t * 1.3) * 0.12;
+      st.cur.tip.set(POSES.idle.tip.x + sway, POSES.idle.tip.y + Math.sin(t * 1.9) * 0.04, POSES.idle.tip.z);
+      st.cur.o1.copy(POSES.idle.o1);
+      st.cur.o2.copy(POSES.idle.o2);
+    }
+
+    // lay the trunk segments along the bezier
+    const p1 = bez(TRUNK_ROOT, TRUNK_ROOT, st.cur.tip, st.cur.tip, 1 / 3).add(st.cur.o1);
+    const p2 = bez(TRUNK_ROOT, TRUNK_ROOT, st.cur.tip, st.cur.tip, 2 / 3).add(st.cur.o2);
+    ele.trunkSegs.forEach((s, i) => {
+      s.position.copy(bez(TRUNK_ROOT, p1, p2, st.cur.tip, i / 11));
+    });
+
+    // train states
+    const tg = train.group;
+    if (st.train === 'held') {
+      tg.position.copy(st.cur.tip); tg.position.y -= 0.34;
+      tg.rotation.z = Math.sin(t * 6) * 0.12;
+    } else if (st.train === 'flying') {
+      st.trainV.y -= 7.5 * dt;
+      tg.position.addScaledVector(st.trainV, dt);
+      tg.rotation.x += st.trainSpin.x * dt;
+      tg.rotation.y += st.trainSpin.y * dt;
+      tg.rotation.z += st.trainSpin.z * dt;
+      if ((now - st.trainT0) / 1000 > 2.2 || tg.position.y < -3) {
+        st.train = 'gone'; st.trainT0 = now; tg.visible = false; setBadge();
+      }
+    } else if (st.train === 'gone') {
+      if ((now - st.trainT0) / 1000 > 2.0) {
+        st.train = 'arriving'; st.trainT0 = now;
+        tg.visible = true; tg.rotation.set(0, 0, 0);
+        tg.position.set(-3.4, 0, TRAIN_HOME.z);
+        setBadge();
+      }
+    } else if (st.train === 'arriving') {
+      const k = Math.min(1, (now - st.trainT0) / 1000 / 1.5);
+      tg.position.x = -3.4 + easeOut(k) * 3.4;
+      train.wheels.forEach(w => { w.rotation.y += dt * 9; });
+      if (k >= 1) { st.train = 'sitting'; st.taps = 0; setBadge(); }
+    }
+
+    // ears: slow idle flap + a kick on every tap
+    st.earKick *= Math.exp(-dt * 5);
+    for (const pivot of ele.ears) {
+      const side = pivot.userData.side;
+      pivot.rotation.y = -side * (0.5 + Math.sin(t * 1.4 + idx) * 0.1 + st.earKick * 0.55);
+    }
+    // happy head tilt while trumpeting
+    ele.headG.rotation.x = (st.phase === 3) ? -0.3 : Math.sin(t * 1.9) * 0.03;
+    // breathing
+    ele.group.scale.y = 1 + Math.sin(t * 2.1) * 0.012 - st.earKick * 0.04;
+
+    renderer.render(scene, camera);
+  })(0);
+});
+</script>
+</body>
+</html>
